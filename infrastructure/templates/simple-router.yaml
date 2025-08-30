@@ -1,0 +1,65 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Simple router for cell-based architecture
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: cell-demo
+
+Resources:
+  # S3 bucket for router interface
+  RouterBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-router-${AWS::AccountId}'
+
+  # CloudFront Origin Access Identity
+  RouterOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub 'OAI for ${ProjectName} router'
+
+  RouterBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref RouterBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${RouterOAI}'
+            Action: 's3:GetObject'
+            Resource: !Sub '${RouterBucket.Arn}/*'
+
+  # CloudFront distribution for global entry
+  RouterCloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub 'Global router for ${ProjectName}'
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt RouterBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${RouterOAI}'
+        Enabled: true
+        DefaultRootObject: index.html
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+        DefaultCacheBehavior:
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        PriceClass: PriceClass_100
+
+Outputs:
+  RouterUrl:
+    Value: !Sub 'https://${RouterCloudFront.DomainName}'
+    Description: Global router URL
+  
+  RouterBucket:
+    Value: !Ref RouterBucket
+    Description: Router S3 bucket

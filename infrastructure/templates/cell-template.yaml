@@ -1,0 +1,291 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Cell infrastructure for a specific region and AZ
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: cell-demo
+  CellId:
+    Type: String
+    Description: Unique identifier for this cell
+  CellRegion:
+    Type: String
+    Description: AWS region for this cell
+  AvailabilityZone:
+    Type: String
+    Description: Availability zone for this cell
+  CellWeight:
+    Type: Number
+    Default: 1
+    Description: Weight for consistent hashing
+  DomainName:
+    Type: String
+    Description: Custom domain name (e.g., cells.example.com)
+    Default: ''
+  HostedZoneId:
+    Type: String
+    Description: Route53 hosted zone ID for the domain
+    Default: ''
+
+Conditions:
+  HasCustomDomain: !Not [!Equals [!Ref DomainName, '']]
+
+Globals:
+  Function:
+    Runtime: nodejs18.x
+    Timeout: 30
+    MemorySize: 512
+    Environment:
+      Variables:
+        PROJECT_NAME: !Ref ProjectName
+        CELL_ID: !Ref CellId
+        CELL_REGION: !Ref CellRegion
+        AVAILABILITY_ZONE: !Ref AvailabilityZone
+
+Resources:
+  # S3 bucket for cell static content
+  CellContentBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-${CellId}-content-${AWS::AccountId}'
+
+  # CloudFront Origin Access Identity
+  CellOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub 'OAI for ${ProjectName} cell ${CellId}'
+
+  CellContentBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref CellContentBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CellOAI}'
+            Action: 's3:GetObject'
+            Resource: !Sub '${CellContentBucket.Arn}/*'
+
+  # ACM Certificate for cell CloudFront
+  # Note: This certificate must be deployed in us-east-1 for CloudFront
+  # If deploying in another region, create a separate stack in us-east-1
+  CellCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: HasCustomDomain
+    Properties:
+      DomainName: !Sub 'cell-${CellId}.${DomainName}'
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub 'cell-${CellId}.${DomainName}'
+          HostedZoneId: !Ref HostedZoneId
+
+  # CloudFront distribution for cell content
+  CellCloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub 'CloudFront for ${CellId}'
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt CellContentBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${CellOAI}'
+        Enabled: true
+        DefaultRootObject: index.html
+        Aliases: !If 
+          - HasCustomDomain
+          - [!Sub 'cell-${CellId}.${DomainName}']
+          - !Ref 'AWS::NoValue'
+        ViewerCertificate: !If
+          - HasCustomDomain
+          - AcmCertificateArn: !Ref CellCertificate
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        DefaultCacheBehavior:
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+        PriceClass: PriceClass_100
+
+  # Route53 record for cell CloudFront
+  CellRoute53Record:
+    Type: AWS::Route53::RecordSet
+    Condition: HasCustomDomain
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub 'cell-${CellId}.${DomainName}'
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt CellCloudFront.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+
+  # DynamoDB table for cell-specific data
+  CellDataTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-${CellId}-data'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+
+  # API Gateway for cell endpoints
+  CellApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub '${ProjectName}-${CellId}-api'
+      StageName: prod
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+
+  # Lambda function for cell info
+  CellInfoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-${CellId}-info'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/cell-info.handler
+      Environment:
+        Variables:
+          CELL_DATA_TABLE: !Ref CellDataTable
+          CLOUDFRONT_URL: !GetAtt CellCloudFront.DomainName
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref CellDataTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CellApi
+            Path: /info
+            Method: GET
+
+  # Lambda function for cell health
+  CellHealthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-${CellId}-health'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/cell-health.handler
+      Environment:
+        Variables:
+          CELL_DATA_TABLE: !Ref CellDataTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CellDataTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CellApi
+            Path: /health
+            Method: GET
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 minute)
+
+  # Lambda function for cell registration
+  CellRegistrationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-${CellId}-registration'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/cell-registration.handler
+      Environment:
+        Variables:
+          CELL_REGISTRY_TABLE: !Sub '${ProjectName}-cell-registry'
+          CELL_WEIGHT: !Ref CellWeight
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+              Resource: !Sub 'arn:aws:dynamodb:*:*:table/${ProjectName}-cell-registry'
+      Events:
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
+
+  # CloudWatch dashboard for cell monitoring
+  CellDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: !Sub '${ProjectName}-${CellId}'
+      DashboardBody: !Sub |
+        {
+          "widgets": [
+            {
+              "type": "metric",
+              "x": 0,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/Lambda", "Invocations", { "stat": "Sum" } ],
+                  [ ".", "Errors", { "stat": "Sum" } ],
+                  [ ".", "Duration", { "stat": "Average" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "Lambda Metrics - ${CellId}"
+              }
+            },
+            {
+              "type": "metric",
+              "x": 12,
+              "y": 0,
+              "width": 12,
+              "height": 6,
+              "properties": {
+                "metrics": [
+                  [ "AWS/DynamoDB", "UserErrors", { "stat": "Sum" } ],
+                  [ ".", "SystemErrors", { "stat": "Sum" } ]
+                ],
+                "view": "timeSeries",
+                "stacked": false,
+                "region": "${AWS::Region}",
+                "title": "DynamoDB Metrics - ${CellId}"
+              }
+            }
+          ]
+        }
+
+Outputs:
+  ApiEndpoint:
+    Value: !Sub 'https://${CellApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+    Description: API Gateway endpoint URL for cell
+  
+  CloudFrontUrl:
+    Value: !Sub 'https://${CellCloudFront.DomainName}'
+    Description: CloudFront distribution URL
+  
+  ContentBucket:
+    Value: !Ref CellContentBucket
+    Description: S3 bucket for cell content
+  
+  CellDataTableName:
+    Value: !Ref CellDataTable
+    Description: DynamoDB table for cell data

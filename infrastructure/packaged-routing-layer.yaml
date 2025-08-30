@@ -1,0 +1,375 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Global routing layer for cell-based architecture
+Parameters:
+  ProjectName:
+    Type: String
+    Default: cell-demo
+  DomainName:
+    Type: String
+    Description: Custom domain name (e.g., cells.example.com)
+    Default: ''
+  HostedZoneId:
+    Type: String
+    Description: Route53 hosted zone ID for the domain
+    Default: ''
+Conditions:
+  HasCustomDomain:
+    Fn::Not:
+    - Fn::Equals:
+      - Ref: DomainName
+      - ''
+Globals:
+  Function:
+    Runtime: nodejs18.x
+    Timeout: 30
+    MemorySize: 512
+    Environment:
+      Variables:
+        PROJECT_NAME:
+          Ref: ProjectName
+Resources:
+  ApiCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: HasCustomDomain
+    Properties:
+      DomainName:
+        Fn::Sub: cellapi.${DomainName}
+      ValidationMethod: DNS
+      DomainValidationOptions:
+      - DomainName:
+          Fn::Sub: cellapi.${DomainName}
+        HostedZoneId:
+          Ref: HostedZoneId
+    Metadata:
+      SamResourceId: ApiCertificate
+  RoutingApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name:
+        Fn::Sub: ${ProjectName}-routing-api
+      StageName: prod
+      Domain:
+        DomainName:
+          Fn::If:
+          - HasCustomDomain
+          - Fn::Sub: cellapi.${DomainName}
+          - Ref: AWS::NoValue
+        CertificateArn:
+          Fn::If:
+          - HasCustomDomain
+          - Ref: ApiCertificate
+          - Ref: AWS::NoValue
+        Route53:
+          HostedZoneId:
+            Fn::If:
+            - HasCustomDomain
+            - Ref: HostedZoneId
+            - Ref: AWS::NoValue
+      Cors:
+        AllowMethods: '''*'''
+        AllowHeaders: '''*'''
+        AllowOrigin: '''*'''
+    Metadata:
+      SamResourceId: RoutingApi
+  RoutingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${ProjectName}-routing
+      CodeUri: s3://cells-deployment-artifacts-021891573713/a9bd8b5da83803b1078c563c791cfe08
+      Handler: lambda/routing.handler
+      Environment:
+        Variables:
+          CELL_REGISTRY_TABLE:
+            Fn::Sub: ${ProjectName}-cell-registry
+          ROUTING_CONFIG_TABLE:
+            Fn::Sub: ${ProjectName}-routing-config
+          CUSTOM_DOMAIN:
+            Fn::If:
+            - HasCustomDomain
+            - Ref: DomainName
+            - ''
+      Policies:
+      - DynamoDBReadPolicy:
+          TableName:
+            Fn::Sub: ${ProjectName}-cell-registry
+      - DynamoDBReadPolicy:
+          TableName:
+            Fn::Sub: ${ProjectName}-routing-config
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: RoutingApi
+            Path: /route/{clientId}
+            Method: GET
+    Metadata:
+      SamResourceId: RoutingFunction
+  AdminFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${ProjectName}-admin
+      CodeUri: s3://cells-deployment-artifacts-021891573713/a9bd8b5da83803b1078c563c791cfe08
+      Handler: lambda/admin.handler
+      Environment:
+        Variables:
+          CELL_REGISTRY_TABLE:
+            Fn::Sub: ${ProjectName}-cell-registry
+          ROUTING_CONFIG_TABLE:
+            Fn::Sub: ${ProjectName}-routing-config
+          CUSTOM_DOMAIN:
+            Fn::If:
+            - HasCustomDomain
+            - Ref: DomainName
+            - ''
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Fn::Sub: ${ProjectName}-cell-registry
+      - DynamoDBCrudPolicy:
+          TableName:
+            Fn::Sub: ${ProjectName}-routing-config
+      Events:
+        GetCells:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: RoutingApi
+            Path: /admin/cells
+            Method: GET
+        UpdateCell:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: RoutingApi
+            Path: /admin/cells/{cellId}
+            Method: PUT
+        GetHashRing:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: RoutingApi
+            Path: /admin/hash-ring
+            Method: GET
+        GetClientRoute:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: RoutingApi
+            Path: /admin/client-route/{clientId}
+            Method: GET
+        GetCellUrls:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: RoutingApi
+            Path: /admin/cell-urls
+            Method: GET
+        GetRecentClients:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: RoutingApi
+            Path: /admin/recent-clients
+            Method: GET
+    Metadata:
+      SamResourceId: AdminFunction
+  AutoRouterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${ProjectName}-auto-router
+      CodeUri: s3://cells-deployment-artifacts-021891573713/a9bd8b5da83803b1078c563c791cfe08
+      Handler: lambda/auto-router.handler
+      Environment:
+        Variables:
+          CELL_REGISTRY_TABLE:
+            Fn::Sub: ${ProjectName}-cell-registry
+          CUSTOM_DOMAIN:
+            Fn::If:
+            - HasCustomDomain
+            - Ref: DomainName
+            - ''
+      Policies:
+      - DynamoDBReadPolicy:
+          TableName:
+            Fn::Sub: ${ProjectName}-cell-registry
+      Events:
+        AutoRoute:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: RoutingApi
+            Path: /go/{clientId}
+            Method: GET
+    Metadata:
+      SamResourceId: AutoRouterFunction
+  QRGeneratorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${ProjectName}-qr-generator
+      CodeUri: s3://cells-deployment-artifacts-021891573713/a9bd8b5da83803b1078c563c791cfe08
+      Handler: lambda/qr-generator.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: RoutingApi
+            Path: /qr-code
+            Method: POST
+    Metadata:
+      SamResourceId: QRGeneratorFunction
+  AdminBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName:
+        Fn::Sub: ${ProjectName}-admin-ui-${AWS::AccountId}
+    Metadata:
+      SamResourceId: AdminBucket
+  AdminOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment:
+          Fn::Sub: OAI for ${ProjectName} admin interface
+    Metadata:
+      SamResourceId: AdminOAI
+  AdminBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: AdminBucket
+      PolicyDocument:
+        Statement:
+        - Sid: AllowCloudFrontAccess
+          Effect: Allow
+          Principal:
+            AWS:
+              Fn::Sub: arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity
+                ${AdminOAI}
+          Action: s3:GetObject
+          Resource:
+            Fn::Sub: ${AdminBucket.Arn}/*
+    Metadata:
+      SamResourceId: AdminBucketPolicy
+  AdminCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: HasCustomDomain
+    Properties:
+      DomainName:
+        Fn::Sub: celladmin.${DomainName}
+      ValidationMethod: DNS
+      DomainValidationOptions:
+      - DomainName:
+          Fn::Sub: celladmin.${DomainName}
+        HostedZoneId:
+          Ref: HostedZoneId
+    Metadata:
+      SamResourceId: AdminCertificate
+  AdminCloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment:
+          Fn::Sub: Admin interface for ${ProjectName}
+        Origins:
+        - Id: S3Origin
+          DomainName:
+            Fn::GetAtt:
+            - AdminBucket
+            - RegionalDomainName
+          S3OriginConfig:
+            OriginAccessIdentity:
+              Fn::Sub: origin-access-identity/cloudfront/${AdminOAI}
+        Enabled: true
+        DefaultRootObject: index.html
+        Aliases:
+          Fn::If:
+          - HasCustomDomain
+          - - Fn::Sub: celladmin.${DomainName}
+          - Ref: AWS::NoValue
+        ViewerCertificate:
+          Fn::If:
+          - HasCustomDomain
+          - AcmCertificateArn:
+              Ref: AdminCertificate
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        DefaultCacheBehavior:
+          AllowedMethods:
+          - GET
+          - HEAD
+          - OPTIONS
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+    Metadata:
+      SamResourceId: AdminCloudFront
+  AdminRoute53Record:
+    Type: AWS::Route53::RecordSet
+    Condition: HasCustomDomain
+    Properties:
+      HostedZoneId:
+        Ref: HostedZoneId
+      Name:
+        Fn::Sub: celladmin.${DomainName}
+      Type: A
+      AliasTarget:
+        DNSName:
+          Fn::GetAtt:
+          - AdminCloudFront
+          - DomainName
+        HostedZoneId: Z2FDTNDATAQYW2
+    Metadata:
+      SamResourceId: AdminRoute53Record
+  CrossRegionSyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${ProjectName}-cross-region-sync
+      CodeUri: s3://cells-deployment-artifacts-021891573713/a9bd8b5da83803b1078c563c791cfe08
+      Handler: lambda/cross-region-sync.handler
+      Timeout: 60
+      Environment:
+        Variables:
+          CELL_REGISTRY_TABLE:
+            Fn::Sub: ${ProjectName}-cell-registry
+          TARGET_REGIONS: us-east-1,us-west-2
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - dynamodb:PutItem
+          - dynamodb:Scan
+          Resource:
+            Fn::Sub: arn:aws:dynamodb:*:*:table/${ProjectName}-cell-registry
+      Events:
+        DynamoDBStream:
+          Type: DynamoDB
+          Properties:
+            Stream:
+              Fn::ImportValue:
+                Fn::Sub: ${ProjectName}-cell-registry-stream-arn
+            StartingPosition: LATEST
+    Metadata:
+      SamResourceId: CrossRegionSyncFunction
+Outputs:
+  RoutingApiEndpoint:
+    Value:
+      Fn::Sub: https://${RoutingApi}.execute-api.${AWS::Region}.amazonaws.com/prod
+    Description: Routing API endpoint
+  AdminUrl:
+    Value:
+      Fn::Sub: https://${AdminCloudFront.DomainName}
+    Description: Admin interface URL
+  AdminBucket:
+    Value:
+      Ref: AdminBucket
+    Description: Admin UI S3 bucket

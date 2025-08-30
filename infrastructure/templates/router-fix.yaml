@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Fix router infrastructure with CloudFront distribution
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: cell-demo
+  ExistingBucketName:
+    Type: String
+    Default: cell-demo-router-021891573713
+
+Resources:
+  # CloudFront Origin Access Identity
+  RouterOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub 'OAI for ${ProjectName} router'
+
+  # Update bucket policy to allow CloudFront access
+  RouterBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ExistingBucketName
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${RouterOAI}'
+            Action: 's3:GetObject'
+            Resource: !Sub 'arn:aws:s3:::${ExistingBucketName}/*'
+
+  # CloudFront distribution for router
+  RouterCloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub 'Router for ${ProjectName}'
+        Origins:
+          - Id: S3Origin
+            DomainName: !Sub '${ExistingBucketName}.s3.amazonaws.com'
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${RouterOAI}'
+        Enabled: true
+        DefaultRootObject: index.html
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+        DefaultCacheBehavior:
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        PriceClass: PriceClass_100
+
+Outputs:
+  RouterUrl:
+    Value: !Sub 'https://${RouterCloudFront.DomainName}'
+    Description: Router URL
+  
+  RouterDistributionId:
+    Value: !Ref RouterCloudFront
+    Description: Router CloudFront distribution ID
+  
+  RouterBucket:
+    Value: !Ref ExistingBucketName
+    Description: Router S3 bucket name

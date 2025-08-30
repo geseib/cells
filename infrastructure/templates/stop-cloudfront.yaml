@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFront distributions for stop.sb.seibtribe.us failover endpoints
+
+Parameters:
+  CertificateArn:
+    Type: String
+    Description: ARN of the SSL certificate for CloudFront (must be in us-east-1)
+    Default: arn:aws:acm:us-east-1:021891573713:certificate/a077e8e8-9a84-49d7-b04e-74827a7c9d24
+
+Resources:
+  # CloudFront for stop.sb.seibtribe.us primary endpoint
+  StopPrimaryCloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: 'CloudFront for stop.sb.seibtribe.us primary endpoint'
+        Aliases:
+          - stop.sb.seibtribe.us
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+            - PUT
+            - POST
+            - PATCH
+            - DELETE
+          CachedMethods:
+            - GET
+            - HEAD
+          TargetOriginId: PrimaryOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          ForwardedValues:
+            QueryString: true
+            Headers:
+              - '*'
+          TrustedSigners:
+            - self
+          MinTTL: 0
+          DefaultTTL: 0
+          MaxTTL: 0
+        Enabled: true
+        Origins:
+          - Id: PrimaryOrigin
+            DomainName: cell-us-east-1-az1.sb.seibtribe.us
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        HttpVersion: http2
+
+  # CloudFront for stop.sb.seibtribe.us secondary endpoint (backup)
+  StopSecondaryCloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: 'CloudFront for stop.sb.seibtribe.us secondary endpoint'
+        Aliases: []
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+            - PUT
+            - POST
+            - PATCH
+            - DELETE
+          CachedMethods:
+            - GET
+            - HEAD
+          TargetOriginId: SecondaryOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          ForwardedValues:
+            QueryString: true
+            Headers:
+              - '*'
+          TrustedSigners:
+            - self
+          MinTTL: 0
+          DefaultTTL: 0
+          MaxTTL: 0
+        Enabled: true
+        Origins:
+          - Id: SecondaryOrigin
+            DomainName: cell-us-west-2-az1.sb.seibtribe.us
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        HttpVersion: http2
+
+Outputs:
+  StopPrimaryCloudFrontDomain:
+    Description: CloudFront domain for primary endpoint
+    Value: !GetAtt StopPrimaryCloudFront.DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-primary-cloudfront-domain'
+
+  StopSecondaryCloudFrontDomain:
+    Description: CloudFront domain for secondary endpoint
+    Value: !GetAtt StopSecondaryCloudFront.DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-secondary-cloudfront-domain'
+
+  StopPrimaryCloudFrontId:
+    Description: CloudFront distribution ID for primary endpoint
+    Value: !Ref StopPrimaryCloudFront
+    Export:
+      Name: !Sub '${AWS::StackName}-primary-cloudfront-id'
+
+  StopSecondaryCloudFrontId:
+    Description: CloudFront distribution ID for secondary endpoint
+    Value: !Ref StopSecondaryCloudFront
+    Export:
+      Name: !Sub '${AWS::StackName}-secondary-cloudfront-id'

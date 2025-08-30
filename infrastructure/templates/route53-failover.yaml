@@ -1,0 +1,234 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Route 53 Failover Setup for Cell Architecture Demo
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: stop.sb.seibtribe.us
+    Description: The domain name for failover configuration
+  HostedZoneId:
+    Type: String
+    Default: Z1D633PJN98FT9
+    Description: The ID of the hosted zone in Route 53
+  PrimaryCellEndpoint:
+    Type: String
+    Default: cell-us-east-1-az1.sb.seibtribe.us
+    Description: Primary cell endpoint domain
+  SecondaryCellEndpoint:
+    Type: String
+    Default: cell-us-west-2-az1.sb.seibtribe.us
+    Description: Secondary cell endpoint domain
+
+Resources:
+  # CloudWatch metric for controlling failover
+  InverseMetric:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'InverseHealthCheck-${AWS::StackName}'
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: HealthTrigger
+      Namespace: Custom/Failover
+      Period: 60
+      Statistic: Maximum
+      Threshold: 1
+      TreatMissingData: breaching
+
+  # Health check for primary endpoint
+  FailoverHealthCheck:
+    Type: AWS::Route53::HealthCheck
+    Properties:
+      HealthCheckConfig:
+        Type: CLOUDWATCH_METRIC
+        AlarmIdentifier:
+          Name: !Ref InverseMetric
+          Region: !Ref "AWS::Region"
+        InsufficientDataHealthStatus: Healthy
+      HealthCheckTags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-primary-health-check'
+
+  # Primary record set (us-east-1)
+  PrimaryRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: CNAME
+      SetIdentifier: Primary
+      Failover: PRIMARY
+      TTL: 60
+      ResourceRecords:
+        - !Ref PrimaryCellEndpoint
+      HealthCheckId: !Ref FailoverHealthCheck
+
+  # Secondary record set (us-west-2)
+  SecondaryRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: CNAME
+      SetIdentifier: Secondary
+      Failover: SECONDARY
+      TTL: 60
+      ResourceRecords:
+        - !Ref SecondaryCellEndpoint
+
+  # Lambda role for failover trigger
+  FailoverTriggerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: FailoverAlarmPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: "*"
+
+  # Lambda function to trigger failover
+  FailoverTriggerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-failover-trigger'
+      Handler: index.handler
+      Role: !GetAtt FailoverTriggerLambdaRole.Arn
+      Runtime: nodejs18.x
+      Timeout: 5
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            const AWS = require("aws-sdk");
+            const cw = new AWS.CloudWatch();
+            const isFailover = event.failover === true;
+            const value = isFailover ? 0 : 1;
+
+            await cw.putMetricData({
+              Namespace: "Custom/Failover",
+              MetricData: [{
+                MetricName: "HealthTrigger",
+                Value: value,
+                Unit: "None"
+              }]
+            }).promise();
+
+            return { 
+              statusCode: 200, 
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              },
+              body: JSON.stringify({ 
+                failover: isFailover,
+                message: isFailover ? 'Switched to secondary' : 'Switched to primary'
+              }) 
+            };
+          };
+
+  # API Gateway for failover control
+  FailoverAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub '${AWS::StackName}-failover-api'
+      Description: API for controlling Route 53 failover
+
+  # API Gateway resource
+  FailoverResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt FailoverAPI.RootResourceId
+      PathPart: "toggle"
+      RestApiId: !Ref FailoverAPI
+
+  # OPTIONS method for CORS
+  OptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: OPTIONS
+      ResourceId: !Ref FailoverResource
+      RestApiId: !Ref FailoverAPI
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+              method.response.header.Access-Control-Allow-Methods: "'POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ''
+        PassthroughBehavior: WHEN_NO_MATCH
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseModels:
+            application/json: 'Empty'
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # POST method for failover toggle
+  FailoverMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref FailoverResource
+      RestApiId: !Ref FailoverAPI
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub >-
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FailoverTriggerLambda.Arn}/invocations
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # Lambda permission for API Gateway
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FailoverTriggerLambda
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${FailoverAPI}/*/*'
+
+  # API Gateway deployment
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: 
+      - FailoverMethod
+      - OptionsMethod
+    Properties:
+      RestApiId: !Ref FailoverAPI
+      StageName: prod
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint for failover toggle
+    Value: !Sub 'https://${FailoverAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/toggle'
+  HealthCheckId:
+    Description: Health check ID for monitoring
+    Value: !Ref FailoverHealthCheck
+  PrimaryRecordSet:
+    Description: Primary record set name
+    Value: !Ref PrimaryRecordSet
+  SecondaryRecordSet:
+    Description: Secondary record set name
+    Value: !Ref SecondaryRecordSet

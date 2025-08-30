@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cell Architecture Demo Script</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e1e2e 0%, #27293d 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+
+        .mode-toggle {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .mode-btn {
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .mode-btn.active {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            transform: scale(1.05);
+        }
+
+        .script-content {
+            background: rgba(39, 41, 61, 0.5);
+            border-radius: 12px;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+        }
+
+        .section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section h3 {
+            color: #43e97b;
+            margin: 1rem 0 0.5rem 0;
+        }
+
+        .highlight-box {
+            background: rgba(102, 126, 234, 0.2);
+            padding: 1rem;
+            border-radius: 6px;
+            margin: 1rem 0;
+            border: 1px solid rgba(102, 126, 234, 0.5);
+        }
+
+        .talking-point {
+            position: relative;
+            padding-left: 1.5rem;
+            margin: 0.5rem 0;
+        }
+
+        .talking-point::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #43e97b;
+        }
+
+        .timer-section {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 2rem;
+            position: sticky;
+            top: 1rem;
+            z-index: 10;
+        }
+
+        .timer {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #43e97b;
+            margin-bottom: 0.5rem;
+        }
+
+        .timer-controls button {
+            padding: 0.5rem 1rem;
+            margin: 0 0.25rem;
+            border: none;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .timer-controls button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .complete-script {
+            line-height: 1.8;
+        }
+
+        .script-paragraph {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+        }
+
+        .demo-action {
+            background: rgba(67, 233, 123, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            margin: 0.5rem 0;
+            border: 1px solid rgba(67, 233, 123, 0.5);
+            font-style: italic;
+        }
+
+        .navigation {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
+
+        .nav-btn {
+            padding: 0.75rem 1.5rem;
+            background: rgba(102, 126, 234, 0.8);
+            color: white;
+            text-decoration: none;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-btn:hover {
+            background: rgba(102, 126, 234, 1);
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            .navigation {
+                position: static;
+                justify-content: center;
+                margin-top: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌐 Cell Architecture Demo Script</h1>
+            <p>Complete walkthrough guide for AWS Cell-Based Architecture demonstration</p>
+        </div>
+
+        <div class="timer-section">
+            <div id="timer" class="timer">00:00</div>
+            <div class="timer-controls">
+                <button onclick="startTimer()">▶️ Start</button>
+                <button onclick="pauseTimer()">⏸️ Pause</button>
+                <button onclick="resetTimer()">🔄 Reset</button>
+            </div>
+        </div>
+
+        <div class="mode-toggle">
+            <button class="mode-btn active" onclick="showHighlights()">📋 Highlights</button>
+            <button class="mode-btn" onclick="showComplete()">📖 Complete Script</button>
+        </div>
+
+        <div id="highlights-view" class="script-content">
+            <div class="section">
+                <h2>🎯 Introduction (3 minutes)</h2>
+                <div class="highlight-box">
+                    <strong>Key Message:</strong> Cell-based architecture provides isolation and scalability
+                </div>
+                <div class="talking-point">Welcome! Today we'll demonstrate AWS Cell-Based Architecture</div>
+                <div class="talking-point">Used by Netflix, Amazon, and other major platforms</div>
+                <div class="talking-point">Solves the "blast radius" problem in distributed systems</div>
+                <div class="demo-action">ACTION: Open the admin dashboard</div>
+            </div>
+
+            <div class="section">
+                <h2>📚 What is Cell-Based Architecture? (5 minutes)</h2>
+                <div class="highlight-box">
+                    <strong>Core Concept:</strong> Divide your system into isolated, self-contained units called "cells"
+                </div>
+                <h3>Key Benefits:</h3>
+                <div class="talking-point">Fault isolation - failures affect only one cell</div>
+                <div class="talking-point">Horizontal scaling - add cells as needed</div>
+                <div class="talking-point">Predictable performance - cells have fixed capacity</div>
+                <div class="talking-point">Easy rollouts - deploy to one cell at a time</div>
+                
+                <h3>Our Implementation:</h3>
+                <div class="talking-point">Using AWS Lambda, DynamoDB, CloudFront, and S3</div>
+                <div class="talking-point">Consistent hashing for client routing</div>
+                <div class="talking-point">Each cell handles ~20% of traffic</div>
+                <div class="demo-action">ACTION: Show the architecture diagram on admin dashboard</div>
+            </div>
+
+            <div class="section">
+                <h2>🔄 Client Routing Demo (5 minutes)</h2>
+                <div class="highlight-box">
+                    <strong>Key Demo:</strong> Show how clients are consistently routed to the same cell
+                </div>
+                <h3>Test Cases:</h3>
+                <div class="talking-point">Test with "user123" - note which cell</div>
+                <div class="talking-point">Test with "customer456" - different cell</div>
+                <div class="talking-point">Retry "user123" - same cell (consistency!)</div>
+                <div class="demo-action">ACTION: Use the routing test input on admin dashboard</div>
+                <div class="demo-action">ACTION: Open router page and show manual routing</div>
+            </div>
+
+            <div class="section">
+                <h2>🎨 Cell Identity & Health (4 minutes)</h2>
+                <div class="highlight-box">
+                    <strong>Visual Design:</strong> Each cell has unique color theme for easy identification
+                </div>
+                <div class="talking-point">Open each cell to show different themes</div>
+                <div class="talking-point">Point out health monitoring indicators</div>
+                <div class="talking-point">Show recent visitors tracking</div>
+                <div class="talking-point">Explain the Welcome ClientID feature</div>
+                <div class="demo-action">ACTION: Open cells in separate tabs, show health status</div>
+            </div>
+
+            <div class="section">
+                <h2>💥 Failure Scenarios (5 minutes)</h2>
+                <div class="highlight-box">
+                    <strong>Critical Demo:</strong> Show blast radius reduction
+                </div>
+                <h3>When a Cell is Removed:</h3>
+                <div class="talking-point">Clients automatically reroute to next available cell</div>
+                <div class="talking-point">Only affects ~20% of users (1 cell out of 5)</div>
+                <div class="talking-point">Hash ring redistributes load evenly</div>
+                <div class="demo-action">ACTION: Toggle a cell off in admin dashboard</div>
+                <div class="demo-action">ACTION: Show client rerouting in real-time</div>
+                
+                <h3>When a Cell is Added:</h3>
+                <div class="talking-point">New cell takes portion of load from others</div>
+                <div class="talking-point">Minimal client redistribution</div>
+                <div class="talking-point">Zero downtime scaling</div>
+            </div>
+
+            <div class="section">
+                <h2>🛠️ Technology Stack (3 minutes)</h2>
+                <div class="highlight-box">
+                    <strong>Built on AWS Services:</strong> Serverless and scalable
+                </div>
+                <h3>Core Components:</h3>
+                <div class="talking-point"><strong>Routing Layer:</strong> AWS Lambda + API Gateway</div>
+                <div class="talking-point"><strong>Cell Infrastructure:</strong> Lambda functions per cell</div>
+                <div class="talking-point"><strong>Data Storage:</strong> DynamoDB (global + per-cell tables)</div>
+                <div class="talking-point"><strong>Content Delivery:</strong> CloudFront + S3</div>
+                <div class="talking-point"><strong>Monitoring:</strong> CloudWatch + custom health checks</div>
+                
+                <h3>Library & Framework:</h3>
+                <div class="talking-point">Custom consistent hashing implementation</div>
+                <div class="talking-point">React SPAs with real-time updates</div>
+                <div class="talking-point">WebSocket connections for live data</div>
+            </div>
+
+            <div class="section">
+                <h2>🚀 Wrap-up & Q&A (2 minutes)</h2>
+                <div class="highlight-box">
+                    <strong>Key Takeaways:</strong> Scalability, reliability, and operational excellence
+                </div>
+                <div class="talking-point">Cell architecture reduces blast radius</div>
+                <div class="talking-point">Easy to scale and maintain</div>
+                <div class="talking-point">Battle-tested by industry leaders</div>
+                <div class="demo-action">ACTION: Open floor for questions</div>
+            </div>
+        </div>
+
+        <div id="complete-view" class="script-content complete-script" style="display: none;">
+            <div class="section">
+                <h2>🎯 Introduction</h2>
+                <div class="script-paragraph">
+                    <p>"Good [morning/afternoon] everyone! Welcome to our demonstration of AWS Cell-Based Architecture. My name is [Your Name], and today I'm excited to show you how some of the world's largest platforms - including Netflix, Amazon, and Uber - achieve incredible scale and reliability."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"Before we dive in, let me ask - has anyone here experienced a situation where one small issue in your system caused a complete outage? Maybe a database connection pool exhaustion, or a memory leak that brought down your entire application? Well, that's exactly the problem cell-based architecture solves."</p>
+                </div>
+                <div class="demo-action">ACTION: Open the admin dashboard at https://celladmin.sb.seibtribe.us</div>
+            </div>
+
+            <div class="section">
+                <h2>📚 What is Cell-Based Architecture?</h2>
+                <div class="script-paragraph">
+                    <p>"Cell-based architecture is a design pattern where we divide our system into multiple isolated, self-contained units called 'cells'. Think of it like having multiple mini-applications instead of one large monolithic system."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"Each cell is completely independent - it has its own compute resources, its own database, its own everything. The key insight is this: if one cell fails, it only affects the customers assigned to that cell, not your entire user base."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"Let me show you what this looks like in practice. Here on our admin dashboard, you can see we have 5 active cells. Each cell is handling approximately 20% of our traffic. Notice how each cell has its own health status, its own metrics, and can be controlled independently."</p>
+                </div>
+                <div class="demo-action">ACTION: Point to the Active Cells grid on the dashboard</div>
+                <div class="script-paragraph">
+                    <p>"We're using several AWS services to build this: Lambda for compute, DynamoDB for data storage, CloudFront for content delivery, and S3 for static assets. The magic happens in our routing layer, which uses consistent hashing to ensure customers always go to the same cell."</p>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>🔄 Client Routing Demo</h2>
+                <div class="script-paragraph">
+                    <p>"Now let's see the routing in action. One of the critical requirements of cell-based architecture is that a given customer must always be routed to the same cell. This ensures data consistency and allows us to optimize performance."</p>
+                </div>
+                <div class="demo-action">ACTION: Navigate to the "Test Client Routing" section</div>
+                <div class="script-paragraph">
+                    <p>"Let's test with a client ID 'user123'. Watch which cell this user gets assigned to... [enter and submit] Great! You can see 'user123' is assigned to cell [X]. Now let's try a different user - 'customer456'... [enter and submit] Notice this user goes to a different cell."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"Here's the important part - let me test 'user123' again... [enter and submit] See? Same cell every time. This is consistent hashing at work. It ensures that regardless of which entry point a customer uses, they always end up at their designated cell."</p>
+                </div>
+                <div class="demo-action">ACTION: Open the router page to show the visual routing</div>
+            </div>
+
+            <div class="section">
+                <h2>🎨 Cell Identity & Health</h2>
+                <div class="script-paragraph">
+                    <p>"One of the challenges with distributed systems is observability. When you have multiple cells, how do you quickly identify which one you're looking at? We've solved this with visual theming."</p>
+                </div>
+                <div class="demo-action">ACTION: Open 2-3 cell URLs in separate tabs</div>
+                <div class="script-paragraph">
+                    <p>"Notice how each cell has its own color theme? Cell us-east-1-az1 might be purple, while us-east-1-az2 is blue. This isn't just for aesthetics - during an incident, your ops team can immediately identify which cell they're investigating."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"Let's look at the health monitoring. Each cell continuously monitors its own health - checking DynamoDB connectivity, memory usage, and CPU. You can see the real-time status right here. Also notice the 'Recent Visitors' section - each cell tracks who's been routed to it, which is invaluable for debugging."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"See at the top where it says 'Welcome ClientID:'? This shows that the cell recognizes you as a unique visitor and maintains your session. This client ID is stored in your browser and ensures consistent routing."</p>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>💥 Failure Scenarios</h2>
+                <div class="script-paragraph">
+                    <p>"Now for the most important part - what happens when things go wrong? In a traditional architecture, if your application fails, 100% of your customers are affected. With cells, we contain the blast radius."</p>
+                </div>
+                <div class="demo-action">ACTION: Return to admin dashboard, prepare to toggle off a cell</div>
+                <div class="script-paragraph">
+                    <p>"Let's simulate a cell failure. I'm going to disable cell us-east-1-az2. In a real scenario, this might represent a deployment gone wrong, a regional AWS issue, or any other failure. Watch what happens... [toggle cell off]"</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"Notice the hash ring visualization? The clients that were assigned to the failed cell are automatically redistributed to the remaining healthy cells. Only 20% of users were affected, and they're already being served by other cells. Try routing 'user123' again - if they were on the failed cell, they'll now be on a different one."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"Now let's bring the cell back online... [toggle cell on] The system automatically rebalances. Some clients move back to their original cell. This is the power of consistent hashing - it minimizes the shuffle when cells are added or removed."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"This same mechanism works for scaling. Need to handle Black Friday traffic? Just add more cells. Each new cell takes a portion of the load, and the system automatically rebalances with zero downtime."</p>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>🛠️ Technology Deep Dive</h2>
+                <div class="script-paragraph">
+                    <p>"Let's talk about the technology powering this. At the routing layer, we have an AWS Lambda function that implements consistent hashing. When a request comes in, it hashes the client ID and determines which cell should handle that client."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"Each cell is a complete stack: Lambda functions for the API, a DynamoDB table for that cell's data, an S3 bucket for static content, and a CloudFront distribution. This isolation is critical - if one cell's database has issues, other cells continue operating normally."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"We use DynamoDB Global Tables for shared configuration data - things like which cells are active and their health status. This gives us multi-region replication and high availability for our control plane."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"The front-end applications are React SPAs that poll for updates every 5 seconds. In a production system, you might use WebSockets for real-time updates, but polling works well for this demo and reduces complexity."</p>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>🚀 Wrap-up & Key Takeaways</h2>
+                <div class="script-paragraph">
+                    <p>"So what have we learned today? Cell-based architecture gives us several critical benefits:"</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"First, fault isolation. When something goes wrong - and something always goes wrong - only a fraction of your customers are affected. Second, horizontal scalability. Need more capacity? Add more cells. It's that simple."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"Third, operational excellence. You can deploy to one cell at a time, monitor its health, and roll back if needed - all without affecting other cells. And finally, predictable performance. Each cell has a known capacity, making it much easier to capacity plan and maintain SLAs."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"This pattern has been battle-tested at massive scale. Netflix uses it for their streaming infrastructure. Amazon uses it for retail systems. When you need to build systems that can handle millions of users with high reliability, cell-based architecture is a proven solution."</p>
+                </div>
+                <div class="script-paragraph">
+                    <p>"I hope this demonstration has given you insights into how cell-based architecture works and why it's so powerful. Are there any questions about what we've covered today?"</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <a href="/index.html" class="nav-btn">← Admin Dashboard</a>
+            <a href="/router.html" class="nav-btn">Router Page →</a>
+        </div>
+    </div>
+
+    <script>
+        let timerInterval;
+        let startTime;
+        let elapsedTime = 0;
+        let isPaused = false;
+
+        function updateTimer() {
+            if (!isPaused) {
+                const now = Date.now();
+                const totalElapsed = elapsedTime + (now - startTime);
+                const minutes = Math.floor(totalElapsed / 60000);
+                const seconds = Math.floor((totalElapsed % 60000) / 1000);
+                document.getElementById('timer').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+
+        function startTimer() {
+            if (!timerInterval || isPaused) {
+                startTime = Date.now();
+                isPaused = false;
+                timerInterval = setInterval(updateTimer, 100);
+            }
+        }
+
+        function pauseTimer() {
+            if (timerInterval && !isPaused) {
+                isPaused = true;
+                elapsedTime += Date.now() - startTime;
+                clearInterval(timerInterval);
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            elapsedTime = 0;
+            isPaused = false;
+            document.getElementById('timer').textContent = '00:00';
+        }
+
+        function showHighlights() {
+            document.getElementById('highlights-view').style.display = 'block';
+            document.getElementById('complete-view').style.display = 'none';
+            document.querySelectorAll('.mode-btn')[0].classList.add('active');
+            document.querySelectorAll('.mode-btn')[1].classList.remove('active');
+        }
+
+        function showComplete() {
+            document.getElementById('highlights-view').style.display = 'none';
+            document.getElementById('complete-view').style.display = 'block';
+            document.querySelectorAll('.mode-btn')[0].classList.remove('active');
+            document.querySelectorAll('.mode-btn')[1].classList.add('active');
+        }
+    </script>
+</body>
+</html>

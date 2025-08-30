@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ACM certificate for a cell (must be deployed in us-east-1 for CloudFront)
+
+Parameters:
+  CellId:
+    Type: String
+    Description: Unique identifier for this cell
+  DomainName:
+    Type: String
+    Description: Custom domain name (e.g., cells.example.com)
+  HostedZoneId:
+    Type: String
+    Description: Route53 hosted zone ID for the domain
+
+Resources:
+  CellCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub 'cell-${CellId}.${DomainName}'
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub 'cell-${CellId}.${DomainName}'
+          HostedZoneId: !Ref HostedZoneId
+
+Outputs:
+  CertificateArn:
+    Value: !Ref CellCertificate
+    Export:
+      Name: !Sub '${AWS::StackName}-cert-arn'
+    Description: Certificate ARN for the cell

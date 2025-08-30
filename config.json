@@ -1,0 +1,13 @@
+{
+  "projectName": "cell-demo",
+  "samBucket": "samcli021891573713",
+  "domainName": "sb.seibtribe.us",
+  "hostedZoneId": "Z03473042HSYD8BUY4XSL",
+  "regions": ["us-east-1", "us-west-2"],
+  "azsPerRegion": 2,
+  "deployment": {
+    "autoCreateSamBucket": false,
+    "validateDomain": true,
+    "awsProfile": "adfs"
+  }
+}

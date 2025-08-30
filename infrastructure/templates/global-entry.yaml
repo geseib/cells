@@ -1,0 +1,257 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Global entry point for cell-based architecture with health checks
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: cell-demo
+  DomainName:
+    Type: String
+    Description: Custom domain name (e.g., cells.example.com)
+    Default: ''
+  HostedZoneId:
+    Type: String
+    Description: Route53 hosted zone ID for the domain
+    Default: ''
+
+Conditions:
+  HasCustomDomain: !Not [!Equals [!Ref DomainName, '']]
+
+Resources:
+  # S3 bucket for router interface
+  RouterBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-router-${AWS::AccountId}'
+
+  # CloudFront Origin Access Identity
+  RouterOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub 'OAI for ${ProjectName} router'
+
+  RouterBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref RouterBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${RouterOAI}'
+            Action: 's3:GetObject'
+            Resource: !Sub '${RouterBucket.Arn}/*'
+
+  # ACM Certificate for router CloudFront
+  RouterCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: HasCustomDomain
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+
+  # CloudFront distribution for global entry
+  RouterCloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub 'Global router for ${ProjectName}'
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt RouterBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${RouterOAI}'
+        Enabled: true
+        DefaultRootObject: index.html
+        Aliases: !If 
+          - HasCustomDomain
+          - [!Ref DomainName]
+          - !Ref 'AWS::NoValue'
+        ViewerCertificate: !If
+          - HasCustomDomain
+          - AcmCertificateArn: !Ref RouterCertificate
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        DefaultCacheBehavior:
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          ResponseHeadersPolicyId: 5cc3b908-e619-4b99-88e5-2cf7f45965bd  # CORS-With-Preflight
+        PriceClass: PriceClass_100
+
+  # Route53 record for router
+  RouterRoute53Record:
+    Type: AWS::Route53::RecordSet
+    Condition: HasCustomDomain
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt RouterCloudFront.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+
+  # Lambda function for cell health checks
+  CellHealthCheckFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-cell-health-checker'
+      Runtime: nodejs18.x
+      Handler: index.handler
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          CELL_REGISTRY_TABLE: !Sub '${ProjectName}-cell-registry'
+      Role: !GetAtt CellHealthCheckRole.Arn
+      Code:
+        ZipFile: |
+          const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+          const { DynamoDBDocumentClient, ScanCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+          const https = require('https');
+          
+          const client = new DynamoDBClient({});
+          const ddbDoc = DynamoDBDocumentClient.from(client);
+          
+          exports.handler = async (event) => {
+            const tableName = process.env.CELL_REGISTRY_TABLE;
+            
+            try {
+              // Get all cells
+              const scanResult = await ddbDoc.send(new ScanCommand({
+                TableName: tableName
+              }));
+              
+              const cells = scanResult.Items || [];
+              
+              // Check health of each cell
+              const healthChecks = cells.map(async (cell) => {
+                try {
+                  // Skip if cell has custom domain
+                  const url = cell.customDomain 
+                    ? `https://cell-${cell.cellId}.${cell.customDomain}/health`
+                    : `${cell.apiEndpoint}/health`;
+                    
+                  const isHealthy = await checkHealth(url);
+                  
+                  // Update cell status if changed
+                  if (cell.active !== isHealthy) {
+                    await ddbDoc.send(new UpdateCommand({
+                      TableName: tableName,
+                      Key: { cellId: cell.cellId },
+                      UpdateExpression: 'SET active = :active, lastHealthCheck = :timestamp',
+                      ExpressionAttributeValues: {
+                        ':active': isHealthy,
+                        ':timestamp': new Date().toISOString()
+                      }
+                    }));
+                    
+                    console.log(`Cell ${cell.cellId} status changed to ${isHealthy ? 'active' : 'inactive'}`);
+                  }
+                  
+                  return { cellId: cell.cellId, healthy: isHealthy };
+                } catch (error) {
+                  console.error(`Health check failed for ${cell.cellId}:`, error);
+                  return { cellId: cell.cellId, healthy: false };
+                }
+              });
+              
+              const results = await Promise.all(healthChecks);
+              
+              return {
+                statusCode: 200,
+                body: JSON.stringify({
+                  timestamp: new Date().toISOString(),
+                  results
+                })
+              };
+            } catch (error) {
+              console.error('Error in health checker:', error);
+              return {
+                statusCode: 500,
+                body: JSON.stringify({ error: error.message })
+              };
+            }
+          };
+          
+          function checkHealth(url) {
+            return new Promise((resolve) => {
+              const timeout = setTimeout(() => {
+                resolve(false);
+              }, 5000);
+              
+              https.get(url, (res) => {
+                clearTimeout(timeout);
+                resolve(res.statusCode === 200);
+              }).on('error', () => {
+                clearTimeout(timeout);
+                resolve(false);
+              });
+            });
+          }
+
+  CellHealthCheckRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Resource: !Sub 'arn:aws:dynamodb:*:*:table/${ProjectName}-cell-registry'
+
+  # EventBridge rule to run health checks every minute
+  HealthCheckSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${ProjectName}-cell-health-check'
+      Description: Run cell health checks every minute
+      ScheduleExpression: rate(1 minute)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt CellHealthCheckFunction.Arn
+          Id: '1'
+
+  HealthCheckPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CellHealthCheckFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt HealthCheckSchedule.Arn
+
+Outputs:
+  RouterUrl:
+    Value: !If
+      - HasCustomDomain
+      - !Sub 'https://${DomainName}'
+      - !Sub 'https://${RouterCloudFront.DomainName}'
+    Description: Global router URL
+  
+  RouterBucket:
+    Value: !Ref RouterBucket
+    Description: Router S3 bucket
+  
+  RouterDistributionId:
+    Value: !Ref RouterCloudFront
+    Description: Router CloudFront distribution ID

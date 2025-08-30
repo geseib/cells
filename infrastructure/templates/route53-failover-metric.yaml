@@ -1,0 +1,240 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Custom CloudWatch metric and alarm for Route 53 failover control
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: stop.sb.seibtribe.us
+    Description: The domain name for failover configuration
+  HostedZoneId:
+    Type: String
+    Default: Z03473042HSYD8BUY4XSL
+    Description: The ID of the hosted zone in Route 53
+  PrimaryCellEndpoint:
+    Type: String
+    Default: dux3dlzgmx6e3.cloudfront.net
+    Description: Primary cell CloudFront distribution domain
+  SecondaryCellEndpoint:
+    Type: String
+    Default: d3lpwt3y0g5y6t.cloudfront.net
+    Description: Secondary cell CloudFront distribution domain
+
+Resources:
+  # CloudWatch Alarm that monitors the custom metric
+  # When metric < 1, alarm triggers and failover occurs
+  InverseMetric:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub '${AWS::StackName}-failover-control'
+      AlarmDescription: Controls Route 53 failover via custom metric
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: HealthTrigger
+      Namespace: Custom/Failover
+      Period: 60
+      Statistic: Maximum
+      Threshold: 1
+      TreatMissingData: breaching
+      ActionsEnabled: false
+
+  # Route 53 health check that monitors the CloudWatch alarm
+  FailoverHealthCheck:
+    Type: AWS::Route53::HealthCheck
+    Properties:
+      HealthCheckConfig:
+        Type: CLOUDWATCH_METRIC
+        AlarmIdentifier:
+          Name: !Ref InverseMetric
+          Region: !Ref "AWS::Region"
+        InsufficientDataHealthStatus: Healthy
+      HealthCheckTags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-cloudwatch-health-check'
+
+  # Primary record set (us-east-1) with health check
+  PrimaryRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      SetIdentifier: Primary
+      Failover: PRIMARY
+      AliasTarget:
+        DNSName: !Ref PrimaryCellEndpoint
+        EvaluateTargetHealth: false
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+      HealthCheckId: !Ref FailoverHealthCheck
+
+  # Secondary record set (us-west-2) without health check
+  SecondaryRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      SetIdentifier: Secondary
+      Failover: SECONDARY
+      AliasTarget:
+        DNSName: !Ref SecondaryCellEndpoint
+        EvaluateTargetHealth: false
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+
+  # IAM role for Lambda function
+  FailoverTriggerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CloudWatchMetricPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: "*"
+
+  # Lambda function to control the metric value
+  FailoverTriggerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${AWS::StackName}-failover-trigger'
+      Handler: index.handler
+      Role: !GetAtt FailoverTriggerLambdaRole.Arn
+      Runtime: nodejs18.x
+      Timeout: 30
+      Code:
+        ZipFile: |
+          const { CloudWatchClient, PutMetricDataCommand } = require("@aws-sdk/client-cloudwatch");
+          
+          exports.handler = async (event) => {
+            const cloudwatch = new CloudWatchClient({});
+            
+            // Parse the failover state from the event
+            const body = event.body ? JSON.parse(event.body) : event;
+            const isFailover = body.failover === true;
+            const value = isFailover ? 0 : 1;
+            
+            console.log(`Setting metric value to ${value} (failover: ${isFailover})`);
+            
+            try {
+              const command = new PutMetricDataCommand({
+                Namespace: "Custom/Failover",
+                MetricData: [{
+                  MetricName: "HealthTrigger",
+                  Value: value,
+                  Unit: "None",
+                  Timestamp: new Date()
+                }]
+              });
+              
+              await cloudwatch.send(command);
+              
+              return {
+                statusCode: 200,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*'
+                },
+                body: JSON.stringify({ 
+                  success: true,
+                  failover: isFailover,
+                  metricValue: value,
+                  message: isFailover ? 'Failover activated' : 'Primary restored'
+                })
+              };
+            } catch (error) {
+              console.error('Error updating metric:', error);
+              return {
+                statusCode: 500,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Access-Control-Allow-Origin': '*'
+                },
+                body: JSON.stringify({ 
+                  success: false,
+                  error: error.message 
+                })
+              };
+            }
+          };
+
+  # API Gateway for triggering failover
+  FailoverAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub '${AWS::StackName}-failover-api'
+      Description: API to trigger Route 53 failover via CloudWatch metric
+
+  # API Gateway resource
+  FailoverResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt FailoverAPI.RootResourceId
+      PathPart: "toggle"
+      RestApiId: !Ref FailoverAPI
+
+  # API Gateway method for POST requests
+  FailoverMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref FailoverResource
+      RestApiId: !Ref FailoverAPI
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub >-
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FailoverTriggerLambda.Arn}/invocations
+
+  # Allow API Gateway to invoke the Lambda function
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FailoverTriggerLambda
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${FailoverAPI}/*/*'
+
+  # Deploy the API
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn: FailoverMethod
+    Properties:
+      RestApiId: !Ref FailoverAPI
+      StageName: prod
+
+Outputs:
+  FailoverAPIEndpoint:
+    Description: API endpoint for triggering failover
+    Value: !Sub 'https://${FailoverAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/toggle'
+    Export:
+      Name: !Sub '${AWS::StackName}-api-endpoint'
+  
+  HealthCheckId:
+    Description: Route 53 health check ID
+    Value: !Ref FailoverHealthCheck
+    Export:
+      Name: !Sub '${AWS::StackName}-health-check-id'
+  
+  AlarmName:
+    Description: CloudWatch alarm name
+    Value: !Ref InverseMetric
+    Export:
+      Name: !Sub '${AWS::StackName}-alarm-name'
+  
+  LambdaFunctionName:
+    Description: Lambda function name for failover control
+    Value: !Ref FailoverTriggerLambda
+    Export:
+      Name: !Sub '${AWS::StackName}-lambda-name'

@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: SSL Certificates for stop.sb.seibtribe.us failover demo
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: stop.sb.seibtribe.us
+    Description: Domain name for the failover demo
+  HostedZoneId:
+    Type: String
+    Default: Z03473042HSYD8BUY4XSL
+    Description: Route53 hosted zone ID for domain validation
+
+Resources:
+  # SSL Certificate for stop.sb.seibtribe.us (for CloudFront - must be in us-east-1)
+  StopCertificateUsEast1:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub 'stop-secondary.${DomainName}'
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+        - DomainName: !Sub 'stop-secondary.${DomainName}'
+          HostedZoneId: !Ref HostedZoneId
+      Tags:
+        - Key: Name
+          Value: !Sub 'stop-cert-us-east-1-${AWS::StackName}'
+        - Key: Purpose
+          Value: 'Failover demo SSL certificate'
+
+  # SSL Certificate for stop.sb.seibtribe.us (for ALB/cell endpoints - in current region)
+  StopCertificateCurrentRegion:
+    Type: AWS::CertificateManager::Certificate
+    Condition: NotUsEast1
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+      Tags:
+        - Key: Name
+          Value: !Sub 'stop-cert-${AWS::Region}-${AWS::StackName}'
+        - Key: Purpose
+          Value: 'Failover demo SSL certificate'
+
+Conditions:
+  NotUsEast1: !Not [!Equals [!Ref 'AWS::Region', 'us-east-1']]
+
+Outputs:
+  StopCertificateUsEast1Arn:
+    Description: ARN of the SSL certificate for CloudFront (us-east-1)
+    Value: !Ref StopCertificateUsEast1
+    Export:
+      Name: !Sub '${AWS::StackName}-stop-cert-us-east-1-arn'
+
+  StopCertificateCurrentRegionArn:
+    Description: ARN of the SSL certificate for current region
+    Value: !If [NotUsEast1, !Ref StopCertificateCurrentRegion, !Ref StopCertificateUsEast1]
+    Export:
+      Name: !Sub '${AWS::StackName}-stop-cert-current-region-arn'
+
+  DomainName:
+    Description: Domain name for the certificates
+    Value: !Ref DomainName
+    Export:
+      Name: !Sub '${AWS::StackName}-domain-name'

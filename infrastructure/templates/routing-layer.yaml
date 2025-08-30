@@ -1,0 +1,397 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Global routing layer for cell-based architecture
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: cell-demo
+  DomainName:
+    Type: String
+    Description: Custom domain name (e.g., cells.example.com)
+    Default: ''
+  HostedZoneId:
+    Type: String
+    Description: Route53 hosted zone ID for the domain
+    Default: ''
+
+Conditions:
+  HasCustomDomain: !Not [!Equals [!Ref DomainName, '']]
+
+Globals:
+  Function:
+    Runtime: nodejs18.x
+    Timeout: 30
+    MemorySize: 512
+    Environment:
+      Variables:
+        PROJECT_NAME: !Ref ProjectName
+
+Resources:
+  # ACM Certificate for custom domain
+  ApiCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: HasCustomDomain
+    Properties:
+      DomainName: !Sub 'cellapi.${DomainName}'
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub 'cellapi.${DomainName}'
+          HostedZoneId: !Ref HostedZoneId
+
+  # API Gateway for routing
+  RoutingApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub '${ProjectName}-routing-api'
+      StageName: prod
+      Domain:
+        DomainName: !If [HasCustomDomain, !Sub 'cellapi.${DomainName}', !Ref 'AWS::NoValue']
+        CertificateArn: !If [HasCustomDomain, !Ref ApiCertificate, !Ref 'AWS::NoValue']
+        Route53:
+          HostedZoneId: !If [HasCustomDomain, !Ref HostedZoneId, !Ref 'AWS::NoValue']
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+
+  # Lambda function for routing decisions
+  RoutingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-routing'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/routing.handler
+      Environment:
+        Variables:
+          CELL_REGISTRY_TABLE: !Sub '${ProjectName}-cell-registry'
+          ROUTING_CONFIG_TABLE: !Sub '${ProjectName}-routing-config'
+          CUSTOM_DOMAIN: !If [HasCustomDomain, !Ref DomainName, '']
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Sub '${ProjectName}-cell-registry'
+        - DynamoDBReadPolicy:
+            TableName: !Sub '${ProjectName}-routing-config'
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /route/{clientId}
+            Method: GET
+
+  # Lambda function for admin API
+  AdminFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-admin'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/admin.handler
+      Environment:
+        Variables:
+          CELL_REGISTRY_TABLE: !Sub '${ProjectName}-cell-registry'
+          ROUTING_CONFIG_TABLE: !Sub '${ProjectName}-routing-config'
+          CUSTOM_DOMAIN: !If [HasCustomDomain, !Ref DomainName, '']
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Sub '${ProjectName}-cell-registry'
+        - DynamoDBCrudPolicy:
+            TableName: !Sub '${ProjectName}-routing-config'
+      Events:
+        GetCells:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/cells
+            Method: GET
+        UpdateCell:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/cells/{cellId}
+            Method: PUT
+        GetHashRing:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/hash-ring
+            Method: GET
+        GetClientRoute:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/client-route/{clientId}
+            Method: GET
+        GetCellUrls:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/cell-urls
+            Method: GET
+        GetRecentClients:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/recent-clients
+            Method: GET
+        UpdateRegionCells:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/regions/{region}
+            Method: PUT
+
+  # Lambda function for auto-routing (redirects users to appropriate cells)
+  AutoRouterFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-auto-router'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/auto-router.handler
+      Environment:
+        Variables:
+          CELL_REGISTRY_TABLE: !Sub '${ProjectName}-cell-registry'
+          CUSTOM_DOMAIN: !If [HasCustomDomain, !Ref DomainName, '']
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Sub '${ProjectName}-cell-registry'
+      Events:
+        AutoRoute:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /go/{clientId}
+            Method: GET
+
+  # Lambda function for QR code generation
+  QRGeneratorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-qr-generator'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/qr-generator.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /qr-code
+            Method: POST
+
+  # Lambda function for client visits tracking
+  ClientVisitsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-client-visits'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/client-visits.handler
+      Environment:
+        Variables:
+          CLIENT_VISITS_TABLE: !Sub '${ProjectName}-client-visits'
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Sub '${ProjectName}-client-visits'
+      Events:
+        PostVisit:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /visits
+            Method: POST
+        GetVisits:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /visits
+            Method: GET
+        GetVisitsByCell:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /visits/cell/{cellId}
+            Method: GET
+
+  # Lambda function for enhanced client tracking
+  ClientTrackingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-client-tracking'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/client-tracking.handler
+      Environment:
+        Variables:
+          CLIENT_TRACKING_TABLE: !Sub '${ProjectName}-client-tracking'
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Sub '${ProjectName}-client-tracking'
+      Events:
+        TrackClient:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /track-client
+            Method: POST
+        GetAllClients:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /clients
+            Method: GET
+        GetClientsByCell:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /clients/cell/{cellId}
+            Method: GET
+        GetClientCountByCell:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /clients/count/cell/{cellId}
+            Method: GET
+
+  # Lambda function for Route 53 record information
+  Route53InfoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-route53-info'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/route53-info.handler
+      Environment:
+        Variables:
+          HOSTED_ZONE_ID: !Ref HostedZoneId
+      Policies:
+        - Statement:
+          - Effect: Allow
+            Action:
+              - route53:ListResourceRecordSets
+              - route53:GetHealthCheck
+            Resource: '*'
+      Events:
+        GetRoute53Info:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /route53-info
+            Method: GET
+
+  # S3 bucket for admin interface
+  AdminBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${ProjectName}-admin-ui-${AWS::AccountId}'
+
+  # CloudFront Origin Access Identity
+  AdminOAI:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub 'OAI for ${ProjectName} admin interface'
+
+  AdminBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AdminBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontAccess
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${AdminOAI}'
+            Action: 's3:GetObject'
+            Resource: !Sub '${AdminBucket.Arn}/*'
+
+  # ACM Certificate for admin CloudFront
+  # Note: This certificate must be deployed in us-east-1 for CloudFront
+  # If deploying in another region, create a separate stack in us-east-1
+  AdminCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Condition: HasCustomDomain
+    Properties:
+      DomainName: !Sub 'celladmin.${DomainName}'
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub 'celladmin.${DomainName}'
+          HostedZoneId: !Ref HostedZoneId
+
+  # CloudFront for admin interface
+  AdminCloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub 'Admin interface for ${ProjectName}'
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt AdminBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${AdminOAI}'
+        Enabled: true
+        DefaultRootObject: index.html
+        Aliases: !If 
+          - HasCustomDomain
+          - [!Sub 'celladmin.${DomainName}']
+          - !Ref 'AWS::NoValue'
+        ViewerCertificate: !If
+          - HasCustomDomain
+          - AcmCertificateArn: !Ref AdminCertificate
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
+        DefaultCacheBehavior:
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+
+  # Route53 record for admin CloudFront
+  AdminRoute53Record:
+    Type: AWS::Route53::RecordSet
+    Condition: HasCustomDomain
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub 'celladmin.${DomainName}'
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt AdminCloudFront.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+
+  # Lambda for syncing cell registry across regions
+  CrossRegionSyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-cross-region-sync'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/cross-region-sync.handler
+      Timeout: 60
+      Environment:
+        Variables:
+          CELL_REGISTRY_TABLE: !Sub '${ProjectName}-cell-registry'
+          TARGET_REGIONS: 'us-east-1,us-west-2'
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:Scan
+              Resource: !Sub 'arn:aws:dynamodb:*:*:table/${ProjectName}-cell-registry'
+      Events:
+        DynamoDBStream:
+          Type: DynamoDB
+          Properties:
+            Stream: 
+              Fn::ImportValue: !Sub '${ProjectName}-cell-registry-stream-arn'
+            StartingPosition: LATEST
+
+Outputs:
+  RoutingApiEndpoint:
+    Value: !Sub 'https://${RoutingApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+    Description: Routing API endpoint
+  
+  AdminUrl:
+    Value: !Sub 'https://${AdminCloudFront.DomainName}'
+    Description: Admin interface URL
+  
+  AdminBucket:
+    Value: !Ref AdminBucket
+    Description: Admin UI S3 bucket

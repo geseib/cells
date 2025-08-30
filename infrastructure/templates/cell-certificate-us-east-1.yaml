@@ -1,0 +1,40 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ACM certificates for us-west-2 cells (must be in us-east-1 for CloudFront)
+
+Parameters:
+  DomainName:
+    Type: String
+    Description: Custom domain name (e.g., cells.example.com)
+  HostedZoneId:
+    Type: String
+    Description: Route53 hosted zone ID for the domain
+
+Resources:
+  CellCertificateUsWest2Az1:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub 'cell-us-west-2-az1.${DomainName}'
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub 'cell-us-west-2-az1.${DomainName}'
+          HostedZoneId: !Ref HostedZoneId
+  
+  CellCertificateUsWest2Az2:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub 'cell-us-west-2-az2.${DomainName}'
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub 'cell-us-west-2-az2.${DomainName}'
+          HostedZoneId: !Ref HostedZoneId
+
+Outputs:
+  CellCertificateUsWest2Az1Arn:
+    Value: !Ref CellCertificateUsWest2Az1
+    Export:
+      Name: !Sub '${AWS::StackName}-us-west-2-az1-cert-arn'
+  
+  CellCertificateUsWest2Az2Arn:
+    Value: !Ref CellCertificateUsWest2Az2
+    Export:
+      Name: !Sub '${AWS::StackName}-us-west-2-az2-cert-arn'

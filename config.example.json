@@ -1,0 +1,13 @@
+{
+  "projectName": "my-cell-demo",
+  "samBucket": "my-sam-deployment-bucket",
+  "domainName": "cells.example.com",
+  "hostedZoneId": "Z1234567890ABC",
+  "regions": ["us-east-1", "us-west-2"],
+  "azsPerRegion": 2,
+  "deployment": {
+    "autoCreateSamBucket": true,
+    "validateDomain": true,
+    "awsProfile": "default"
+  }
+}

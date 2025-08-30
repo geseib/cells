@@ -1,0 +1,150 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Multi-Region Failover Setup with Route 53, CloudWatch Alarm, Lambda, and API Gateway
+
+Parameters:
+  DomainName:
+    Type: String
+    Description: The domain name to update in Route 53
+  HostedZoneId:
+    Type: String
+    Description: The ID of the hosted zone in Route 53
+  PrimaryIP:
+    Type: String
+    Default: "1.1.1.1"
+    Description: Primary region IP address
+  SecondaryIP:
+    Type: String
+    Default: "2.2.2.2"
+    Description: Secondary region IP address
+
+Resources:
+
+  InverseMetric:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub 'InverseHealthCheck-${AWS::StackName}'
+      ComparisonOperator: LessThanThreshold
+      EvaluationPeriods: 1
+      MetricName: HealthTrigger
+      Namespace: Custom/Failover
+      Period: 60
+      Statistic: Maximum
+      Threshold: 1
+      TreatMissingData: breaching
+
+  FailoverHealthCheck:
+    Type: AWS::Route53::HealthCheck
+    Properties:
+      HealthCheckConfig:
+        Type: CLOUDWATCH_METRIC
+        AlarmIdentifier:
+          Name: !Ref InverseMetric
+          Region: !Ref "AWS::Region"
+        InsufficientDataHealthStatus: Healthy
+        Inverted: true
+        MeasureLatency: false
+        RequestInterval: 30
+
+  PrimaryRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      SetIdentifier: Primary
+      Failover: PRIMARY
+      TTL: 60
+      ResourceRecords:
+        - !Ref PrimaryIP
+      HealthCheckId: !Ref FailoverHealthCheck
+
+  SecondaryRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      SetIdentifier: Secondary
+      Failover: SECONDARY
+      TTL: 60
+      ResourceRecords:
+        - !Ref SecondaryIP
+
+  FailoverTriggerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: FailoverAlarmPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudwatch:PutMetricData
+                Resource: "*"
+
+  FailoverTriggerLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: !GetAtt FailoverTriggerLambdaRole.Arn
+      Runtime: nodejs18.x
+      Timeout: 5
+      Code:
+        ZipFile: |
+          exports.handler = async (event) => {
+            const AWS = require("aws-sdk");
+            const cw = new AWS.CloudWatch();
+            const isFailover = event.failover === true;
+            const value = isFailover ? 0 : 1;
+
+            await cw.putMetricData({
+              Namespace: "Custom/Failover",
+              MetricData: [{
+                MetricName: "HealthTrigger",
+                Value: value,
+                Unit: "None"
+              }]
+            }).promise();
+
+            return { statusCode: 200, body: JSON.stringify({ failover: isFailover }) };
+          };
+
+  FailoverAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: "FailoverAPI"
+
+  FailoverResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt FailoverAPI.RootResourceId
+      PathPart: "toggle"
+      RestApiId: !Ref FailoverAPI
+
+  FailoverMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: POST
+      ResourceId: !Ref FailoverResource
+      RestApiId: !Ref FailoverAPI
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub >-
+          arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${FailoverTriggerLambda.Arn}/invocations
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref FailoverTriggerLambda
+      Principal: apigateway.amazonaws.com

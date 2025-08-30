@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Simple Route 53 Failover Setup for Cell Architecture Demo
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: stop.sb.seibtribe.us
+    Description: The domain name for failover configuration
+  HostedZoneId:
+    Type: String
+    Default: Z03473042HSYD8BUY4XSL
+    Description: The ID of the hosted zone in Route 53
+  PrimaryCellEndpoint:
+    Type: String
+    Default: dux3dlzgmx6e3.cloudfront.net
+    Description: Primary cell CloudFront distribution domain
+  SecondaryCellEndpoint:
+    Type: String
+    Default: d3lpwt3y0g5y6t.cloudfront.net
+    Description: Secondary cell CloudFront distribution domain
+
+Resources:
+  # Simple health check for primary endpoint
+  PrimaryHealthCheck:
+    Type: AWS::Route53::HealthCheck
+    Properties:
+      HealthCheckConfig:
+        Type: HTTPS
+        ResourcePath: /
+        FullyQualifiedDomainName: !Ref PrimaryCellEndpoint
+        Port: 443
+        RequestInterval: 30
+        FailureThreshold: 3
+      HealthCheckTags:
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-primary-health-check'
+
+  # Primary record set (us-east-1)
+  PrimaryRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: CNAME
+      SetIdentifier: Primary
+      Failover: PRIMARY
+      TTL: 60
+      ResourceRecords:
+        - !Ref PrimaryCellEndpoint
+      HealthCheckId: !Ref PrimaryHealthCheck
+
+  # Secondary record set (us-west-2)
+  SecondaryRecordSet:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: CNAME
+      SetIdentifier: Secondary
+      Failover: SECONDARY
+      TTL: 60
+      ResourceRecords:
+        - !Ref SecondaryCellEndpoint
+
+Outputs:
+  PrimaryHealthCheckId:
+    Description: Health check ID for primary endpoint
+    Value: !Ref PrimaryHealthCheck
+  PrimaryRecordSet:
+    Description: Primary record set name
+    Value: !Ref PrimaryRecordSet
+  SecondaryRecordSet:
+    Description: Secondary record set name
+    Value: !Ref SecondaryRecordSet

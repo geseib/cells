@@ -1,0 +1,207 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Global resources for cell-based architecture demo
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: cell-demo
+    Description: Name of the project
+
+Resources:
+  # Global DynamoDB table for cell registry
+  CellRegistryTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-cell-registry'
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      AttributeDefinitions:
+        - AttributeName: cellId
+          AttributeType: S
+        - AttributeName: region
+          AttributeType: S
+      KeySchema:
+        - AttributeName: cellId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: region-index
+          KeySchema:
+            - AttributeName: region
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # Global table for routing configuration
+  RoutingConfigTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-routing-config'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: configId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: configId
+          KeyType: HASH
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # Global table for client visits (original structure)
+  ClientVisitsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-client-visits'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: clientId
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+        - AttributeName: cellId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: clientId
+          KeyType: HASH
+        - AttributeName: timestamp
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: cellId-timestamp-index
+          KeySchema:
+            - AttributeName: cellId
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: timestamp-index
+          KeySchema:
+            - AttributeName: timestamp
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # New table for client tracking with better structure
+  ClientTrackingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-client-tracking'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: LastConnectTime
+          AttributeType: S
+        - AttributeName: CellId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: CellId-LastConnectTime-index
+          KeySchema:
+            - AttributeName: CellId
+              KeyType: HASH
+            - AttributeName: LastConnectTime
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: LastConnectTime-index
+          KeySchema:
+            - AttributeName: LastConnectTime
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: TTL
+        Enabled: true
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # EventBridge event bus for cell coordination
+  CellEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub '${ProjectName}-cell-events'
+
+  # IAM role for cross-region replication
+  CrossRegionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-cross-region-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+                - events.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: CrossRegionAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - events:PutEvents
+                Resource: '*'
+
+Outputs:
+  CellRegistryTableName:
+    Value: !Ref CellRegistryTable
+    Export:
+      Name: !Sub '${ProjectName}-cell-registry-table'
+  
+  CellRegistryStreamArn:
+    Value: !GetAtt CellRegistryTable.StreamArn
+    Export:
+      Name: !Sub '${ProjectName}-cell-registry-stream-arn'
+  
+  RoutingConfigTableName:
+    Value: !Ref RoutingConfigTable
+    Export:
+      Name: !Sub '${ProjectName}-routing-config-table'
+  
+  ClientVisitsTableName:
+    Value: !Ref ClientVisitsTable
+    Export:
+      Name: !Sub '${ProjectName}-client-visits-table'
+  
+  ClientTrackingTableName:
+    Value: !Ref ClientTrackingTable
+    Export:
+      Name: !Sub '${ProjectName}-client-tracking-table'
+  
+  CellEventBusName:
+    Value: !Ref CellEventBus
+    Export:
+      Name: !Sub '${ProjectName}-cell-event-bus'
+  
+  CrossRegionRoleArn:
+    Value: !GetAtt CrossRegionRole.Arn
+    Export:
+      Name: !Sub '${ProjectName}-cross-region-role-arn'

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cell Architecture - Auto Router</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            max-width: 500px;
+        }
+        h1 {
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+        .status {
+            font-size: 1.2rem;
+            margin: 1rem 0;
+        }
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .cell-info {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-top: 1rem;
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .cell-info p {
+            margin: 0.5rem 0;
+            font-size: 1.1rem;
+        }
+        .countdown {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #43e97b;
+            margin: 1rem 0;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .skip-button {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: transform 0.2s;
+            font-weight: bold;
+        }
+        .skip-button:hover {
+            transform: scale(1.05);
+        }
+        .error {
+            background: rgba(255, 59, 48, 0.2);
+            padding: 1rem;
+            border-radius: 10px;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Auto-Routing Active</h1>
+        <div class="status" id="status">Finding your optimal cell...</div>
+        <div class="spinner" id="spinner"></div>
+        <div id="cellInfo"></div>
+        <div id="countdown"></div>
+        <div id="error"></div>
+    </div>
+
+    <script>
+        let countdownInterval;
+        let redirectTimeout;
+
+        // Get or generate client ID
+        function getClientId() {
+            let clientId = localStorage.getItem('cellClientId');
+            if (!clientId) {
+                clientId = 'client-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('cellClientId', clientId);
+            }
+            return clientId;
+        }
+
+        // Update status message
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+
+        // Show error
+        function showError(message) {
+            document.getElementById('spinner').style.display = 'none';
+            document.getElementById('countdown').style.display = 'none';
+            document.getElementById('error').innerHTML = `
+                <div class="error">
+                    <p>❌ ${message}</p>
+                    <button class="skip-button" onclick="location.reload()">Try Again</button>
+                </div>
+            `;
+        }
+
+        // Show countdown
+        function showCountdown(seconds, targetUrl, clientId) {
+            const countdownDiv = document.getElementById('countdown');
+            countdownDiv.innerHTML = `
+                <div class="countdown" id="countdownNumber">${seconds}</div>
+                <button class="skip-button" onclick="skipCountdown('${targetUrl}', '${clientId}')">Skip Countdown</button>
+            `;
+            
+            let remaining = seconds;
+            countdownInterval = setInterval(() => {
+                remaining--;
+                document.getElementById('countdownNumber').textContent = remaining;
+                if (remaining <= 0) {
+                    clearInterval(countdownInterval);
+                    window.location.href = `${targetUrl}?clientId=${encodeURIComponent(clientId)}`;
+                }
+            }, 1000);
+        }
+
+        // Skip countdown
+        function skipCountdown(targetUrl, clientId) {
+            if (countdownInterval) clearInterval(countdownInterval);
+            if (redirectTimeout) clearTimeout(redirectTimeout);
+            window.location.href = `${targetUrl}?clientId=${encodeURIComponent(clientId)}`;
+        }
+
+        // Show cell info
+        function showCellInfo(cellData, targetUrl, clientId) {
+            document.getElementById('cellInfo').innerHTML = `
+                <div class="cell-info">
+                    <h2>✅ Cell Assigned!</h2>
+                    <p><strong>Your ID:</strong> ${clientId}</p>
+                    <p><strong>Target Cell:</strong> ${cellData.targetCell.cellId}</p>
+                    <p><strong>Region:</strong> ${cellData.targetCell.region}</p>
+                    <p><strong>Zone:</strong> ${cellData.targetCell.availabilityZone}</p>
+                </div>
+            `;
+            
+            showCountdown(5, targetUrl, clientId);
+        }
+
+        // Route to appropriate cell
+        async function routeToCell() {
+            const clientId = getClientId();
+            updateStatus(`🔄 Routing ${clientId} to optimal cell...`);
+
+            try {
+                // Determine API endpoint based on hostname
+                const apiUrl = window.location.hostname === 'localhost'
+                    ? 'http://localhost:3000/prod'
+                    : window.location.hostname.includes('sb.seibtribe.us')
+                        ? 'https://cellapi.sb.seibtribe.us'
+                        : 'https://lo4603bdh4.execute-api.us-east-1.amazonaws.com/prod';
+
+                // Get routing decision
+                const response = await fetch(`${apiUrl}/admin/client-route/${clientId}`);
+                if (!response.ok) {
+                    throw new Error('Routing service unavailable');
+                }
+
+                const routingData = await response.json();
+
+                // Get cell URLs to determine redirect target
+                const cellUrlsResponse = await fetch(`${apiUrl}/admin/cell-urls`);
+                if (!cellUrlsResponse.ok) {
+                    throw new Error('Unable to fetch cell URLs');
+                }
+
+                const cellUrlsData = await cellUrlsResponse.json();
+                const targetCell = cellUrlsData.cellUrls.find(
+                    cell => cell.cellId === routingData.targetCell.cellId
+                );
+
+                if (!targetCell || !targetCell.active) {
+                    throw new Error('Target cell is not available');
+                }
+
+                document.getElementById('spinner').style.display = 'none';
+                updateStatus(`🎯 Redirecting to ${targetCell.cellId} in...`);
+                showCellInfo(routingData, targetCell.directUrl, clientId);
+
+            } catch (error) {
+                console.error('Routing error:', error);
+                showError(error.message || 'Unable to route to cell');
+            }
+        }
+
+        // Start routing immediately on page load
+        window.addEventListener('load', routeToCell);
+    </script>
+    <script src="https://celladmin.sb.seibtribe.us/demo-panel-embed.js"></script>
+</body>
+</html>
