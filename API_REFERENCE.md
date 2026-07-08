@@ -4,7 +4,7 @@ Endpoint map for the deployed AWS demo. Two API surfaces exist:
 
 - **Global routing API** (one, in us-east-1; stack `{project}-routing`) — routing
   decisions, admin operations, global client tracking. With a custom domain it
-  is `https://cellapi.{domain}`; otherwise the API Gateway URL from the stack's
+  is `https://api.{domain}`; otherwise the API Gateway URL from the stack's
   `RoutingApiEndpoint` output.
 - **Cell API** (one per cell; stack `{project}-cell-{cellId}`) — the cell's own
   info, health, and visitor tracking. The cell SPA only ever talks to its own

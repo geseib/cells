@@ -73,8 +73,8 @@ account-specific values (SAM bucket, domain, hosted zone).
 - **One stack per cell** (`cell-template.yaml`): per-cell S3+CloudFront, API
   Gateway, Lambdas, DynamoDB table, CloudWatch dashboard
 
-With a custom domain: cells at `cell-{cell-id}.{domain}`, admin at
-`celladmin.{domain}`, API at `cellapi.{domain}`; ACM certificates are created
+With a custom domain: cells at `{cell-id}.{domain}`, admin at
+`admin.{domain}`, API at `api.{domain}`; ACM certificates are created
 automatically.
 
 ### Environment variables (alternative to config.json)

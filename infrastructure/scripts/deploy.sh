@@ -17,6 +17,7 @@ if [ -f "$CONFIG_FILE" ] && command -v jq >/dev/null 2>&1; then
     AZS_PER_REGION="${AZS_PER_REGION:-$(jq -r '.azsPerRegion // 2' $CONFIG_FILE)}"
     DOMAIN_NAME="${DOMAIN_NAME:-$(jq -r '.domainName // empty' $CONFIG_FILE)}"
     HOSTED_ZONE_ID="${HOSTED_ZONE_ID:-$(jq -r '.hostedZoneId // empty' $CONFIG_FILE)}"
+    SITE_DOMAIN_NAME="${SITE_DOMAIN_NAME:-$(jq -r '.siteDomainName // empty' $CONFIG_FILE)}"
     AWS_PROFILE_CONFIG=$(jq -r '.deployment.awsProfile // empty' $CONFIG_FILE)
     
     # Set AWS profile if specified
@@ -32,6 +33,7 @@ else
     AZS_PER_REGION="${AZS_PER_REGION:-2}"
     DOMAIN_NAME="${DOMAIN_NAME:-}"
     HOSTED_ZONE_ID="${HOSTED_ZONE_ID:-}"
+    SITE_DOMAIN_NAME="${SITE_DOMAIN_NAME:-}"
 fi
 
 echo -e "${GREEN}AWS Cell Architecture Demo - Deployment Script${NC}"
@@ -84,6 +86,20 @@ sam deploy \
     --parameter-overrides ${ROUTING_PARAMS} \
     --no-confirm-changeset \
     --no-fail-on-empty-changeset
+
+# Deploy educational-site hosting (S3 + CloudFront + custom domain) when configured
+if [ ! -z "$SITE_DOMAIN_NAME" ] && [ ! -z "$HOSTED_ZONE_ID" ]; then
+    echo -e "\n${YELLOW}Deploying educational site hosting (${SITE_DOMAIN_NAME})...${NC}"
+    sam deploy \
+        --template-file ../templates/site-hosting.yaml \
+        --stack-name ${PROJECT_NAME}-site \
+        --s3-bucket ${SAM_BUCKET} \
+        --region us-east-1 \
+        --capabilities CAPABILITY_IAM \
+        --parameter-overrides ProjectName=${PROJECT_NAME} SiteDomainName=${SITE_DOMAIN_NAME} HostedZoneId=${HOSTED_ZONE_ID} \
+        --no-confirm-changeset \
+        --no-fail-on-empty-changeset
+fi
 
 # Get routing API endpoint
 ROUTING_API=$(aws cloudformation describe-stacks \
@@ -148,8 +164,8 @@ ADMIN_URL=$(aws cloudformation describe-stacks \
 echo -e "\n${GREEN}Deployment completed successfully!${NC}"
 echo "================================================"
 if [ ! -z "$DOMAIN_NAME" ]; then
-    echo -e "${GREEN}Routing API:${NC} https://cellapi.${DOMAIN_NAME}"
-    echo -e "${GREEN}Admin Dashboard:${NC} https://celladmin.${DOMAIN_NAME}"
+    echo -e "${GREEN}Routing API:${NC} https://api.${DOMAIN_NAME}"
+    echo -e "${GREEN}Admin Dashboard:${NC} https://admin.${DOMAIN_NAME}"
 else
     echo -e "${GREEN}Routing API:${NC} ${ROUTING_API}"
     echo -e "${GREEN}Admin Dashboard:${NC} ${ADMIN_URL}"

@@ -75,14 +75,20 @@ exact env-var line to run the Playwright E2E suite:
 cd tests && ADMIN_BASE_URL=... ROUTING_API_URL=... CELL_URLS=... CELL_API_URLS=... npm test
 ```
 
-## Adding a custom domain (second pass)
+## Adding custom domains (second pass)
 
-Set `domainName` and `hostedZoneId` in `config.json` and re-run `./setup.sh`.
-You get:
+Set `domainName` (e.g. `cells.example.com`), optionally `siteDomainName`
+(e.g. `cellintro.example.com`), and `hostedZoneId` in `config.json`, then
+re-run `./setup.sh`. You get:
 
-- Admin dashboard: `https://celladmin.{domain}`
-- Routing API: `https://cellapi.{domain}`
-- Cells **in us-east-1**: `https://cell-{cell-id}.{domain}`
+- Educational site: `https://{siteDomainName}` (own S3+CloudFront stack)
+- Admin dashboard + router pages: `https://admin.{domain}`
+- Routing API: `https://api.{domain}`
+- Cells **in us-east-1**: `https://{cell-id}.{domain}`
+
+The demo hangs everything under the `domainName` subdomain, so records like
+`us-east-1-az1.cells.example.com` live in your parent hosted zone — no
+delegation needed.
 
 **Limitation:** CloudFront only accepts ACM certificates from us-east-1, and
 the cell template creates its certificate in the cell's own region — so cells

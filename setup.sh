@@ -40,6 +40,7 @@ fi
 PROJECT_NAME=$(jq -r '.projectName' $CONFIG_FILE)
 SAM_BUCKET=$(jq -r '.samBucket' $CONFIG_FILE)
 DOMAIN_NAME=$(jq -r '.domainName' $CONFIG_FILE)
+SITE_DOMAIN_NAME=$(jq -r '.siteDomainName // empty' $CONFIG_FILE)
 HOSTED_ZONE_ID=$(jq -r '.hostedZoneId' $CONFIG_FILE)
 REGIONS=$(jq -r '.regions | join(",")' $CONFIG_FILE)
 AZS_PER_REGION=$(jq -r '.azsPerRegion' $CONFIG_FILE)
@@ -142,9 +143,9 @@ echo "  📦 SAM Bucket: $SAM_BUCKET"
 if [ "$DOMAIN_NAME" != "null" ] && [ ! -z "$DOMAIN_NAME" ]; then
     echo "  🌐 Domain: $DOMAIN_NAME"
     echo "  📍 URLs will be:"
-    echo "     • Admin: https://celladmin.$DOMAIN_NAME"
-    echo "     • API: https://cellapi.$DOMAIN_NAME"
-    echo "     • Cells: https://cell-{cell-id}.$DOMAIN_NAME"
+    echo "     • Admin: https://admin.$DOMAIN_NAME"
+    echo "     • API: https://api.$DOMAIN_NAME"
+    echo "     • Cells: https://{cell-id}.$DOMAIN_NAME"
 else
     echo "  🌐 Domain: Using AWS-generated URLs"
 fi
@@ -171,6 +172,11 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     
     if [ "$DOMAIN_NAME" != "null" ] && [ ! -z "$DOMAIN_NAME" ]; then
         export DOMAIN_NAME="$DOMAIN_NAME"
+        export HOSTED_ZONE_ID="$HOSTED_ZONE_ID"
+    fi
+
+    if [ "$SITE_DOMAIN_NAME" != "null" ] && [ ! -z "$SITE_DOMAIN_NAME" ]; then
+        export SITE_DOMAIN_NAME="$SITE_DOMAIN_NAME"
         export HOSTED_ZONE_ID="$HOSTED_ZONE_ID"
     fi
     

@@ -33,10 +33,10 @@ Resources:
     Type: AWS::CertificateManager::Certificate
     Condition: HasCustomDomain
     Properties:
-      DomainName: !Sub 'cellapi.${DomainName}'
+      DomainName: !Sub 'api.${DomainName}'
       ValidationMethod: DNS
       DomainValidationOptions:
-        - DomainName: !Sub 'cellapi.${DomainName}'
+        - DomainName: !Sub 'api.${DomainName}'
           HostedZoneId: !Ref HostedZoneId
 
   # API Gateway for routing
@@ -50,7 +50,7 @@ Resources:
       # inner fields resolve to AWS::NoValue.
       Domain: !If
         - HasCustomDomain
-        - DomainName: !Sub 'cellapi.${DomainName}'
+        - DomainName: !Sub 'api.${DomainName}'
           CertificateArn: !Ref ApiCertificate
           Route53:
             HostedZoneId: !Ref HostedZoneId
@@ -275,10 +275,10 @@ Resources:
     Type: AWS::CertificateManager::Certificate
     Condition: HasCustomDomain
     Properties:
-      DomainName: !Sub 'celladmin.${DomainName}'
+      DomainName: !Sub 'admin.${DomainName}'
       ValidationMethod: DNS
       DomainValidationOptions:
-        - DomainName: !Sub 'celladmin.${DomainName}'
+        - DomainName: !Sub 'admin.${DomainName}'
           HostedZoneId: !Ref HostedZoneId
 
   # CloudFront for admin interface
@@ -296,7 +296,7 @@ Resources:
         DefaultRootObject: index.html
         Aliases: !If 
           - HasCustomDomain
-          - [!Sub 'celladmin.${DomainName}']
+          - [!Sub 'admin.${DomainName}']
           - !Ref 'AWS::NoValue'
         ViewerCertificate: !If
           - HasCustomDomain
@@ -316,7 +316,7 @@ Resources:
     Condition: HasCustomDomain
     Properties:
       HostedZoneId: !Ref HostedZoneId
-      Name: !Sub 'celladmin.${DomainName}'
+      Name: !Sub 'admin.${DomainName}'
       Type: A
       AliasTarget:
         DNSName: !GetAtt AdminCloudFront.DomainName

@@ -18,7 +18,7 @@ workload into isolated cells with consistent-hash routing. Two deliverables:
 | `frontend/spa/` | Per-cell page (React + webpack) |
 | `frontend/admin/` | Admin dashboard (React + webpack, recharts) |
 | `frontend/router/` | Static router pages (`index.html`, `auto.html`) deployed to the admin bucket |
-| `infrastructure/templates/` | Live templates only: `global-resources.yaml`, `routing-layer.yaml`, `cell-template.yaml` |
+| `infrastructure/templates/` | Live templates only: `global-resources.yaml`, `routing-layer.yaml`, `cell-template.yaml`, `site-hosting.yaml` (educational site on S3+CloudFront) |
 | `infrastructure/scripts/` | `deploy.sh`, `deploy-frontend.sh`, `smoke-test.sh` (post-deploy verification), `cleanup.sh` |
 | `tests/` | Playwright E2E suite, parameterized by env vars (`tests/tests/config.ts`) |
 
@@ -47,6 +47,12 @@ sed-substitutes `%%ROUTING_API_URL%%` into the router pages).
 `config.json` is **gitignored** — it holds account-specific values. Never commit
 real account IDs, hosted zone IDs, domains, or API Gateway IDs anywhere;
 `config.example.json` is the template.
+
+Domain naming (all config-driven): educational site at `{siteDomainName}`
+(e.g. `cellintro.example.com`), demo under `{domainName}` (e.g.
+`cells.example.com`): `api.{domainName}`, `admin.{domainName}`,
+`{cellId}.{domainName}`. Cell names keep the full cellId (region+AZ) because
+region-only names can't distinguish the AZs.
 
 ## Invariants & gotchas
 

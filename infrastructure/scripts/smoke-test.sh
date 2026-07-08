@@ -54,8 +54,8 @@ echo "================================================"
 ROUTING_API=$(stack_output "${PROJECT_NAME}-routing" RoutingApiEndpoint us-east-1)
 ADMIN_URL=$(stack_output "${PROJECT_NAME}-routing" AdminUrl us-east-1)
 if [ -n "$DOMAIN_NAME" ]; then
-    ROUTING_API="https://cellapi.${DOMAIN_NAME}"
-    ADMIN_URL="https://celladmin.${DOMAIN_NAME}"
+    ROUTING_API="https://api.${DOMAIN_NAME}"
+    ADMIN_URL="https://admin.${DOMAIN_NAME}"
 fi
 
 if [ -z "$ROUTING_API" ] || [ "$ROUTING_API" == "None" ]; then

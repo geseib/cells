@@ -48,8 +48,8 @@ ADMIN_URL=$(aws cloudformation describe-stacks \
     --output text)
 
 if [ ! -z "$DOMAIN_NAME" ]; then
-    ROUTING_API="https://cellapi.${DOMAIN_NAME}"
-    ADMIN_URL="https://celladmin.${DOMAIN_NAME}"
+    ROUTING_API="https://api.${DOMAIN_NAME}"
+    ADMIN_URL="https://admin.${DOMAIN_NAME}"
 fi
 
 if [ -z "$ROUTING_API" ] || [ "$ROUTING_API" == "None" ]; then
@@ -129,6 +129,25 @@ for region in "${REGION_ARRAY[@]}"; do
         fi
     done
 done
+
+# Deploy the educational site if its hosting stack exists
+SITE_BUCKET=$(aws cloudformation describe-stacks \
+    --stack-name ${PROJECT_NAME}-site \
+    --region us-east-1 \
+    --query 'Stacks[0].Outputs[?OutputKey==`SiteBucket`].OutputValue' \
+    --output text 2>/dev/null || true)
+
+if [ ! -z "$SITE_BUCKET" ] && [ "$SITE_BUCKET" != "None" ]; then
+    echo -e "\n${YELLOW}Building and deploying the educational site...${NC}"
+    (cd ../site && npm install && npm run build)
+    aws s3 sync ../site/dist/ s3://${SITE_BUCKET}/ --delete
+    SITE_URL=$(aws cloudformation describe-stacks \
+        --stack-name ${PROJECT_NAME}-site \
+        --region us-east-1 \
+        --query 'Stacks[0].Outputs[?OutputKey==`SiteUrl`].OutputValue' \
+        --output text)
+    echo -e "${GREEN}Educational site:${NC} ${SITE_URL}"
+fi
 
 # Get URLs
 echo -e "\n${GREEN}Frontend deployment completed!${NC}"

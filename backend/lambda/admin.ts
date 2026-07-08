@@ -201,11 +201,11 @@ async function handleGetCellUrls() {
 
   const cellUrls = activeCells.map(cell => {
     const baseUrl = CUSTOM_DOMAIN 
-      ? `https://cell-${cell.cellId}.${CUSTOM_DOMAIN}`
+      ? `https://${cell.cellId}.${CUSTOM_DOMAIN}`
       : `https://${cell.cellId}-cloudfront-url.cloudfront.net`;
     
     const routingUrl = CUSTOM_DOMAIN 
-      ? `https://cellapi.${CUSTOM_DOMAIN}/route/`
+      ? `https://api.${CUSTOM_DOMAIN}/route/`
       : `https://api-gateway-url.execute-api.${cell.region}.amazonaws.com/prod/route/`;
 
     return {
