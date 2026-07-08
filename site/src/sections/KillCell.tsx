@@ -44,8 +44,9 @@ const KillCell: React.FC = () => {
       <p>
         This is the payoff. {CLIENT_COUNT} clients are pinned to {CELL_COUNT} cells. Click a cell to
         fail it: its virtual nodes vanish from the ring, and <em>only its clients</em> slide
-        clockwise into the surviving cells. Everyone else keeps the exact same assignment — no
-        global reshuffle, no stampede, no cold caches for the unaffected 75%.
+        clockwise into the surviving cells — watch them arrive still wearing their old cell's
+        color. Everyone else keeps the exact same assignment — no global reshuffle, no stampede,
+        no cold caches for the unaffected 75%.
       </p>
       <div className="panel">
         <div className="cell-grid">
@@ -70,15 +71,15 @@ const KillCell: React.FC = () => {
                 </div>
                 <div className="mini-dots">
                   {residents.slice(0, 60).map((clientId) => {
-                    const movedHere = baseline.get(clientId) !== cell.cellId;
+                    // Dots keep their ORIGINAL cell's color, so refugees from a
+                    // failed cell are visible at a glance inside their new home.
+                    const originCell = baseline.get(clientId)!;
+                    const movedHere = originCell !== cell.cellId;
                     return (
                       <span
                         key={clientId}
-                        title={movedHere ? `${clientId} (remapped from ${baseline.get(clientId)})` : clientId}
-                        style={{
-                          background: cellColor(cell.cellId),
-                          outline: movedHere ? '2px solid var(--critical)' : 'none',
-                        }}
+                        title={movedHere ? `${clientId} — moved here from ${originCell}` : clientId}
+                        style={{ background: cellColor(originCell) }}
                       />
                     );
                   })}
@@ -95,7 +96,7 @@ const KillCell: React.FC = () => {
         <div className="stat-row">
           <div className="stat">
             <div className={`value ${anyFailed ? 'bad' : ''}`}>{Math.round((moved / CLIENT_COUNT) * 100)}%</div>
-            <div className="label">of clients remapped (red outline)</div>
+            <div className="label">of clients remapped (dots in their old color)</div>
           </div>
           <div className="stat">
             <div className={`value ${anyFailed ? 'good' : ''}`}>{100 - Math.round((moved / CLIENT_COUNT) * 100)}%</div>
