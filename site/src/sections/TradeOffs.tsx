@@ -26,12 +26,14 @@ const TradeOffs: React.FC = () => (
         </p>
       </div>
       <div className="panel">
-        <h3>🧭 The router is sacred</h3>
+        <h3>🧭 The router is sacred — or optional</h3>
         <p>
           The routing layer is the one component every request touches, so its availability bounds
-          the whole system. Keep it as thin as possible — ideally a static, deterministic
-          computation (like the hash you just played with) that can be cached, replicated, and even
-          run client-side.
+          the whole system. Keep it as thin as possible. Better yet, notice that the ring is a
+          pure function of the cell registry — <em>identical everywhere it runs</em>. So routing
+          doesn't need to be a central service at all: every cell can run the same hash and
+          redirect misrouted clients to their true home, or a smart client can compute its own
+          cell locally. Then DNS is the only shared dependency left.
         </p>
       </div>
       <div className="panel">

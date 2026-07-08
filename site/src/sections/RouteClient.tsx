@@ -131,6 +131,9 @@ const RouteClient: React.FC = () => {
         <strong>Same code as production:</strong> this page imports the repository's actual{' '}
         <code>ConsistentHash</code> class from <code>backend/lib/consistent-hash.ts</code> — the one
         the routing Lambda runs. What you see here is exactly what the deployed router decides.
+        In fact, this page IS a router: since the computation is identical wherever it runs, the
+        "routing layer" could live inside every cell — or in the client — rather than being a
+        separate service (more in trade-offs below).
       </div>
     </section>
   );
