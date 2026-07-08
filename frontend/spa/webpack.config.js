@@ -31,7 +31,8 @@ module.exports = {
       title: 'AWS Cell Architecture Demo'
     }),
     new webpack.DefinePlugin({
-      'process.env.REACT_APP_API_URL': JSON.stringify(process.env.REACT_APP_API_URL || '')
+      'process.env.CELL_API_URL': JSON.stringify(process.env.CELL_API_URL || ''),
+      'process.env.ADMIN_URL': JSON.stringify(process.env.ADMIN_URL || '')
     })
   ],
   devServer: {

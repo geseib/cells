@@ -145,6 +145,33 @@
     </div>
 
     <script>
+        // ROUTING_API_URL is substituted by infrastructure/scripts/deploy-frontend.sh
+        // from the routing stack's API endpoint at deploy time.
+        const ROUTING_API_URL = '%%ROUTING_API_URL%%';
+
+        function getApiUrl() {
+            if (window.location.hostname === 'localhost') {
+                return 'http://localhost:3000/prod';
+            }
+            return ROUTING_API_URL;
+        }
+
+        // Cache of cell URLs from the admin API, keyed by cellId
+        let cellUrlCache = {};
+
+        async function fetchCellUrls() {
+            const response = await fetch(`${getApiUrl()}/admin/cell-urls`);
+            if (!response.ok) {
+                throw new Error('Unable to fetch cell URLs');
+            }
+            const data = await response.json();
+            cellUrlCache = {};
+            for (const cell of data.cellUrls) {
+                cellUrlCache[cell.cellId] = cell;
+            }
+            return data.cellUrls;
+        }
+
         // Get or generate client ID
         function getClientId() {
             let clientId = localStorage.getItem('cellClientId');
@@ -184,85 +211,27 @@
             `;
         }
 
-        // Route to appropriate cell
-        async function routeToCell() {
-            const spinner = document.getElementById('spinner');
-            if (spinner) spinner.style.display = 'block';
-            document.getElementById('error').innerHTML = '';
-            
-            const clientId = getClientId();
-            updateStatus(`Routing ${clientId} to optimal cell...`);
-
-            try {
-                // Determine API endpoint based on hostname
-                const apiUrl = window.location.hostname === 'localhost'
-                    ? 'http://localhost:3000/prod'
-                    : window.location.hostname.includes('sb.seibtribe.us')
-                        ? 'https://cellapi.sb.seibtribe.us'
-                        : 'https://lo4603bdh4.execute-api.us-east-1.amazonaws.com/prod';
-
-                // Get routing decision
-                const response = await fetch(`${apiUrl}/admin/client-route/${clientId}`);
-                if (!response.ok) {
-                    throw new Error('Routing service unavailable');
-                }
-
-                const routingData = await response.json();
-                showCellInfo(routingData);
-
-                // Get cell URLs to determine redirect target
-                const cellUrlsResponse = await fetch(`${apiUrl}/admin/cell-urls`);
-                if (!cellUrlsResponse.ok) {
-                    throw new Error('Unable to fetch cell URLs');
-                }
-
-                const cellUrlsData = await cellUrlsResponse.json();
-                const targetCell = cellUrlsData.cellUrls.find(
-                    cell => cell.cellId === routingData.targetCell.cellId
-                );
-
-                if (!targetCell || !targetCell.active) {
-                    throw new Error('Target cell is not available');
-                }
-
-                updateStatus(`Redirecting to ${targetCell.cellId}...`);
-
-                // Redirect to cell after short delay
-                setTimeout(() => {
-                    window.location.href = `${targetCell.directUrl}?clientId=${encodeURIComponent(clientId)}`;
-                }, 2000);
-
-            } catch (error) {
-                console.error('Routing error:', error);
-                showError(error.message || 'Unable to route to cell');
-            }
-        }
-
         // Route a specific client ID
         async function routeSpecificClient() {
             const clientIdInput = document.getElementById('clientIdInput');
             const clientId = clientIdInput.value.trim();
-            
+
             if (!clientId) {
                 showRoutingResult('Please enter a client ID', false);
                 return;
             }
 
             try {
-                const apiUrl = window.location.hostname === 'localhost'
-                    ? 'http://localhost:3000/prod'
-                    : window.location.hostname.includes('sb.seibtribe.us')
-                        ? 'https://cellapi.sb.seibtribe.us'
-                        : 'https://lo4603bdh4.execute-api.us-east-1.amazonaws.com/prod';
-
-                const response = await fetch(`${apiUrl}/admin/client-route/${clientId}`);
+                const response = await fetch(`${getApiUrl()}/admin/client-route/${clientId}`);
                 if (!response.ok) {
                     throw new Error('Routing lookup failed');
                 }
 
                 const data = await response.json();
                 const targetCell = data.targetCell;
-                
+                await fetchCellUrls();
+                const cellUrl = cellUrlCache[targetCell.cellId] ? cellUrlCache[targetCell.cellId].directUrl : '';
+
                 showRoutingResult(`
                     <div>
                         <h3>🎯 Routing Result for "${clientId}"</h3>
@@ -270,16 +239,17 @@
                         <p><strong>Region:</strong> ${targetCell.region}</p>
                         <p><strong>Availability Zone:</strong> ${targetCell.availabilityZone}</p>
                         <p><strong>Hash Value:</strong> ${data.hashValue}</p>
-                        <p><strong>Cell URL:</strong> 
-                            <a href="https://cell-${targetCell.cellId}.sb.seibtribe.us" 
-                               style="color: #43e97b; text-decoration: underline;" 
+                        ${cellUrl ? `
+                        <p><strong>Cell URL:</strong>
+                            <a href="${cellUrl}"
+                               style="color: #43e97b; text-decoration: underline;"
                                target="_blank">
-                               https://cell-${targetCell.cellId}.sb.seibtribe.us
+                               ${cellUrl}
                             </a>
                         </p>
                         <button onclick="redirectToCell('${targetCell.cellId}')" class="retry-button">
                             Go to Cell Now
-                        </button>
+                        </button>` : ''}
                     </div>
                 `, true);
 
@@ -295,8 +265,10 @@
         }
 
         function redirectToCell(cellId) {
+            const cell = cellUrlCache[cellId];
+            if (!cell) return;
             const urlClientId = document.getElementById('clientIdInput').value || getClientId();
-            window.location.href = `https://cell-${cellId}.sb.seibtribe.us?clientId=${encodeURIComponent(urlClientId)}`;
+            window.location.href = `${cell.directUrl}?clientId=${encodeURIComponent(urlClientId)}`;
         }
 
         // Show client input section after initial routing
@@ -304,22 +276,16 @@
             document.getElementById('clientInputSection').style.display = 'block';
         }
 
-        // Enhanced routing function
+        // Route the current browser's client ID and offer a redirect
         async function routeToCell() {
             document.getElementById('spinner').style.display = 'block';
             document.getElementById('error').innerHTML = '';
-            
+
             const clientId = getClientId();
             updateStatus(`🔄 Routing ${clientId} to optimal cell...`);
 
             try {
-                const apiUrl = window.location.hostname === 'localhost'
-                    ? 'http://localhost:3000/prod'
-                    : window.location.hostname.includes('sb.seibtribe.us')
-                        ? 'https://cellapi.sb.seibtribe.us'
-                        : 'https://lo4603bdh4.execute-api.us-east-1.amazonaws.com/prod';
-
-                const response = await fetch(`${apiUrl}/admin/client-route/${clientId}`);
+                const response = await fetch(`${getApiUrl()}/admin/client-route/${clientId}`);
                 if (!response.ok) {
                     throw new Error('Routing service unavailable');
                 }
@@ -327,25 +293,18 @@
                 const routingData = await response.json();
                 showCellInfo(routingData);
 
-                const cellUrlsResponse = await fetch(`${apiUrl}/admin/cell-urls`);
-                if (!cellUrlsResponse.ok) {
-                    throw new Error('Unable to fetch cell URLs');
-                }
-
-                const cellUrlsData = await cellUrlsResponse.json();
-                const targetCell = cellUrlsData.cellUrls.find(
-                    cell => cell.cellId === routingData.targetCell.cellId
-                );
+                await fetchCellUrls();
+                const targetCell = cellUrlCache[routingData.targetCell.cellId];
 
                 if (!targetCell || !targetCell.active) {
                     throw new Error('Target cell is not available');
                 }
 
                 updateStatus(`✅ Ready! You'll be redirected to ${targetCell.cellId}...`);
-                
+
                 // Show the client input section after successful routing
                 showClientInputSection();
-                
+
                 // Add manual redirect button instead of auto-redirect
                 const redirectButton = document.createElement('button');
                 redirectButton.className = 'retry-button';
@@ -355,6 +314,7 @@
                     window.location.href = `${targetCell.directUrl}?clientId=${encodeURIComponent(clientId)}`;
                 };
                 document.getElementById('cellInfo').appendChild(redirectButton);
+                document.getElementById('spinner').style.display = 'none';
 
             } catch (error) {
                 console.error('Routing error:', error);
@@ -380,7 +340,7 @@
         window.addEventListener('load', function() {
             const spinner = document.getElementById('spinner');
             if (spinner) spinner.style.display = 'none';
-            
+
             // Add a button to route current client
             const currentClientSection = document.createElement('div');
             currentClientSection.innerHTML = `
@@ -396,11 +356,11 @@
                 </div>
             `;
             document.getElementById('clientInputSection').parentElement.insertBefore(
-                currentClientSection, 
+                currentClientSection,
                 document.getElementById('clientInputSection')
             );
         });
     </script>
-    <script src="https://celladmin.sb.seibtribe.us/demo-panel-embed.js"></script>
+    <script src="/demo-panel-embed.js"></script>
 </body>
 </html>

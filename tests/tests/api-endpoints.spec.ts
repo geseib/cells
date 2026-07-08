@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { ROUTING_API_URL } from './config';
 
 test.describe('API Endpoints Tests', () => {
-  const baseApiUrl = 'https://lo4603bdh4.execute-api.us-east-1.amazonaws.com/prod';
-  
+  test.skip(!ROUTING_API_URL, 'ROUTING_API_URL not set — no deployment to test against');
+  const baseApiUrl = ROUTING_API_URL;
+
   test('should return cell information from /admin/cells', async ({ request }) => {
     const response = await request.get(`${baseApiUrl}/admin/cells`);
     

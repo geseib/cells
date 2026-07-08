@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { ADMIN_BASE_URL, isApiRequest } from './config';
 
 test.describe('Router Pages Tests', () => {
-  
+  test.skip(!ADMIN_BASE_URL, 'ADMIN_BASE_URL not set — no deployment to test against');
+
   test('should load router page correctly', async ({ page }) => {
     await page.goto('/router.html');
     
@@ -43,7 +45,7 @@ test.describe('Router Pages Tests', () => {
     const apiCalls: string[] = [];
     
     page.on('request', request => {
-      if (request.url().includes('execute-api') || request.url().includes('cellapi.sb.seibtribe.us')) {
+      if (isApiRequest(request.url())) {
         apiCalls.push(request.url());
       }
     });
@@ -96,10 +98,10 @@ test.describe('Router Pages Tests', () => {
     // Wait for potential redirect
     await page.waitForTimeout(8000);
     
-    // Check if we were redirected to a cell URL
+    // Check if we were redirected off the router page (to a cell URL)
     const currentUrl = page.url();
-    const cellUrlPattern = /cell-us-east-1-az\d+\.sb\.seibtribe\.us/;
-    
+    const cellUrlPattern = /cell-/;
+
     // Either we should be redirected or see the redirect message
     const isOnCellPage = cellUrlPattern.test(currentUrl);
     const hasRedirectMessage = await page.locator('text=/Redirecting/i').isVisible();
@@ -114,7 +116,7 @@ test.describe('Router Pages Tests', () => {
     
     // Track navigation for client ID parameter
     page.on('framenavigated', async frame => {
-      if (frame === page.mainFrame() && frame.url().includes('cell-us-east-1')) {
+      if (frame === page.mainFrame() && frame.url().includes('cell-')) {
         const url = new URL(frame.url());
         const clientIdParam = url.searchParams.get('clientId');
         expect(clientIdParam).toBe(testClientId);

@@ -53,12 +53,13 @@ npm install
 npm run build
 cd ../infrastructure/scripts
 
-# Deploy global resources
+# Deploy global resources (us-east-1, alongside the routing layer)
 echo -e "\n${YELLOW}Deploying global resources...${NC}"
 sam deploy \
     --template-file ../templates/global-resources.yaml \
     --stack-name ${PROJECT_NAME}-global \
     --s3-bucket ${SAM_BUCKET} \
+    --region us-east-1 \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides ProjectName=${PROJECT_NAME} \
     --no-confirm-changeset \
@@ -109,10 +110,18 @@ for region in "${REGION_ARRAY[@]}"; do
         CELL_ID="${region}-az${AZ_COUNT}"
         echo -e "${GREEN}Deploying cell: ${CELL_ID} in ${az}${NC}"
         
-        # Build cell parameter overrides
+        # Build cell parameter overrides.
+        # Custom domains are only wired for us-east-1 cells: cell-template.yaml
+        # creates its ACM certificate in the stack's own region, and CloudFront
+        # only accepts us-east-1 certificates. Other regions fall back to the
+        # cell's CloudFront URL.
         CELL_PARAMS="ProjectName=${PROJECT_NAME} CellId=${CELL_ID} CellRegion=${region} AvailabilityZone=${az} CellWeight=1"
         if [ ! -z "$DOMAIN_NAME" ] && [ ! -z "$HOSTED_ZONE_ID" ]; then
-            CELL_PARAMS="${CELL_PARAMS} DomainName=${DOMAIN_NAME} HostedZoneId=${HOSTED_ZONE_ID}"
+            if [ "$region" == "us-east-1" ]; then
+                CELL_PARAMS="${CELL_PARAMS} DomainName=${DOMAIN_NAME} HostedZoneId=${HOSTED_ZONE_ID}"
+            else
+                echo -e "${YELLOW}Note: skipping custom domain for ${CELL_ID} (CloudFront requires a us-east-1 certificate); it will use its CloudFront URL${NC}"
+            fi
         fi
         
         sam deploy \

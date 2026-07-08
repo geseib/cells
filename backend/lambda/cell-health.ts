@@ -8,7 +8,7 @@ const ddbDoc = DynamoDBDocumentClient.from(client);
 const CELL_ID = process.env.CELL_ID!;
 const CELL_DATA_TABLE = process.env.CELL_DATA_TABLE!;
 
-let healthStatus = {
+const healthStatus = {
   status: 'healthy',
   lastCheck: new Date().toISOString(),
   checks: {

@@ -7,9 +7,11 @@ const App: React.FC = () => {
   const [apiUrl, setApiUrl] = useState('');
 
   useEffect(() => {
-    const baseUrl = window.location.hostname === 'localhost' 
-      ? 'http://localhost:3000/prod' 
-      : 'https://lo4603bdh4.execute-api.us-east-1.amazonaws.com/prod';
+    // ADMIN_API_URL is injected at build time by webpack DefinePlugin;
+    // deploy-frontend.sh reads it from the routing stack's outputs.
+    const baseUrl = window.location.hostname === 'localhost'
+      ? 'http://localhost:3000/prod'
+      : (process.env.ADMIN_API_URL || '');
     setApiUrl(baseUrl);
   }, []);
 
@@ -148,57 +150,8 @@ const App: React.FC = () => {
               🚀 Auto Router
             </a>
             
-            <a 
-              href="https://cell-us-east-1-az1.sb.seibtribe.us" 
-              target="_blank"
-              rel="noopener noreferrer"
-              className="nav-btn"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem 1rem',
-                background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: '10px',
-                fontWeight: '500',
-                transition: 'transform 0.2s ease',
-                textAlign: 'center'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              🌌 Cell us-east-1-az1
-            </a>
-            
-            <a 
-              href="https://cell-us-east-1-az2.sb.seibtribe.us" 
-              target="_blank"
-              rel="noopener noreferrer"
-              className="nav-btn"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                padding: '0.75rem 1rem',
-                background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: '10px',
-                fontWeight: '500',
-                transition: 'transform 0.2s ease',
-                textAlign: 'center'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              🌅 Cell us-east-1-az2
-            </a>
-            
-            <a 
+            {/* Per-cell direct links are listed in the Cell Demo tab, sourced from the API */}
+            <a
               href="/demo-script.html" 
               className="nav-btn"
               style={{

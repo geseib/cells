@@ -60,41 +60,9 @@ interface CellDemoProps {
 
 const COLORS = ['#5e72e4', '#2dce89', '#11cdef', '#f5365c', '#8965e0', '#f3a4b5'];
 
-// Hash function to simulate consistent hashing like the backend
-const hashClientId = (clientId: string): number => {
-  let hash = 0;
-  for (let i = 0; i < clientId.length; i++) {
-    const char = clientId.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return Math.abs(hash);
-};
-
-// Calculate client position as virtual node number
-const getClientNodePosition = (clientId: string, totalVirtualNodes: number): number => {
-  const hash = hashClientId(clientId);
-  return hash % totalVirtualNodes;
-};
-
-// Find which cell a client belongs to using consistent hashing
-const findClientCell = (clientId: string, hashRing: HashRingData | null): string | null => {
-  if (!hashRing || !hashRing.ring || hashRing.ring.length === 0) return null;
-  
-  const nodePosition = getClientNodePosition(clientId, hashRing.totalVirtualNodes);
-  
-  // Sort the ring by position to ensure proper lookup
-  const sortedRing = [...hashRing.ring].sort((a, b) => a.position - b.position);
-  
-  // Find the next virtual node clockwise from the client's position
-  let targetNode = sortedRing.find(node => node.position >= nodePosition);
-  if (!targetNode) {
-    // Wrap around to the first node
-    targetNode = sortedRing[0];
-  }
-  
-  return targetNode?.cellId || null;
-};
+// Client -> cell mappings displayed below always come from the backend's own
+// routing decisions (the /clients response) - never from a client-side
+// re-implementation of the hash, which could drift from real routing.
 
 const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
   const [cells, setCells] = useState<CellData[]>([]);

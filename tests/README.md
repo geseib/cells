@@ -60,7 +60,7 @@ This comprehensive test suite validates all components of the Cell Architecture 
 
 1. **Install Dependencies**
    ```bash
-   cd /Users/georgeseib/Documents/projects/cells/tests
+   cd tests
    npm install
    ```
 
@@ -100,7 +100,26 @@ npx playwright test --project=webkit
 
 ## Test Configuration
 
-- **Base URL**: `https://celladmin.sb.seibtribe.us`
+The suite targets whatever deployment you point it at via environment variables
+(see `tests/config.ts`). Suites whose endpoints are not configured are skipped,
+so the suite passes cleanly when nothing is deployed.
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `ADMIN_BASE_URL` | Admin dashboard URL (Playwright `baseURL`) | `https://celladmin.cells.example.com` |
+| `ROUTING_API_URL` | Global routing API | `https://abc123glob.execute-api.us-east-1.amazonaws.com/prod` |
+| `CELL_URLS` | Comma-separated cell page URLs | `https://cell-us-east-1-az1.cells.example.com,...` |
+| `CELL_API_URLS` | Comma-separated cell API URLs (same order) | `https://abc123cell1.execute-api.us-east-1.amazonaws.com/prod,...` |
+
+Example run:
+```bash
+ADMIN_BASE_URL=https://celladmin.cells.example.com \
+ROUTING_API_URL=https://abc123glob.execute-api.us-east-1.amazonaws.com/prod \
+CELL_URLS=https://cell-us-east-1-az1.cells.example.com \
+CELL_API_URLS=https://abc123cell1.execute-api.us-east-1.amazonaws.com/prod \
+npm test
+```
+
 - **Browsers**: Chromium, Firefox, Safari/WebKit
 - **Retries**: 2 retries in CI, 0 locally
 - **Screenshots**: On failure only
@@ -109,12 +128,9 @@ npx playwright test --project=webkit
 ## API Endpoints Tested
 
 ### Global Routing API
-- Base: `https://lo4603bdh4.execute-api.us-east-1.amazonaws.com/prod`
 - Endpoints: `/admin/cells`, `/admin/hash-ring`, `/admin/cell-urls`, `/admin/client-route/{id}`, `/clients`, `/track-client`, `/qr-code`
 
 ### Cell-Specific APIs
-- **AZ1**: `https://rwa731jg5h.execute-api.us-east-1.amazonaws.com/prod`
-- **AZ2**: `https://uqy9mzzp05.execute-api.us-east-1.amazonaws.com/prod`
 - Endpoints: `/info`, `/health`, `/track-client`, `/clients/cell/{cellId}`
 
 ## Key Validations

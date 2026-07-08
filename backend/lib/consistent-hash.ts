@@ -1,9 +1,10 @@
-import * as crypto from 'crypto';
+import MD5 from 'crypto-js/md5';
 
 export interface Cell {
   cellId: string;
   region: string;
   availabilityZone: string;
+  /** Fractional multiplier of virtualNodes (1.0 = normal share, 2.0 = double). */
   weight: number;
   active: boolean;
 }
@@ -26,8 +27,10 @@ export class ConsistentHash {
   }
 
   private hash(key: string): number {
-    const hash = crypto.createHash('md5').update(key).digest();
-    return hash.readUInt32BE(0);
+    // First 4 bytes of the MD5 digest as an unsigned big-endian 32-bit int.
+    // crypto-js (instead of node:crypto) keeps this module isomorphic so the
+    // admin dashboard and the educational site can run the exact same ring.
+    return MD5(key).words[0] >>> 0;
   }
 
   addCell(cell: Cell): void {

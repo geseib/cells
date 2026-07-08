@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": false,
+    "baseUrl": ".",
+    "paths": {
+      // Types for the crypto-js import inside ../backend/lib/consistent-hash.ts.
+      // TypeScript resolves relative to the importing file, which would look in
+      // backend/node_modules - this keeps the site build standalone.
+      "crypto-js/*": ["./node_modules/@types/crypto-js/*"]
+    }
+  },
+  "include": ["src", "../backend/lib/consistent-hash.ts"]
+}

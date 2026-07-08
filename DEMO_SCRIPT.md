@@ -45,7 +45,7 @@ This demo showcases a fault-tolerant, scalable cell-based architecture using AWS
 **"Let's see how clients get consistently routed to the same cell every time."**
 
 #### Steps:
-1. **Open Router Page**: Navigate to `https://celladmin.sb.seibtribe.us/router.html`
+1. **Open Router Page**: Navigate to `https://celladmin.cells.example.com/router.html`
    
 2. **Show Automatic Routing**:
    - Point out your client ID being generated
@@ -107,7 +107,7 @@ This demo showcases a fault-tolerant, scalable cell-based architecture using AWS
 **"Now let's look at the global administrative view."**
 
 #### Steps:
-1. **Open Admin Dashboard**: Navigate to `https://celladmin.sb.seibtribe.us`
+1. **Open Admin Dashboard**: Navigate to `https://celladmin.cells.example.com`
 
 2. **Cell Status Overview**:
    - Show all cells and their health status
@@ -223,10 +223,10 @@ function routeClient(clientId) {
 
 | Component | URL | Purpose |
 |-----------|-----|---------|
-| **Router** | https://celladmin.sb.seibtribe.us/router.html | Client routing demo |
-| **Admin** | https://celladmin.sb.seibtribe.us | Operations dashboard |
-| **Cell 1** | https://cell-us-east-1-az1.sb.seibtribe.us | Purple Galaxy cell |
-| **Cell 2** | https://cell-us-east-1-az2.sb.seibtribe.us | Pink Sunset cell |
+| **Router** | https://celladmin.cells.example.com/router.html | Client routing demo |
+| **Admin** | https://celladmin.cells.example.com | Operations dashboard |
+| **Cell 1** | https://cell-us-east-1-az1.cells.example.com | Purple Galaxy cell |
+| **Cell 2** | https://cell-us-east-1-az2.cells.example.com | Pink Sunset cell |
 
 ---
 

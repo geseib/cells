@@ -45,25 +45,16 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Map CloudFront domains to their API endpoints
+  // CELL_API_URL and ADMIN_URL are injected at build time by webpack DefinePlugin;
+  // deploy-frontend.sh builds the SPA once per cell with that cell's API endpoint.
   const getApiUrl = () => {
-    const hostname = window.location.hostname;
-    
-    // Known CloudFront to API mappings for our cells
-    const apiMappings: { [key: string]: string } = {
-      'dux3dlzgmx6e3.cloudfront.net': 'https://rwa731jg5h.execute-api.us-east-1.amazonaws.com/prod',  // us-east-1-az1
-      'd3mvbkzb4meuxv.cloudfront.net': 'https://uqy9mzzp05.execute-api.us-east-1.amazonaws.com/prod', // us-east-1-az2
-      'd3lpwt3y0g5y6t.cloudfront.net': 'https://jtp1jdfxii.execute-api.us-west-2.amazonaws.com/prod', // us-west-2-az1
-      'diagecgk70yb9.cloudfront.net': 'https://83cn0vcix2.execute-api.us-west-2.amazonaws.com/prod',  // us-west-2-az2
-      'cell-us-east-1-az1.sb.seibtribe.us': 'https://rwa731jg5h.execute-api.us-east-1.amazonaws.com/prod',  // us-east-1-az1 custom domain
-      'cell-us-east-1-az2.sb.seibtribe.us': 'https://uqy9mzzp05.execute-api.us-east-1.amazonaws.com/prod', // us-east-1-az2 custom domain
-      'cell-us-west-2-az1.sb.seibtribe.us': 'https://jtp1jdfxii.execute-api.us-west-2.amazonaws.com/prod', // us-west-2-az1 custom domain
-      'cell-us-west-2-az2.sb.seibtribe.us': 'https://83cn0vcix2.execute-api.us-west-2.amazonaws.com/prod', // us-west-2-az2 custom domain
-      'stop.sb.seibtribe.us': 'https://rwa731jg5h.execute-api.us-east-1.amazonaws.com/prod',  // stop failover domain (primary: us-east-1-az1)
-    };
-
-    return apiMappings[hostname] || '';
+    if (window.location.hostname === 'localhost') {
+      return 'http://localhost:3000/prod';
+    }
+    return process.env.CELL_API_URL || '';
   };
+
+  const adminUrl = process.env.ADMIN_URL || '';
 
   useEffect(() => {
     fetchCellInfo();
@@ -130,8 +121,9 @@ const App: React.FC = () => {
     const clientId = getOrCreateClientId();
     
     try {
-      // Call API to track client visit
-      const response = await fetch('https://lo4603bdh4.execute-api.us-east-1.amazonaws.com/prod/track-client', {
+      // Track the visit against this cell's own API — cells must not depend on
+      // another cell or region at runtime (fault isolation is the whole point)
+      const response = await fetch(`${getApiUrl()}/track-client`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -158,8 +150,8 @@ const App: React.FC = () => {
   const loadRecentClients = async () => {
     if (cellInfo) {
       try {
-        // Call API to get recent clients for this cell
-        const response = await fetch(`https://lo4603bdh4.execute-api.us-east-1.amazonaws.com/prod/clients/cell/${cellInfo.cellId}`);
+        // Recent clients come from this cell's own API as well
+        const response = await fetch(`${getApiUrl()}/clients/cell/${cellInfo.cellId}`);
         
         if (response.ok) {
           const data = await response.json();
@@ -331,12 +323,16 @@ const App: React.FC = () => {
         <div className="card">
           <h2>🔗 Navigation</h2>
           <div className="nav-buttons">
-            <a href="https://celladmin.sb.seibtribe.us" className="nav-btn admin-btn">
-              🎛️ Admin Dashboard
-            </a>
-            <a href="https://celladmin.sb.seibtribe.us/router.html" className="nav-btn router-btn">
-              🔀 Router Page
-            </a>
+            {adminUrl && (
+              <a href={adminUrl} className="nav-btn admin-btn">
+                🎛️ Admin Dashboard
+              </a>
+            )}
+            {adminUrl && (
+              <a href={`${adminUrl}/router.html`} className="nav-btn router-btn">
+                🔀 Router Page
+              </a>
+            )}
             <button 
               onClick={() => window.location.reload()} 
               className="nav-btn refresh-btn"

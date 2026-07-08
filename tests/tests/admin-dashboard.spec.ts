@@ -1,7 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { ADMIN_BASE_URL, isApiRequest } from './config';
 
 test.describe('Admin Dashboard Tests', () => {
-  
+  test.skip(!ADMIN_BASE_URL, 'ADMIN_BASE_URL not set — no deployment to test against');
+
   test('should load admin dashboard and display cells', async ({ page }) => {
     await page.goto('/');
     
@@ -34,7 +36,7 @@ test.describe('Admin Dashboard Tests', () => {
     
     // Track all API calls
     page.on('request', request => {
-      if (request.url().includes('execute-api') || request.url().includes('cellapi.sb.seibtribe.us')) {
+      if (isApiRequest(request.url())) {
         apiCalls.push(request.url());
       }
     });
@@ -119,14 +121,14 @@ test.describe('Admin Dashboard Tests', () => {
     await expect(page.locator('h2').filter({ hasText: 'Cell URLs' })).toBeVisible();
     
     // Find cell URL links
-    const cellLinks = page.locator('a[href*="cell-us-east-1"]');
+    const cellLinks = page.locator('a[href*="cell-"]');
     const linkCount = await cellLinks.count();
     expect(linkCount).toBeGreaterThanOrEqual(2);
-    
+
     // Test first cell link (without actually navigating away)
     const firstLink = cellLinks.first();
     const href = await firstLink.getAttribute('href');
-    expect(href).toMatch(/https:\/\/cell-us-east-1-(az1|az2)\.sb\.seibtribe\.us/);
+    expect(href).toMatch(/^https:\/\//);
   });
 
   test('should have working router and demo links', async ({ page }) => {
