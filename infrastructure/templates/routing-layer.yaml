@@ -45,11 +45,16 @@ Resources:
     Properties:
       Name: !Sub '${ProjectName}-routing-api'
       StageName: prod
-      Domain:
-        DomainName: !If [HasCustomDomain, !Sub 'cellapi.${DomainName}', !Ref 'AWS::NoValue']
-        CertificateArn: !If [HasCustomDomain, !Ref ApiCertificate, !Ref 'AWS::NoValue']
-        Route53:
-          HostedZoneId: !If [HasCustomDomain, !Ref HostedZoneId, !Ref 'AWS::NoValue']
+      # The whole Domain block must be conditional: SAM generates the API
+      # Gateway domain resources whenever the property exists, even if the
+      # inner fields resolve to AWS::NoValue.
+      Domain: !If
+        - HasCustomDomain
+        - DomainName: !Sub 'cellapi.${DomainName}'
+          CertificateArn: !Ref ApiCertificate
+          Route53:
+            HostedZoneId: !Ref HostedZoneId
+        - !Ref 'AWS::NoValue'
       Cors:
         AllowMethods: "'*'"
         AllowHeaders: "'*'"
