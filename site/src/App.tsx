@@ -6,6 +6,7 @@ import KillCell from './sections/KillCell';
 import Scale from './sections/Scale';
 import TradeOffs from './sections/TradeOffs';
 import { arcPath, buildRing, cellColor, makeCells, ownershipArcs } from './sim/simulation';
+import { demoAdminUrl, hasLiveDemo } from './TryLive';
 
 /** The hash ring as a quiet emblem: a thin band of cell-colored arcs. */
 const RingMark: React.FC<{ size: number; band: number; vnodes: number; className?: string }> = ({
@@ -35,6 +36,14 @@ const App: React.FC = () => (
       <a href="#kill-a-cell">Failure</a>
       <a href="#scale">Scaling</a>
       <a href="#trade-offs">Trade-offs</a>
+      {hasLiveDemo && (
+        <>
+          <span style={{ flex: 1 }} />
+          <a href={demoAdminUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>
+            Live demo ↗
+          </a>
+        </>
+      )}
     </nav>
     <header className="hero">
       <h1>Cell-Based Architecture</h1>

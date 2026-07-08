@@ -142,7 +142,19 @@
             </div>
             <div id="routingResult"></div>
         </div>
+        <p id="introLink" style="margin-top: 1.5rem; font-size: 0.9rem;">
+            <a href="%%INTRO_URL%%" style="color: #fff; opacity: 0.85;">📖 New to cell architecture? Start with the interactive guide</a>
+        </p>
     </div>
+    <script>
+        // Hide the guide link when no intro URL was substituted at deploy time
+        (function () {
+            var link = document.querySelector('#introLink a');
+            if (!link || link.getAttribute('href').indexOf('%%') === 0 || link.getAttribute('href') === '') {
+                document.getElementById('introLink').style.display = 'none';
+            }
+        })();
+    </script>
 
     <script>
         // ROUTING_API_URL is substituted by infrastructure/scripts/deploy-frontend.sh

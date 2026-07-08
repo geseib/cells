@@ -490,3 +490,19 @@ footer.site-footer a {
 section.lesson a {
   color: var(--accent);
 }
+
+.try-live {
+  margin: 0.9rem 0 0;
+  text-align: right;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.try-live a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.try-live a:hover {
+  text-decoration: underline;
+}

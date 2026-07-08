@@ -9,6 +9,7 @@ import {
   pointOnCircle,
   MAX_HASH,
 } from '../sim/simulation';
+import TryLive from '../TryLive';
 
 const CELL_COUNT = 4;
 const SIZE = 300;
@@ -135,6 +136,7 @@ const RouteClient: React.FC = () => {
         "routing layer" could live inside every cell — or in the client — rather than being a
         separate service (more in trade-offs below).
       </div>
+      <TryLive path="/router.html">Route your real browser through the deployed router</TryLive>
     </section>
   );
 };

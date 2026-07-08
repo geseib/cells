@@ -31,7 +31,8 @@ module.exports = {
       title: 'Cell Architecture Admin'
     }),
     new webpack.DefinePlugin({
-      'process.env.ADMIN_API_URL': JSON.stringify(process.env.ADMIN_API_URL || '')
+      'process.env.ADMIN_API_URL': JSON.stringify(process.env.ADMIN_API_URL || ''),
+      'process.env.INTRO_URL': JSON.stringify(process.env.INTRO_URL || '')
     })
   ],
   devServer: {

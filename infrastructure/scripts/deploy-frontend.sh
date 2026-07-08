@@ -57,11 +57,20 @@ if [ -z "$ROUTING_API" ] || [ "$ROUTING_API" == "None" ]; then
     exit 1
 fi
 
+# Educational-site URL (if its hosting stack is deployed) - injected into the
+# demo frontends so they can link back to the guide.
+INTRO_URL=$(aws cloudformation describe-stacks \
+    --stack-name ${PROJECT_NAME}-site \
+    --region us-east-1 \
+    --query 'Stacks[0].Outputs[?OutputKey==`SiteUrl`].OutputValue' \
+    --output text 2>/dev/null || true)
+if [ "$INTRO_URL" == "None" ]; then INTRO_URL=""; fi
+
 # Build admin tool with the routing API injected (webpack DefinePlugin)
 echo -e "\n${YELLOW}Building admin tool...${NC}"
 cd admin
 npm install
-ADMIN_API_URL="$ROUTING_API" npm run build
+ADMIN_API_URL="$ROUTING_API" INTRO_URL="$INTRO_URL" npm run build
 cd ..
 
 # Get admin bucket from CloudFormation
@@ -87,7 +96,7 @@ aws s3 cp admin/demo-panel-embed.js s3://${ADMIN_BUCKET}/demo-panel-embed.js
 # for the %%ROUTING_API_URL%% placeholder at deploy time.
 TMP_ROUTER_DIR=$(mktemp -d)
 for page in index.html auto.html; do
-    sed "s|%%ROUTING_API_URL%%|${ROUTING_API}|g" router/${page} > ${TMP_ROUTER_DIR}/${page}
+    sed "s|%%ROUTING_API_URL%%|${ROUTING_API}|g; s|%%INTRO_URL%%|${INTRO_URL}|g" router/${page} > ${TMP_ROUTER_DIR}/${page}
 done
 aws s3 cp ${TMP_ROUTER_DIR}/index.html s3://${ADMIN_BUCKET}/router.html
 aws s3 cp ${TMP_ROUTER_DIR}/auto.html s3://${ADMIN_BUCKET}/auto.html
@@ -122,7 +131,7 @@ for region in "${REGION_ARRAY[@]}"; do
 
         if [ ! -z "$CONTENT_BUCKET" ]; then
             echo -e "${GREEN}Building SPA for ${stack} (API: ${CELL_API})${NC}"
-            (cd spa && npm install && CELL_API_URL="$CELL_API" ADMIN_URL="$ADMIN_URL" npm run build)
+            (cd spa && npm install && CELL_API_URL="$CELL_API" ADMIN_URL="$ADMIN_URL" INTRO_URL="$INTRO_URL" npm run build)
             echo -e "${GREEN}Deploying to ${CONTENT_BUCKET}${NC}"
             aws s3 sync spa/dist/ s3://${CONTENT_BUCKET}/ --delete --region ${region}
             aws s3 cp admin/demo-panel-embed.js s3://${CONTENT_BUCKET}/demo-panel-embed.js --region ${region}
@@ -139,7 +148,7 @@ SITE_BUCKET=$(aws cloudformation describe-stacks \
 
 if [ ! -z "$SITE_BUCKET" ] && [ "$SITE_BUCKET" != "None" ]; then
     echo -e "\n${YELLOW}Building and deploying the educational site...${NC}"
-    (cd ../site && npm install && npm run build)
+    (cd ../site && npm install && DEMO_ADMIN_URL="$ADMIN_URL" npm run build)
     aws s3 sync ../site/dist/ s3://${SITE_BUCKET}/ --delete
     SITE_URL=$(aws cloudformation describe-stacks \
         --stack-name ${PROJECT_NAME}-site \

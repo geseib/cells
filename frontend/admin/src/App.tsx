@@ -151,8 +151,34 @@ const App: React.FC = () => {
             </a>
             
             {/* Per-cell direct links are listed in the Cell Demo tab, sourced from the API */}
+            {process.env.INTRO_URL && (
+              <a
+                href={process.env.INTRO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="nav-btn"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  padding: '0.75rem 1rem',
+                  background: 'linear-gradient(135deg, #2a78d6 0%, #1baf7a 100%)',
+                  color: 'white',
+                  textDecoration: 'none',
+                  borderRadius: '10px',
+                  fontWeight: '500',
+                  transition: 'transform 0.2s ease',
+                  textAlign: 'center'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+              >
+                📖 Learn: How Cells Work
+              </a>
+            )}
             <a
-              href="/demo-script.html" 
+              href="/demo-script.html"
               className="nav-btn"
               style={{
                 display: 'inline-flex',

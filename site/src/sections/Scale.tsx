@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { assign, buildRing, cellColor, clientIds, countMoved, hashKey, makeCells, CELL_NAMES } from '../sim/simulation';
+import TryLive from '../TryLive';
 
 const CLIENT_COUNT = 400;
 const MIN_CELLS = 2;
@@ -120,6 +121,7 @@ const Scale: React.FC = () => {
         hits one cell, not the fleet), load tests validate one cell's known capacity, and a
         "poison" customer who triggers a crash loop only takes down the cell they hash to.
       </div>
+      <TryLive>Toggle whole regions on and off in the live admin dashboard</TryLive>
     </section>
   );
 };

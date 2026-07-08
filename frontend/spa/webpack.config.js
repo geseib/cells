@@ -32,7 +32,8 @@ module.exports = {
     }),
     new webpack.DefinePlugin({
       'process.env.CELL_API_URL': JSON.stringify(process.env.CELL_API_URL || ''),
-      'process.env.ADMIN_URL': JSON.stringify(process.env.ADMIN_URL || '')
+      'process.env.ADMIN_URL': JSON.stringify(process.env.ADMIN_URL || ''),
+      'process.env.INTRO_URL': JSON.stringify(process.env.INTRO_URL || '')
     })
   ],
   devServer: {

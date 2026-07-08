@@ -55,6 +55,7 @@ const App: React.FC = () => {
   };
 
   const adminUrl = process.env.ADMIN_URL || '';
+  const introUrl = process.env.INTRO_URL || '';
 
   useEffect(() => {
     fetchCellInfo();
@@ -331,6 +332,11 @@ const App: React.FC = () => {
             {adminUrl && (
               <a href={`${adminUrl}/router.html`} className="nav-btn router-btn">
                 🔀 Router Page
+              </a>
+            )}
+            {introUrl && (
+              <a href={introUrl} className="nav-btn" target="_blank" rel="noopener noreferrer">
+                📖 How Cells Work
               </a>
             )}
             <button 

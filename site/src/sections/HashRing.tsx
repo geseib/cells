@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { arcPath, buildRing, cellColor, keyspaceShare, makeCells, ownershipArcs } from '../sim/simulation';
+import TryLive from '../TryLive';
 
 const CELL_COUNT = 4;
 const SIZE = 300;
@@ -97,6 +98,7 @@ const HashRing: React.FC = () => {
         (what the real backend uses), every cell converges on its fair share. Virtual nodes are the
         trick that makes consistent hashing <em>balanced</em>.
       </div>
+      <TryLive>See the live ring built from real registered cells in the admin dashboard</TryLive>
     </section>
   );
 };

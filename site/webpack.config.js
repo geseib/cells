@@ -1,5 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const webpack = require('webpack');
 
 module.exports = {
   entry: './src/index.tsx',
@@ -32,6 +33,12 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './src/index.html',
       title: 'Cell-Based Architecture — Interactive Guide'
+    }),
+    new webpack.DefinePlugin({
+      // Optional: URL of a live AWS demo deployment's admin dashboard. When
+      // set (deploy-frontend.sh does this), sections link to the real thing;
+      // generic builds (Vercel/Pages) omit the links entirely.
+      'process.env.DEMO_ADMIN_URL': JSON.stringify(process.env.DEMO_ADMIN_URL || '')
     })
   ],
   devServer: {

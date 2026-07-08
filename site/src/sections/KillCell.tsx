@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { assign, buildRing, cellColor, clientIds, countMoved, makeCells } from '../sim/simulation';
+import TryLive from '../TryLive';
 
 const CELL_COUNT = 4;
 const CLIENT_COUNT = 200;
@@ -114,6 +115,7 @@ const KillCell: React.FC = () => {
         a 100% reshuffle triggered by one failure. Consistent hashing keeps the damage proportional
         to the loss. (Recover the cell and its clients return home, too.)
       </div>
+      <TryLive>Deactivate a real cell in the admin dashboard and watch live clients remap</TryLive>
     </section>
   );
 };
