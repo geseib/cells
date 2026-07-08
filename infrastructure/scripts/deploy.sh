@@ -53,12 +53,13 @@ npm install
 npm run build
 cd ../infrastructure/scripts
 
-# Deploy global resources
+# Deploy global resources (us-east-1, alongside the routing layer)
 echo -e "\n${YELLOW}Deploying global resources...${NC}"
 sam deploy \
     --template-file ../templates/global-resources.yaml \
     --stack-name ${PROJECT_NAME}-global \
     --s3-bucket ${SAM_BUCKET} \
+    --region us-east-1 \
     --capabilities CAPABILITY_NAMED_IAM \
     --parameter-overrides ProjectName=${PROJECT_NAME} \
     --no-confirm-changeset \
