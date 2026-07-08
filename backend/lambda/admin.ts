@@ -7,6 +7,7 @@ import {
   PutCommand,
   UpdateCommand 
 } from '@aws-sdk/lib-dynamodb';
+import MD5 from 'crypto-js/md5';
 import { ConsistentHash, Cell } from '../lib/consistent-hash';
 
 const client = new DynamoDBClient({});
@@ -184,7 +185,8 @@ async function handleGetClientRoute(event: any) {
     body: JSON.stringify({
       clientId,
       targetCell,
-      hashValue: require('crypto').createHash('md5').update(clientId).digest().readUInt32BE(0)
+      // Same computation as ConsistentHash.hash - first 4 bytes of MD5, big-endian
+      hashValue: MD5(clientId).words[0] >>> 0
     })
   };
 }
