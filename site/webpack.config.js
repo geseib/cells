@@ -9,7 +9,11 @@ module.exports = {
     clean: true
   },
   resolve: {
-    extensions: ['.ts', '.tsx', '.js', '.jsx']
+    extensions: ['.ts', '.tsx', '.js', '.jsx'],
+    // The shared ../backend/lib/consistent-hash.ts imports crypto-js; resolve
+    // it from site/node_modules so the site builds standalone (Vercel/Pages)
+    // without installing backend dependencies.
+    modules: [path.resolve(__dirname, 'node_modules'), 'node_modules']
   },
   module: {
     rules: [

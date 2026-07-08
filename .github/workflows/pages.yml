@@ -28,12 +28,6 @@ jobs:
         with:
           node-version: 20
 
-      # site/ imports backend/lib/consistent-hash.ts, which resolves crypto-js
-      # from backend/node_modules
-      - name: Install backend deps (shared hash module)
-        working-directory: backend
-        run: npm ci
-
       - name: Build site
         working-directory: site
         run: |

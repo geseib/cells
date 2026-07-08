@@ -31,6 +31,8 @@ cd frontend/spa && npm run build           # webpack; reads CELL_API_URL, ADMIN_
 cd frontend/admin && npm run build         # webpack; reads ADMIN_API_URL
 cd site && npm run build                   # webpack; fully static output in site/dist
 cd site && npm run dev                     # dev server for the educational site
+# site builds standalone (no backend install needed); root vercel.json deploys
+# only site/ for quick review — the AWS demo is never part of that deploy
 cd tests && npm test                       # Playwright; needs ADMIN_BASE_URL etc. or skips
 ```
 
