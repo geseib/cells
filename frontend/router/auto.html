@@ -183,12 +183,11 @@
             updateStatus(`🔄 Routing ${clientId} to optimal cell...`);
 
             try {
-                // Determine API endpoint based on hostname
+                // ROUTING_API_URL is substituted by infrastructure/scripts/deploy-frontend.sh
+                // from the routing stack's API endpoint at deploy time.
                 const apiUrl = window.location.hostname === 'localhost'
                     ? 'http://localhost:3000/prod'
-                    : window.location.hostname.includes('sb.seibtribe.us')
-                        ? 'https://cellapi.sb.seibtribe.us'
-                        : 'https://lo4603bdh4.execute-api.us-east-1.amazonaws.com/prod';
+                    : '%%ROUTING_API_URL%%';
 
                 // Get routing decision
                 const response = await fetch(`${apiUrl}/admin/client-route/${clientId}`);
@@ -226,6 +225,6 @@
         // Start routing immediately on page load
         window.addEventListener('load', routeToCell);
     </script>
-    <script src="https://celladmin.sb.seibtribe.us/demo-panel-embed.js"></script>
+    <script src="/demo-panel-embed.js"></script>
 </body>
 </html>

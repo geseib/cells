@@ -178,40 +178,7 @@ Resources:
             Path: /qr-code
             Method: POST
 
-  # Lambda function for client visits tracking
-  ClientVisitsFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub '${ProjectName}-client-visits'
-      CodeUri: ../../backend/dist/
-      Handler: lambda/client-visits.handler
-      Environment:
-        Variables:
-          CLIENT_VISITS_TABLE: !Sub '${ProjectName}-client-visits'
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Sub '${ProjectName}-client-visits'
-      Events:
-        PostVisit:
-          Type: Api
-          Properties:
-            RestApiId: !Ref RoutingApi
-            Path: /visits
-            Method: POST
-        GetVisits:
-          Type: Api
-          Properties:
-            RestApiId: !Ref RoutingApi
-            Path: /visits
-            Method: GET
-        GetVisitsByCell:
-          Type: Api
-          Properties:
-            RestApiId: !Ref RoutingApi
-            Path: /visits/cell/{cellId}
-            Method: GET
-
-  # Lambda function for enhanced client tracking
+  # Lambda function for client tracking
   ClientTrackingFunction:
     Type: AWS::Serverless::Function
     Properties:
@@ -260,6 +227,7 @@ Resources:
       Environment:
         Variables:
           HOSTED_ZONE_ID: !Ref HostedZoneId
+          DOMAIN_NAME: !Ref DomainName
       Policies:
         - Statement:
           - Effect: Allow

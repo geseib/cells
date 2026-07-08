@@ -51,11 +51,11 @@ After deployment, you'll have:
 - **Routing API**: `https://cellapi.{your-domain}`
 - **Cell Sites**: `https://cell-{cell-id}.{your-domain}`
 
-Example with `sb.seibtribe.us`:
-- `https://celladmin.sb.seibtribe.us`
-- `https://cellapi.sb.seibtribe.us`
-- `https://cell-us-east-1-az1.sb.seibtribe.us`
-- `https://cell-us-west-2-az1.sb.seibtribe.us`
+Example with `cells.example.com`:
+- `https://celladmin.cells.example.com`
+- `https://cellapi.cells.example.com`
+- `https://cell-us-east-1-az1.cells.example.com`
+- `https://cell-us-west-2-az1.cells.example.com`
 
 ## Configuration Options
 

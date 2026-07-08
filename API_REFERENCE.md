@@ -3,19 +3,19 @@
 ## Overview
 This document maps the frontend pages to their backend API endpoints for the Cell Architecture demo project.
 
-## 1. Admin Page (`celladmin.sb.seibtribe.us`)
+## 1. Admin Page (`celladmin.cells.example.com`)
 
 ### Frontend Location
 - **Source**: `/frontend/admin/src/App.tsx`
 - **Build Output**: `/frontend/admin/dist/`
-- **S3 Bucket**: `cell-demo-admin-ui-021891573713`
-- **CloudFront Distribution**: `E329NQI6CDDFY8`
+- **S3 Bucket**: `cell-demo-admin-ui-123456789012`
+- **CloudFront Distribution**: `YOUR_DISTRIBUTION_ID`
 
 ### API Base URL
 ```javascript
 const baseUrl = window.location.hostname === 'localhost' 
   ? 'http://localhost:3000/prod' 
-  : 'https://lo4603bdh4.execute-api.us-east-1.amazonaws.com/prod';
+  : 'https://abc123glob.execute-api.us-east-1.amazonaws.com/prod';
 ```
 
 ### API Endpoints Used
@@ -97,13 +97,13 @@ const baseUrl = window.location.hostname === 'localhost'
         "cellId": "us-east-1-az1",
         "region": "us-east-1",
         "availabilityZone": "us-east-1a",
-        "directUrl": "https://cell-us-east-1-az1.sb.seibtribe.us",
-        "routingUrl": "https://cellapi.sb.seibtribe.us/route/",
+        "directUrl": "https://cell-us-east-1-az1.cells.example.com",
+        "routingUrl": "https://cellapi.cells.example.com/route/",
         "weight": 100,
         "active": true
       }
     ],
-    "customDomain": "sb.seibtribe.us",
+    "customDomain": "cells.example.com",
     "totalCells": 2
   }
   ```
@@ -139,25 +139,25 @@ const baseUrl = window.location.hostname === 'localhost'
 4. **Cell URLs Display**: Shows direct access URLs with QR codes
 5. **Recent Clients**: Shows last 5 clients per cell (with fallback demo data)
 
-## 2. Router Page (`cellrouter.sb.seibtribe.us`)
+## 2. Router Page (`cellrouter.cells.example.com`)
 
 ### Frontend Location
 - **Source**: `/frontend/router/index.html` and `/frontend/router/auto.html`
 - **Build Output**: Static HTML files
-- **S3 Bucket**: `cell-demo-router-021891573713`
+- **S3 Bucket**: `cell-demo-router-123456789012`
 - **CloudFront Distribution**: (need to check)
 
 ### Pages
 
 #### Manual Router (`/index.html`)
 - **Purpose**: Manual client ID input for routing demonstration
-- **API Endpoint**: `https://cellapi.sb.seibtribe.us/route/{clientId}`
+- **API Endpoint**: `https://cellapi.cells.example.com/route/{clientId}`
 - **Handler**: `lambda/routing.ts`
 - **Response**: HTTP 302 redirect to appropriate cell
 
 #### Auto Router (`/auto.html`)
 - **Purpose**: Automatic routing based on generated client ID
-- **API Endpoint**: `https://cellapi.sb.seibtribe.us/auto`
+- **API Endpoint**: `https://cellapi.cells.example.com/auto`
 - **Handler**: `lambda/auto-router.ts`
 - **Response**: HTTP 302 redirect with generated client ID
 
@@ -167,14 +167,14 @@ const baseUrl = window.location.hostname === 'localhost'
 - **Source**: `/frontend/cell/index.html`
 - **Build Output**: Static HTML
 - **S3 Buckets**: 
-  - `cell-demo-us-east-1-az1-content-021891573713`
-  - `cell-demo-us-east-1-az2-content-021891573713`
+  - `cell-demo-us-east-1-az1-content-123456789012`
+  - `cell-demo-us-east-1-az2-content-123456789012`
 - **CloudFront Distributions**: One per cell
 
 ### Cell-Specific APIs
 Each cell has its own API Gateway:
-- **us-east-1-az1**: `https://rwa731jg5h.execute-api.us-east-1.amazonaws.com/prod`
-- **us-east-1-az2**: `https://uqy9mzzp05.execute-api.us-east-1.amazonaws.com/prod`
+- **us-east-1-az1**: `https://abc123cell1.execute-api.us-east-1.amazonaws.com/prod`
+- **us-east-1-az2**: `https://abc123cell2.execute-api.us-east-1.amazonaws.com/prod`
 
 #### Cell Info Endpoint
 - **Endpoint**: `GET /cell-info`
@@ -208,10 +208,10 @@ Each cell has its own API Gateway:
 6. **cell-demo-us-east-1-az2**: Cell-specific functions
 
 ### API Gateway
-- **Main Routing API**: `lo4603bdh4` (`cell-demo-routing-api`)
+- **Main Routing API**: `abc123glob` (`cell-demo-routing-api`)
 - **Cell APIs**: 
-  - `rwa731jg5h` (`cell-demo-us-east-1-az1-api`)
-  - `uqy9mzzp05` (`cell-demo-us-east-1-az2-api`)
+  - `abc123cell1` (`cell-demo-us-east-1-az1-api`)
+  - `abc123cell2` (`cell-demo-us-east-1-az2-api`)
 
 ## 5. Common Issues & Solutions
 
@@ -229,7 +229,7 @@ Each cell has its own API Gateway:
 - Build output structure: `/dist/lambda/[function-name].js`
 
 ### CloudFront Caching
-- Admin page cache invalidation: `aws cloudfront create-invalidation --distribution-id E329NQI6CDDFY8 --paths "/*"`
+- Admin page cache invalidation: `aws cloudfront create-invalidation --distribution-id YOUR_DISTRIBUTION_ID --paths "/*"`
 - Cache takes 2-15 minutes to clear
 
 ### S3 Access

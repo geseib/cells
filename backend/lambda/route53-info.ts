@@ -30,21 +30,34 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 
   try {
-    // Get the hosted zone ID for sb.seibtribe.us
-    // You'll need to replace this with the actual hosted zone ID
-    const hostedZoneId = process.env.HOSTED_ZONE_ID || '/hostedzone/Z1D633PJN98FT9';
-    
+    const hostedZoneId = process.env.HOSTED_ZONE_ID;
+    const domainName = process.env.DOMAIN_NAME;
+
+    if (!hostedZoneId || !domainName) {
+      return {
+        statusCode: 503,
+        headers,
+        body: JSON.stringify({
+          success: false,
+          error: 'HOSTED_ZONE_ID and DOMAIN_NAME must be configured for Route 53 lookups',
+          timestamp: new Date().toISOString()
+        })
+      };
+    }
+
+    const failoverRecordName = `failover.${domainName}`;
+
     const command = new ListResourceRecordSetsCommand({
       HostedZoneId: hostedZoneId,
-      StartRecordName: 'stop.sb.seibtribe.us',
+      StartRecordName: failoverRecordName,
       StartRecordType: 'A'
     });
 
     const response = await route53.send(command);
-    
-    // Filter for the stop.sb.seibtribe.us records
-    const stopRecords = response.ResourceRecordSets?.filter((record: any) => 
-      record.Name === 'stop.sb.seibtribe.us.' && record.Type === 'A'
+
+    // Filter for the failover A records
+    const stopRecords = response.ResourceRecordSets?.filter((record: any) =>
+      record.Name === `${failoverRecordName}.` && record.Type === 'A'
     ) || [];
 
     const formattedRecords: Route53Record[] = stopRecords.map((record: any) => ({

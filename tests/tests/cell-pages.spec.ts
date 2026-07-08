@@ -1,14 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { ADMIN_BASE_URL, CELL_URLS } from './config';
 
 test.describe('Cell Pages Tests', () => {
-  const cellUrls = [
-    'https://cell-us-east-1-az1.sb.seibtribe.us',
-    'https://cell-us-east-1-az2.sb.seibtribe.us'
-  ];
+  test.skip(CELL_URLS.length === 0, 'CELL_URLS not set — no deployment to test against');
 
-  for (const cellUrl of cellUrls) {
-    const cellId = cellUrl.match(/cell-(us-east-1-az\d+)/)?.[1] || 'unknown';
-    
+  for (const cellUrl of CELL_URLS) {
+    const cellId = cellUrl.match(/cell-([a-z0-9-]+)/)?.[1] || cellUrl;
+
     test(`should load ${cellId} cell page correctly`, async ({ page }) => {
       await page.goto(cellUrl);
       
@@ -103,13 +101,15 @@ test.describe('Cell Pages Tests', () => {
   }
 
   test('should route clients correctly between cells', async ({ page }) => {
+    test.skip(!ADMIN_BASE_URL, 'ADMIN_BASE_URL not set — no deployment to test against');
+
     // Test that different client IDs route to different cells when appropriate
     const testClients = ['client-a', 'client-b', 'client-c', 'client-d'];
     const routingResults: { [key: string]: string } = {};
-    
+
     for (const clientId of testClients) {
       // Go to admin page to test routing
-      await page.goto('https://celladmin.sb.seibtribe.us');
+      await page.goto(ADMIN_BASE_URL);
       
       // Fill client ID and test routing
       const clientInput = page.locator('input[placeholder*="client ID"]').first();
@@ -123,7 +123,7 @@ test.describe('Cell Pages Tests', () => {
       if (await routingResult.isVisible()) {
         const resultText = await routingResult.textContent();
         if (resultText) {
-          const cellMatch = resultText.match(/(us-east-1-az\d+)/);
+          const cellMatch = resultText.match(/([a-z]{2}-[a-z]+-\d+-az\d+)/);
           if (cellMatch) {
             routingResults[clientId] = cellMatch[1];
           }
@@ -138,7 +138,7 @@ test.describe('Cell Pages Tests', () => {
     for (const clientId of testClients) {
       if (routingResults[clientId]) {
         // Test the same client ID again
-        await page.goto('https://celladmin.sb.seibtribe.us');
+        await page.goto(ADMIN_BASE_URL);
         const clientInput = page.locator('input[placeholder*="client ID"]').first();
         await clientInput.fill(clientId);
         await page.locator('button').filter({ hasText: 'Route Client' }).click();
@@ -148,7 +148,7 @@ test.describe('Cell Pages Tests', () => {
         if (await routingResult.isVisible()) {
           const resultText = await routingResult.textContent();
           if (resultText) {
-            const cellMatch = resultText.match(/(us-east-1-az\d+)/);
+            const cellMatch = resultText.match(/([a-z]{2}-[a-z]+-\d+-az\d+)/);
             if (cellMatch) {
               expect(cellMatch[1]).toBe(routingResults[clientId]);
             }

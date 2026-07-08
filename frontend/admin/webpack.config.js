@@ -1,5 +1,6 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const webpack = require('webpack');
 
 module.exports = {
   entry: './src/index.tsx',
@@ -28,6 +29,9 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './src/index.html',
       title: 'Cell Architecture Admin'
+    }),
+    new webpack.DefinePlugin({
+      'process.env.ADMIN_API_URL': JSON.stringify(process.env.ADMIN_API_URL || '')
     })
   ],
   devServer: {

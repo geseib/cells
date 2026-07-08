@@ -51,47 +51,7 @@ Resources:
         - Key: Project
           Value: !Ref ProjectName
 
-  # Global table for client visits (original structure)
-  ClientVisitsTable:
-    Type: AWS::DynamoDB::Table
-    Properties:
-      TableName: !Sub '${ProjectName}-client-visits'
-      BillingMode: PAY_PER_REQUEST
-      AttributeDefinitions:
-        - AttributeName: clientId
-          AttributeType: S
-        - AttributeName: timestamp
-          AttributeType: S
-        - AttributeName: cellId
-          AttributeType: S
-      KeySchema:
-        - AttributeName: clientId
-          KeyType: HASH
-        - AttributeName: timestamp
-          KeyType: RANGE
-      GlobalSecondaryIndexes:
-        - IndexName: cellId-timestamp-index
-          KeySchema:
-            - AttributeName: cellId
-              KeyType: HASH
-            - AttributeName: timestamp
-              KeyType: RANGE
-          Projection:
-            ProjectionType: ALL
-        - IndexName: timestamp-index
-          KeySchema:
-            - AttributeName: timestamp
-              KeyType: HASH
-          Projection:
-            ProjectionType: ALL
-      TimeToLiveSpecification:
-        AttributeName: ttl
-        Enabled: true
-      Tags:
-        - Key: Project
-          Value: !Ref ProjectName
-
-  # New table for client tracking with better structure
+  # Table for client tracking
   ClientTrackingTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -185,11 +145,6 @@ Outputs:
     Value: !Ref RoutingConfigTable
     Export:
       Name: !Sub '${ProjectName}-routing-config-table'
-  
-  ClientVisitsTableName:
-    Value: !Ref ClientVisitsTable
-    Export:
-      Name: !Sub '${ProjectName}-client-visits-table'
   
   ClientTrackingTableName:
     Value: !Ref ClientTrackingTable

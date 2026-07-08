@@ -18,28 +18,43 @@ const FailoverDemo: React.FC<FailoverDemoProps> = ({ apiUrl }) => {
   const [route53Records, setRoute53Records] = useState<any[]>([]);
   const [recordsLoading, setRecordsLoading] = useState(false);
 
-  // Use actual cell endpoints
-  const primaryCell: CellEndpoint = {
-    region: 'us-east-1',
-    cellId: 'us-east-1-az1',
-    endpoint: 'https://cell-us-east-1-az1.sb.seibtribe.us'
-  };
-
-  const secondaryCell: CellEndpoint = {
-    region: 'us-west-2', 
-    cellId: 'us-west-2-az1',
-    endpoint: 'https://cell-us-west-2-az1.sb.seibtribe.us'
-  };
+  const [primaryCell, setPrimaryCell] = useState<CellEndpoint>({
+    region: 'primary-region',
+    cellId: 'primary-cell',
+    endpoint: 'https://cell-primary.example.com'
+  });
+  const [secondaryCell, setSecondaryCell] = useState<CellEndpoint>({
+    region: 'secondary-region',
+    cellId: 'secondary-cell',
+    endpoint: 'https://cell-secondary.example.com'
+  });
 
   const currentCell = isPrimary ? primaryCell : secondaryCell;
+
+  // Load the first two registered cells from the admin API to use as the
+  // primary/secondary pair in the walkthrough
+  const loadCellEndpoints = async () => {
+    if (!apiUrl) return;
+    try {
+      const response = await fetch(`${apiUrl}/admin/cell-urls`);
+      const data = await response.json();
+      const cells = (data.cellUrls || []).filter((c: any) => c.active);
+      if (cells.length >= 2) {
+        setPrimaryCell({ region: cells[0].region, cellId: cells[0].cellId, endpoint: cells[0].directUrl });
+        setSecondaryCell({ region: cells[1].region, cellId: cells[1].cellId, endpoint: cells[1].directUrl });
+      }
+    } catch (err) {
+      console.error('Failed to load cell endpoints:', err);
+    }
+  };
 
   const toggleFailover = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      // In a real implementation, this would trigger Route 53 failover
-      // For now, we'll just toggle the state and resolve DNS
+      // Simulation only: a real failover is driven by Route 53 health checks,
+      // not a button. This just flips which endpoint the walkthrough displays.
       setIsPrimary(!isPrimary);
       await resolveDNS();
     } catch (err) {
@@ -47,20 +62,6 @@ const FailoverDemo: React.FC<FailoverDemoProps> = ({ apiUrl }) => {
       console.error('Failover error:', err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const detectFailoverState = async () => {
-    try {
-      // In a real implementation, this would check Route 53 status or health checks
-      // For now, simulate detecting current failover state
-      const response = await fetch('stop.sb.seibtribe.us', { mode: 'no-cors' });
-      // Since we can't read the response in no-cors mode, we'll simulate detection
-      // In reality, you'd use a backend service to check DNS records
-      setIsPrimary(true); // Default to primary
-    } catch (err) {
-      console.log('State detection completed (simulated)');
-      setIsPrimary(true);
     }
   };
 
@@ -100,9 +101,9 @@ const FailoverDemo: React.FC<FailoverDemoProps> = ({ apiUrl }) => {
   };
 
   useEffect(() => {
-    detectFailoverState();
+    loadCellEndpoints();
     resolveDNS();
-  }, []);
+  }, [apiUrl]);
 
   useEffect(() => {
     resolveDNS();
@@ -121,7 +122,7 @@ const FailoverDemo: React.FC<FailoverDemoProps> = ({ apiUrl }) => {
       color: '#ffffff'
     }}>
       <h2 style={{ marginBottom: '2rem', color: '#ffffff' }}>
-        🔄 Route 53 Failover Demo
+        🔄 Route 53 Failover — Simulated Walkthrough
       </h2>
       
       {/* Client Icon */}
@@ -199,7 +200,7 @@ const FailoverDemo: React.FC<FailoverDemoProps> = ({ apiUrl }) => {
           🔍 DNS Resolution
         </div>
         <div style={{ fontSize: '0.9rem', color: '#11cdef', marginBottom: '1rem' }}>
-          stop.sb.seibtribe.us → {resolvedIP || 'resolving...'}
+          failover endpoint → {resolvedIP || 'resolving...'}
         </div>
         <button 
           onClick={resolveDNS}
@@ -310,9 +311,11 @@ const FailoverDemo: React.FC<FailoverDemoProps> = ({ apiUrl }) => {
           📋 Demo Information
         </div>
         <div style={{ color: '#c4c4c4', lineHeight: '1.5' }}>
-          This demo simulates Route 53 DNS failover between two cell regions.
-          In a real implementation, Route 53 health checks would automatically 
-          switch traffic from the primary to secondary endpoint when failures are detected.
+          This is a <strong>simulation</strong> — the toggle only changes what this page
+          displays; no DNS records are modified. In a real deployment, Route 53 health
+          checks detect a failing primary endpoint and automatically shift traffic to the
+          secondary. The Route 53 record sets shown below are read live from your hosted
+          zone via the admin API.
         </div>
       </div>
     </div>

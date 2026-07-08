@@ -8,7 +8,8 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'https://celladmin.sb.seibtribe.us',
+    // Set ADMIN_BASE_URL to your deployed admin dashboard URL
+    baseURL: process.env.ADMIN_BASE_URL || 'http://localhost:3001',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -28,9 +29,4 @@ export default defineConfig({
     },
   ],
 
-  webServer: {
-    command: 'echo "Using deployed application"',
-    url: 'https://celladmin.sb.seibtribe.us',
-    reuseExistingServer: true,
-  },
 });
