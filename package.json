@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "description": "Demo tool for understanding cell-based architecture in AWS",
   "scripts": {
-    "build": "npm run build:backend && npm run build:frontend",
+    "build": "npm run build:backend && npm run build:frontend && npm run build:site",
     "build:backend": "cd backend && npm run build",
     "build:frontend": "npm run build:spa && npm run build:admin",
     "build:spa": "cd frontend/spa && npm run build",
     "build:admin": "cd frontend/admin && npm run build",
+    "build:site": "cd site && npm run build",
     "deploy": "npm run deploy:infrastructure && npm run deploy:frontend",
     "deploy:infrastructure": "cd infrastructure && ./scripts/deploy.sh",
     "deploy:frontend": "cd infrastructure && ./scripts/deploy-frontend.sh",
