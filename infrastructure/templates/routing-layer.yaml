@@ -128,12 +128,6 @@ Resources:
             RestApiId: !Ref RoutingApi
             Path: /admin/cell-urls
             Method: GET
-        GetRecentClients:
-          Type: Api
-          Properties:
-            RestApiId: !Ref RoutingApi
-            Path: /admin/recent-clients
-            Method: GET
         UpdateRegionCells:
           Type: Api
           Properties:

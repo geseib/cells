@@ -1,238 +1,115 @@
-# Cell Architecture API Reference
+# API Reference
 
-## Overview
-This document maps the frontend pages to their backend API endpoints for the Cell Architecture demo project.
+Endpoint map for the deployed AWS demo. Two API surfaces exist:
 
-## 1. Admin Page (`celladmin.cells.example.com`)
+- **Global routing API** (one, in us-east-1; stack `{project}-routing`) — routing
+  decisions, admin operations, global client tracking. With a custom domain it
+  is `https://cellapi.{domain}`; otherwise the API Gateway URL from the stack's
+  `RoutingApiEndpoint` output.
+- **Cell API** (one per cell; stack `{project}-cell-{cellId}`) — the cell's own
+  info, health, and visitor tracking. The cell SPA only ever talks to its own
+  cell's API (fault isolation). URL comes from each cell stack's `ApiEndpoint`
+  output.
 
-### Frontend Location
-- **Source**: `/frontend/admin/src/App.tsx`
-- **Build Output**: `/frontend/admin/dist/`
-- **S3 Bucket**: `cell-demo-admin-ui-123456789012`
-- **CloudFront Distribution**: `YOUR_DISTRIBUTION_ID`
+All endpoints return JSON with permissive CORS headers.
 
-### API Base URL
-```javascript
-const baseUrl = window.location.hostname === 'localhost' 
-  ? 'http://localhost:3000/prod' 
-  : 'https://abc123glob.execute-api.us-east-1.amazonaws.com/prod';
-```
+## Global routing API
 
-### API Endpoints Used
+| Method | Path | Handler | Purpose |
+|--------|------|---------|---------|
+| GET | `/route/{clientId}` | `lambda/routing.ts` | Cell assignment for a client (consistent hash) |
+| GET | `/go/{clientId}` | `lambda/auto-router.ts` | 302 redirect straight to the client's cell page |
+| GET | `/admin/cells` | `lambda/admin.ts` | All registered cells from the registry |
+| PUT | `/admin/cells/{cellId}` | `lambda/admin.ts` | Update a cell (`{"active": bool, "weight": number}`) |
+| PUT | `/admin/regions/{region}` | `lambda/admin.ts` | Activate/deactivate every cell in a region |
+| GET | `/admin/hash-ring` | `lambda/admin.ts` | Virtual-node distribution + ring positions |
+| GET | `/admin/client-route/{clientId}` | `lambda/admin.ts` | Routing decision incl. raw hash value |
+| GET | `/admin/cell-urls` | `lambda/admin.ts` | Direct/routing URLs for every cell |
+| POST | `/track-client` | `lambda/client-tracking.ts` | Record a client visit (`{clientId, cellId, sourceIp}`) |
+| GET | `/clients` | `lambda/client-tracking.ts` | Recent clients across all cells (feeds the admin pie chart) |
+| GET | `/clients/cell/{cellId}` | `lambda/client-tracking.ts` | Last 5 clients for one cell |
+| GET | `/clients/count/cell/{cellId}` | `lambda/client-tracking.ts` | Client count for one cell |
+| POST | `/qr-code` | `lambda/qr-generator.ts` | Generate a QR code (`{text, size}` → `{qrCodeUrl}` data URI) |
+| GET | `/route53-info` | `lambda/route53-info.ts` | Failover record sets from Route 53 (requires custom domain) |
 
-#### 1. Get All Cells
-- **Endpoint**: `GET /admin/cells`
-- **Handler**: `lambda/admin.ts:handleGetCells()`
-- **Purpose**: Fetches all registered cells from DynamoDB
-- **Response**: 
-  ```json
-  {
-    "cells": [
-      {
-        "cellId": "us-east-1-az1",
-        "region": "us-east-1",
-        "availabilityZone": "us-east-1a",
-        "weight": 100,
-        "active": true,
-        "lastHeartbeat": "2025-06-30T10:00:00Z"
-      }
-    ]
-  }
-  ```
+### Example responses
 
-#### 2. Get Hash Ring Distribution
-- **Endpoint**: `GET /admin/hash-ring`
-- **Handler**: `lambda/admin.ts:handleGetHashRing()`
-- **Purpose**: Returns consistent hash ring visualization data
-- **Response**:
-  ```json
-  {
-    "distribution": [
-      {
-        "cellId": "us-east-1-az1",
-        "virtualNodes": 150,
-        "percentage": 50.0
-      }
-    ],
-    "ring": [
-      {
-        "position": 123456,
-        "cellId": "us-east-1-az1",
-        "region": "us-east-1",
-        "az": "us-east-1a"
-      }
-    ],
-    "totalVirtualNodes": 300
-  }
-  ```
-
-#### 3. Get Client Route
-- **Endpoint**: `GET /admin/client-route/{clientId}`
-- **Handler**: `lambda/admin.ts:handleGetClientRoute()`
-- **Purpose**: Determines which cell a specific client ID routes to
-- **Response**:
-  ```json
-  {
-    "clientId": "client-123",
-    "targetCell": {
+`GET /admin/cells`
+```json
+{
+  "cells": [
+    {
       "cellId": "us-east-1-az1",
       "region": "us-east-1",
       "availabilityZone": "us-east-1a",
-      "weight": 100,
-      "active": true
-    },
-    "hashValue": 123456789
-  }
-  ```
+      "weight": 1,
+      "active": true,
+      "lastHeartbeat": "2026-01-01T10:00:00Z"
+    }
+  ],
+  "count": 1
+}
+```
 
-#### 4. Get Cell URLs
-- **Endpoint**: `GET /admin/cell-urls`
-- **Handler**: `lambda/admin.ts:handleGetCellUrls()`
-- **Purpose**: Returns direct access URLs for all cells
-- **Response**:
-  ```json
-  {
-    "cellUrls": [
-      {
-        "cellId": "us-east-1-az1",
-        "region": "us-east-1",
-        "availabilityZone": "us-east-1a",
-        "directUrl": "https://cell-us-east-1-az1.cells.example.com",
-        "routingUrl": "https://cellapi.cells.example.com/route/",
-        "weight": 100,
-        "active": true
-      }
-    ],
-    "customDomain": "cells.example.com",
-    "totalCells": 2
-  }
-  ```
+`GET /admin/hash-ring`
+```json
+{
+  "distribution": [
+    { "cellId": "us-east-1-az1", "virtualNodes": 150, "percentage": 50.0 }
+  ],
+  "ring": [
+    { "position": 123456, "cellId": "us-east-1-az1", "region": "us-east-1", "az": "us-east-1a" }
+  ],
+  "totalVirtualNodes": 300
+}
+```
 
-#### 5. Get Recent Clients (NEW)
-- **Endpoint**: `GET /admin/recent-clients`
-- **Handler**: `lambda/admin.ts:handleGetRecentClients()`
-- **Purpose**: Returns last 5 clients from each cell
-- **Response**:
-  ```json
-  {
-    "cell-1": ["client-001", "client-037", "client-102", "client-089", "client-156"],
-    "cell-2": ["client-023", "client-078", "client-134", "client-067", "client-191"]
-  }
-  ```
-
-#### 6. Update Cell
-- **Endpoint**: `PUT /admin/cells/{cellId}`
-- **Handler**: `lambda/admin.ts:handleUpdateCell()`
-- **Request Body**:
-  ```json
-  {
-    "active": false,
-    "weight": 50
-  }
-  ```
-- **Purpose**: Updates cell configuration (activate/deactivate, change weight)
-
-### Admin Page Features
-1. **Cell Status Dashboard**: Shows all cells with health status
-2. **Hash Ring Visualization**: Pie chart showing cell distribution
-3. **Client Routing Test**: Input client ID to see which cell it routes to
-4. **Cell URLs Display**: Shows direct access URLs with QR codes
-5. **Recent Clients**: Shows last 5 clients per cell (with fallback demo data)
-
-## 2. Router Page (`cellrouter.cells.example.com`)
-
-### Frontend Location
-- **Source**: `/frontend/router/index.html` and `/frontend/router/auto.html`
-- **Build Output**: Static HTML files
-- **S3 Bucket**: `cell-demo-router-123456789012`
-- **CloudFront Distribution**: (need to check)
-
-### Pages
-
-#### Manual Router (`/index.html`)
-- **Purpose**: Manual client ID input for routing demonstration
-- **API Endpoint**: `https://cellapi.cells.example.com/route/{clientId}`
-- **Handler**: `lambda/routing.ts`
-- **Response**: HTTP 302 redirect to appropriate cell
-
-#### Auto Router (`/auto.html`)
-- **Purpose**: Automatic routing based on generated client ID
-- **API Endpoint**: `https://cellapi.cells.example.com/auto`
-- **Handler**: `lambda/auto-router.ts`
-- **Response**: HTTP 302 redirect with generated client ID
-
-## 3. Cell Content Pages
-
-### Frontend Location
-- **Source**: `/frontend/cell/index.html`
-- **Build Output**: Static HTML
-- **S3 Buckets**: 
-  - `cell-demo-us-east-1-az1-content-123456789012`
-  - `cell-demo-us-east-1-az2-content-123456789012`
-- **CloudFront Distributions**: One per cell
-
-### Cell-Specific APIs
-Each cell has its own API Gateway:
-- **us-east-1-az1**: `https://abc123cell1.execute-api.us-east-1.amazonaws.com/prod`
-- **us-east-1-az2**: `https://abc123cell2.execute-api.us-east-1.amazonaws.com/prod`
-
-#### Cell Info Endpoint
-- **Endpoint**: `GET /cell-info`
-- **Handler**: `lambda/cell-info.ts`
-- **Purpose**: Returns information about the specific cell
-- **Response**:
-  ```json
-  {
+`GET /admin/client-route/{clientId}`
+```json
+{
+  "clientId": "user123",
+  "hashValue": 1792101289,
+  "targetCell": {
     "cellId": "us-east-1-az1",
     "region": "us-east-1",
-    "availabilityZone": "us-east-1a",
-    "requestId": "abc-123",
-    "clientId": "client-456"
+    "availabilityZone": "us-east-1a"
   }
-  ```
+}
+```
 
-## 4. Infrastructure Components
+## Cell API (per cell)
 
-### DynamoDB Tables
-1. **cell-demo-cell-registry**: Stores cell configuration
-2. **cell-demo-routing-config**: Stores routing configuration
-3. **cell-demo-us-east-1-az1-data**: Cell-specific data
-4. **cell-demo-us-east-1-az2-data**: Cell-specific data
+| Method | Path | Handler | Purpose |
+|--------|------|---------|---------|
+| GET | `/info` | `lambda/cell-info.ts` | Cell identity, request metadata, stats |
+| GET | `/health` | `lambda/cell-health.ts` | Health checks (DynamoDB, memory, CPU); 503 when degraded |
+| POST | `/track-client` | `lambda/client-tracking.ts` | Record a visit in the cell's own tracking table |
+| GET | `/clients` | `lambda/client-tracking.ts` | Recent visitors to this cell |
+| GET | `/clients/cell/{cellId}` | `lambda/client-tracking.ts` | Last 5 visitors (shape used by the cell SPA) |
 
-### Lambda Functions
-1. **cell-demo-admin**: Admin API endpoints
-2. **cell-demo-routing**: Client routing logic
-3. **cell-demo-auto-router**: Auto-routing with generated IDs
-4. **cell-demo-qr-generator**: QR code generation
-5. **cell-demo-us-east-1-az1**: Cell-specific functions
-6. **cell-demo-us-east-1-az2**: Cell-specific functions
+`GET /health`
+```json
+{
+  "cellId": "us-east-1-az1",
+  "status": "healthy",
+  "lastCheck": "2026-01-01T10:00:00Z",
+  "checks": { "dynamodb": true, "memory": true, "cpu": true },
+  "memoryUsage": { "heapUsed": "24 MB", "heapTotal": "64 MB", "percentage": "37%" }
+}
+```
 
-### API Gateway
-- **Main Routing API**: `abc123glob` (`cell-demo-routing-api`)
-- **Cell APIs**: 
-  - `abc123cell1` (`cell-demo-us-east-1-az1-api`)
-  - `abc123cell2` (`cell-demo-us-east-1-az2-api`)
+## Consistent hashing
 
-## 5. Common Issues & Solutions
+Routing is MD5-based: the first 4 bytes of `md5(clientId)`, read as an unsigned
+big-endian 32-bit integer, place the client on a ring of virtual nodes
+(150 × weight per cell). Implementation: `backend/lib/consistent-hash.ts` —
+shared verbatim by the routing Lambda, the admin dashboard, and the educational
+site in `site/`. Weights are fractional multipliers (1.0 = normal share).
 
-### CORS Errors
-- All Lambda responses must include:
-  ```javascript
-  headers: {
-    'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*'
-  }
-  ```
+## Frontend → API wiring
 
-### Lambda Handler Path
-- Current handler path: `dist/lambda/admin.handler`
-- Build output structure: `/dist/lambda/[function-name].js`
-
-### CloudFront Caching
-- Admin page cache invalidation: `aws cloudfront create-invalidation --distribution-id YOUR_DISTRIBUTION_ID --paths "/*"`
-- Cache takes 2-15 minutes to clear
-
-### S3 Access
-- All S3 buckets use CloudFront OAI (Origin Access Identity)
-- Direct S3 access will result in AccessDenied
-- Must access through CloudFront URLs
+| Frontend | API it calls | How the URL is configured |
+|----------|-------------|---------------------------|
+| Admin dashboard (`frontend/admin`) | Global routing API | `ADMIN_API_URL` env at build time (webpack DefinePlugin) |
+| Cell SPA (`frontend/spa`) | Its own cell's API only | `CELL_API_URL` env at build time; deploy-frontend.sh builds once per cell |
+| Router pages (`frontend/router`) | Global routing API | `%%ROUTING_API_URL%%` substituted by deploy-frontend.sh |

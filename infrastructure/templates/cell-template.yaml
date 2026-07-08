@@ -202,6 +202,80 @@ Resources:
           Properties:
             Schedule: rate(1 minute)
 
+  # Per-cell client tracking table. Each cell records its own visitors —
+  # tracking must not depend on the global routing layer at runtime, or the
+  # cells would share a failure domain.
+  CellClientTrackingTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${ProjectName}-${CellId}-client-tracking'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: LastConnectTime
+          AttributeType: S
+        - AttributeName: CellId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: CellId-LastConnectTime-index
+          KeySchema:
+            - AttributeName: CellId
+              KeyType: HASH
+            - AttributeName: LastConnectTime
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: LastConnectTime-index
+          KeySchema:
+            - AttributeName: LastConnectTime
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: TTL
+        Enabled: true
+
+  # Lambda for the cell's own visitor tracking (used by the cell SPA)
+  CellClientTrackingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-${CellId}-client-tracking'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/client-tracking.handler
+      Environment:
+        Variables:
+          CLIENT_TRACKING_TABLE: !Ref CellClientTrackingTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CellClientTrackingTable
+      Events:
+        TrackClient:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CellApi
+            Path: /track-client
+            Method: POST
+        GetClients:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CellApi
+            Path: /clients
+            Method: GET
+        GetClientsByCell:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CellApi
+            Path: /clients/cell/{cellId}
+            Method: GET
+
   # Lambda function for cell registration
   CellRegistrationFunction:
     Type: AWS::Serverless::Function

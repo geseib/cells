@@ -4,22 +4,25 @@
   "description": "Backend services for AWS cell architecture demo",
   "main": "index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run package:deps",
+    "package:deps": "cp package.json dist/ && npm install --prefix dist --omit=dev --no-audit --no-fund --no-package-lock",
     "test": "jest",
     "lint": "eslint . --ext .ts,.js"
   },
   "dependencies": {
+    "crypto-js": "^4.2.0",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
     "@aws-sdk/client-dynamodb": "^3.540.0",
     "@aws-sdk/client-eventbridge": "^3.540.0",
     "@aws-sdk/client-route-53": "^3.843.0",
     "@aws-sdk/lib-dynamodb": "^3.540.0",
-    "crypto-js": "^4.2.0"
-  },
-  "devDependencies": {
     "@types/aws-lambda": "^8.10.136",
     "@types/crypto-js": "^4.2.2",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.11.30",
+    "@types/qrcode": "^1.5.6",
     "@typescript-eslint/eslint-plugin": "^7.3.1",
     "@typescript-eslint/parser": "^7.3.1",
     "aws-sdk-client-mock": "^3.0.1",

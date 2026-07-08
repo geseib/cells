@@ -30,8 +30,6 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       return await handleGetClientRoute(event);
     } else if (path === '/admin/cell-urls' && method === 'GET') {
       return await handleGetCellUrls();
-    } else if (path === '/admin/recent-clients' && method === 'GET') {
-      return await handleGetRecentClients();
     } else if (path?.startsWith('/admin/regions/') && method === 'PUT') {
       return await handleUpdateRegionCells(event);
     }
@@ -230,26 +228,6 @@ async function handleGetCellUrls() {
       customDomain: CUSTOM_DOMAIN,
       totalCells: cellUrls.length
     })
-  };
-}
-
-async function handleGetRecentClients() {
-  // For now, return demo data. In production, this would fetch from a database
-  const demoData = {
-    'cell-1': ['client-001', 'client-037', 'client-102', 'client-089', 'client-156'],
-    'cell-2': ['client-023', 'client-078', 'client-134', 'client-067', 'client-191'],
-    'cell-3': ['client-045', 'client-112', 'client-088', 'client-203', 'client-156']
-  };
-
-  return {
-    statusCode: 200,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-      'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS'
-    },
-    body: JSON.stringify(demoData)
   };
 }
 

@@ -84,8 +84,8 @@ test.describe('Cell API Endpoints Tests', () => {
       expect(response.status()).toBe(200);
 
       const data = await response.json();
-      expect(data).toHaveProperty('recentClients');
-      expect(Array.isArray(data.recentClients)).toBeTruthy();
+      expect(data).toHaveProperty('clients');
+      expect(Array.isArray(data.clients)).toBeTruthy();
     });
 
     test(`should have CORS headers for ${label} endpoints`, async ({ request }) => {

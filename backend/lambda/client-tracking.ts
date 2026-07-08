@@ -149,22 +149,8 @@ async function trackClient(event: APIGatewayProxyEvent, headers: any): Promise<A
 
 async function getRecentClients(headers: any): Promise<APIGatewayProxyResult> {
   try {
-    // Get the 10 most recent clients across all cells
-    const result = await dynamodb.send(new QueryCommand({
-      TableName: CLIENT_TRACKING_TABLE,
-      IndexName: 'LastConnectTime-index',
-      KeyConditionExpression: 'LastConnectTime = :dummy',
-      FilterExpression: 'PK = :pk',
-      ExpressionAttributeValues: {
-        ':pk': 'CLIENTS',
-        ':dummy': 'dummy' // This won't match, but we'll scan instead
-      },
-      ScanIndexForward: false,
-      Limit: 50
-    }));
-
-    // Since we can't easily query by LastConnectTime across all records,
-    // let's do a scan with filter instead
+    // All client records share PK=CLIENTS, so a single partition query
+    // retrieves them; recency is sorted in memory below.
     const scanResult = await dynamodb.send(new QueryCommand({
       TableName: CLIENT_TRACKING_TABLE,
       KeyConditionExpression: 'PK = :pk',

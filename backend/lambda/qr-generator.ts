@@ -1,9 +1,10 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
+import * as QRCode from 'qrcode';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
   try {
     const { text, size = 200 } = JSON.parse(event.body || '{}');
-    
+
     if (!text) {
       return {
         statusCode: 400,
@@ -15,9 +16,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
       };
     }
 
-    // Generate QR code using an online service
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(text)}`;
-    
+    // Generate the QR code locally as a data URI - no third-party service
+    const qrCodeUrl = await QRCode.toDataURL(text, { width: size, margin: 1 });
+
     return {
       statusCode: 200,
       headers: {
@@ -25,9 +26,9 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         'Access-Control-Allow-Origin': '*'
       },
       body: JSON.stringify({
-        qrCodeUrl: qrUrl,
-        text: text,
-        size: size
+        qrCodeUrl,
+        text,
+        size
       })
     };
   } catch (error) {
