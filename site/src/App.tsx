@@ -1,15 +1,34 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import WhyCells from './sections/WhyCells';
 import HashRing from './sections/HashRing';
 import RouteClient from './sections/RouteClient';
 import KillCell from './sections/KillCell';
 import Scale from './sections/Scale';
 import TradeOffs from './sections/TradeOffs';
+import { arcPath, buildRing, cellColor, makeCells, ownershipArcs } from './sim/simulation';
+
+/** The hash ring as a quiet emblem: a thin band of cell-colored arcs. */
+const RingMark: React.FC<{ size: number; band: number; vnodes: number; className?: string }> = ({
+  size,
+  band,
+  vnodes,
+  className,
+}) => {
+  const arcs = useMemo(() => ownershipArcs(buildRing(makeCells(4), vnodes)), [vnodes]);
+  const c = size / 2;
+  return (
+    <svg className={className} width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+      {arcs.map((arc, i) => (
+        <path key={i} d={arcPath(c, c, c - 1, c - 1 - band, arc.start, arc.end)} fill={cellColor(arc.cellId)} />
+      ))}
+    </svg>
+  );
+};
 
 const App: React.FC = () => (
   <>
     <nav className="top-nav" aria-label="Sections">
-      <span className="brand">🧫 Cells</span>
+      <span className="brand"><RingMark size={18} band={5} vnodes={4} /> Cells</span>
       <a href="#why-cells">Why cells</a>
       <a href="#hash-ring">The ring</a>
       <a href="#route-a-client">Routing</a>
@@ -25,6 +44,7 @@ const App: React.FC = () => (
         interactive and runs in your browser — powered by the same consistent-hashing code this
         repository deploys to AWS.
       </p>
+      <RingMark className="hero-ring" size={240} band={4} vnodes={36} />
     </header>
     <main>
       <WhyCells />

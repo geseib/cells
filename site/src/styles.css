@@ -55,12 +55,27 @@
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   background: var(--page);
   color: var(--ink);
-  line-height: 1.6;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
 }
 
 .top-nav {
@@ -69,23 +84,30 @@ body {
   z-index: 10;
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-  padding: 0.6rem 1.5rem;
-  background: var(--surface-1);
+  gap: 1.4rem;
+  padding: 0.65rem 1.5rem;
+  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
   white-space: nowrap;
 }
 
 .top-nav .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-weight: 700;
-  margin-right: 0.5rem;
+  letter-spacing: -0.01em;
+  margin-right: 0.75rem;
 }
 
 .top-nav a {
   color: var(--ink-2);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  transition: color 0.15s ease;
 }
 
 .top-nav a:hover {
@@ -95,21 +117,36 @@ body {
 .hero {
   max-width: 880px;
   margin: 0 auto;
-  padding: 4rem 1.5rem 2rem;
+  padding: 5rem 1.5rem 1rem;
   text-align: center;
+  animation: hero-in 0.7s ease both;
+}
+
+@keyframes hero-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .hero h1 {
-  font-size: 2.4rem;
-  line-height: 1.2;
-  margin: 0 0 1rem;
+  font-size: clamp(2.4rem, 6vw, 3.4rem);
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+  margin: 0 0 1.25rem;
 }
 
 .hero p.lede {
-  font-size: 1.15rem;
+  font-size: 1.13rem;
+  line-height: 1.7;
   color: var(--ink-2);
-  max-width: 640px;
+  max-width: 620px;
   margin: 0 auto;
+  text-wrap: pretty;
+}
+
+.hero-ring {
+  display: block;
+  margin: 2.5rem auto 0;
 }
 
 main {
@@ -119,8 +156,8 @@ main {
 }
 
 section.lesson {
-  margin-top: 4rem;
-  scroll-margin-top: 4rem;
+  margin-top: 5.5rem;
+  scroll-margin-top: 4.5rem;
 }
 
 .kicker {
@@ -132,8 +169,10 @@ section.lesson {
 }
 
 section.lesson h2 {
-  font-size: 1.7rem;
-  margin: 0.25rem 0 0.75rem;
+  font-size: 1.85rem;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+  margin: 0.3rem 0 0.8rem;
 }
 
 section.lesson > p {
@@ -144,9 +183,16 @@ section.lesson > p {
 .panel {
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.25rem;
+  border-radius: 14px;
+  padding: 1.4rem;
   margin-top: 1.25rem;
+  box-shadow: 0 1px 2px rgba(11, 11, 11, 0.03), 0 12px 32px -20px rgba(11, 11, 11, 0.18);
+}
+
+@media (prefers-color-scheme: dark) {
+  .panel {
+    box-shadow: none;
+  }
 }
 
 .controls {
@@ -159,18 +205,29 @@ section.lesson > p {
 
 button {
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 600;
-  padding: 0.45rem 0.9rem;
-  border-radius: 8px;
+  padding: 0.48rem 0.95rem;
+  border-radius: 9px;
   border: 1px solid var(--border);
   background: var(--surface-1);
   color: var(--ink);
   cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 button:hover {
   border-color: var(--baseline);
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 button.primary {
@@ -227,6 +284,8 @@ input[type='range'] {
   font-size: 1.7rem;
   font-weight: 700;
   line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
 }
 
 .stat .value.bad {
@@ -238,8 +297,9 @@ input[type='range'] {
 }
 
 .stat .label {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--muted);
+  margin-top: 0.15rem;
 }
 
 .legend {
@@ -263,7 +323,7 @@ input[type='range'] {
 .dot-grid {
   display: grid;
   grid-template-columns: repeat(20, 1fr);
-  gap: 6px;
+  gap: 7px;
   margin-top: 0.5rem;
 }
 
@@ -317,10 +377,14 @@ table.data td {
 
 .cell-card {
   border: 2px solid var(--border);
-  border-radius: 10px;
-  padding: 0.75rem;
+  border-radius: 12px;
+  padding: 0.85rem;
   cursor: pointer;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.3s ease, border-color 0.3s ease, transform 0.15s ease;
+}
+
+.cell-card:hover {
+  transform: translateY(-1px);
 }
 
 .cell-card.failed {
@@ -412,8 +476,8 @@ table.data td {
 
 footer.site-footer {
   border-top: 1px solid var(--border);
-  margin-top: 4rem;
-  padding: 2rem 1.5rem;
+  margin-top: 5rem;
+  padding: 2.5rem 1.5rem 3rem;
   text-align: center;
   color: var(--muted);
   font-size: 0.85rem;
