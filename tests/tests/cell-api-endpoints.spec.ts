@@ -57,7 +57,8 @@ test.describe('Cell API Endpoints Tests', () => {
         data: testClientData
       });
 
-      expect(response.status()).toBe(200);
+      // 200 = repeat visit updated, 201 = first visit recorded
+      expect([200, 201]).toContain(response.status());
 
       const data = await response.json();
       expect(data).toHaveProperty('success');

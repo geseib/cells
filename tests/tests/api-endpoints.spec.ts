@@ -182,7 +182,8 @@ test.describe('API Endpoints Tests', () => {
         expect(data).toHaveProperty('clientId');
         expect(data).toHaveProperty('targetCell');
       } else {
-        expect([400, 404, 422]).toContain(response.status());
+        // 403 is API Gateway's own rejection of an unmatched route (empty id)
+        expect([400, 403, 404, 422]).toContain(response.status());
       }
     }
   });

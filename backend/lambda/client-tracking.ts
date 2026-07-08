@@ -62,7 +62,10 @@ async function trackClient(event: APIGatewayProxyEvent, headers: any): Promise<A
   }
 
   const body = JSON.parse(event.body);
-  const { clientId, cellId, sourceIp } = body;
+  const { clientId, sourceIp } = body;
+  // A cell's own deployment knows its identity (CELL_ID env) - callers only
+  // need to pass cellId on the global routing API, which serves every cell.
+  const cellId = body.cellId || process.env.CELL_ID;
 
   if (!clientId || !cellId) {
     return {
