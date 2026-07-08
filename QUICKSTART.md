@@ -1,97 +1,96 @@
-# Quick Start Guide
+# Quick Start — deploying the AWS demo
 
-Get your AWS Cell Architecture Demo up and running in minutes!
+This deploys the real cell architecture to your AWS account: a global routing
+layer plus one isolated stack per cell. (To just *learn* the pattern, you don't
+need any of this — open the interactive site in [`site/`](site/) instead.)
 
 ## Prerequisites
 
-- AWS CLI configured with appropriate credentials
+- AWS CLI configured with credentials (`aws sts get-caller-identity` works)
+- SAM CLI (`sam --version`)
 - Node.js 18+ and npm
-- SAM CLI
-- jq (for JSON parsing)
+- jq
+- An S3 bucket for SAM deployment artifacts (or let setup create one)
 
-## Installation Steps
+## First deployment (no custom domain — recommended)
 
-### 1. Clone and Setup
+Start without a domain: everything runs on API Gateway and CloudFront URLs,
+with no certificate-validation waits.
+
 ```bash
-git clone <repository-url>
-cd cells
-```
-
-### 2. Configure Your Deployment
-```bash
-# Copy the example configuration
 cp config.example.json config.json
-
-# Edit config.json with your settings
-nano config.json
 ```
 
-**Required Configuration:**
-```json
-{
-  "projectName": "my-cell-demo",
-  "samBucket": "my-sam-deployment-bucket",
-  "domainName": "cells.example.com",
-  "hostedZoneId": "Z1234567890ABC"
-}
-```
-
-### 3. Deploy Everything
-```bash
-./setup.sh
-```
-
-That's it! 🎉
-
-## What You Get
-
-After deployment, you'll have:
-
-- **Admin Dashboard**: `https://celladmin.{your-domain}`
-- **Routing API**: `https://cellapi.{your-domain}`
-- **Cell Sites**: `https://cell-{cell-id}.{your-domain}`
-
-Example with `cells.example.com`:
-- `https://celladmin.cells.example.com`
-- `https://cellapi.cells.example.com`
-- `https://cell-us-east-1-az1.cells.example.com`
-- `https://cell-us-west-2-az1.cells.example.com`
-
-## Configuration Options
-
-### config.json Reference
-
-```json
-{
-  "projectName": "cell-demo",           // AWS resource prefix
-  "samBucket": "my-bucket",             // S3 bucket for deployments
-  "domainName": "cells.example.com",    // Your custom domain
-  "hostedZoneId": "Z123...",            // Route53 hosted zone ID
-  "regions": ["us-east-1", "us-west-2"], // Deployment regions
-  "azsPerRegion": 2,                    // AZs per region
-  "deployment": {
-    "autoCreateSamBucket": true,        // Auto-create SAM bucket
-    "validateDomain": true              // Validate hosted zone
-  }
-}
-```
-
-### Without Custom Domain
-
-If you don't have a custom domain, just leave `domainName` and `hostedZoneId` empty:
+Edit `config.json`:
 
 ```json
 {
   "projectName": "cell-demo",
-  "samBucket": "my-sam-deployment-bucket",
+  "samBucket": "your-sam-deployment-bucket",
   "domainName": "",
-  "hostedZoneId": ""
+  "hostedZoneId": "",
+  "regions": ["us-east-1"],
+  "azsPerRegion": 2,
+  "deployment": {
+    "autoCreateSamBucket": true,
+    "validateDomain": false
+  }
 }
 ```
 
-## Finding Your Hosted Zone ID
+> `config.json` is gitignored — it holds your account-specific values.
+> Add `"awsProfile": "your-profile"` under `deployment` if you use named profiles.
+> Start with one region; add `"us-west-2"` later and re-run setup to scale out.
 
-If you have a domain in Route53:
+Then:
+
+```bash
+./setup.sh
+```
+
+What happens, in order (rough timings):
+
+| Step | What | Time |
+|------|------|------|
+| 1 | Global stack (`{project}-global`): cell registry + tracking tables, event bus | ~2 min |
+| 2 | Routing stack (`{project}-routing`, us-east-1): routing/admin Lambdas, API, admin bucket + CloudFront | ~5 min |
+| 3 | One cell stack per region×AZ: S3 + CloudFront + API + Lambdas + DynamoDB | ~5–8 min each |
+| 4 | Frontend deploy: admin dashboard once, cell SPA built **per cell** with that cell's API injected, router pages with the routing API substituted | ~2 min/cell |
+
+Cells self-register on a 5-minute schedule — the admin dashboard may be empty
+for the first few minutes after deploy. That's normal.
+
+## Verify the deployment
+
+```bash
+./infrastructure/scripts/smoke-test.sh
+```
+
+This polls until cells register, verifies the deployed hash ring returns the
+same golden value as the unit tests (`md5("user123") → 1792101289`), checks
+every cell's `/info`, `/health`, and per-cell client tracking, and prints the
+exact env-var line to run the Playwright E2E suite:
+
+```bash
+cd tests && ADMIN_BASE_URL=... ROUTING_API_URL=... CELL_URLS=... CELL_API_URLS=... npm test
+```
+
+## Adding a custom domain (second pass)
+
+Set `domainName` and `hostedZoneId` in `config.json` and re-run `./setup.sh`.
+You get:
+
+- Admin dashboard: `https://celladmin.{domain}`
+- Routing API: `https://cellapi.{domain}`
+- Cells **in us-east-1**: `https://cell-{cell-id}.{domain}`
+
+**Limitation:** CloudFront only accepts ACM certificates from us-east-1, and
+the cell template creates its certificate in the cell's own region — so cells
+outside us-east-1 keep their CloudFront URLs (deploy.sh skips the domain for
+them and says so). The failover demo's Route 53 record inspection also
+requires a custom domain.
+
+Finding your hosted zone ID:
 
 ```bash
 aws route53 list-hosted-zones --query 'HostedZones[?Name==`example.com.`].Id' --output text
@@ -99,31 +98,22 @@ aws route53 list-hosted-zones --query 'HostedZones[?Name==`example.com.`].Id' --
 
 ## Cleanup
 
-To remove everything:
 ```bash
 ./infrastructure/scripts/cleanup.sh
 ```
 
+Deletes cell stacks (emptying their buckets first), then the routing and
+global stacks.
+
 ## Troubleshooting
 
-### Setup Script Fails
-- Ensure AWS CLI is configured: `aws sts get-caller-identity`
-- Check you have required tools: `sam --version`, `node --version`, `jq --version`
-
-### Domain Not Working
-- DNS propagation can take 10-15 minutes
-- Verify your hosted zone ID is correct
-- Check certificate validation in ACM console
-
-### SAM Bucket Issues
-- Bucket names must be globally unique
-- Set `autoCreateSamBucket: false` if you want to create it manually
-
-## Next Steps
-
-1. Visit your admin dashboard to see the cell architecture
-2. Test client routing with different client IDs
-3. View QR codes for easy mobile access
-4. Monitor cell health and distribution
-
-For detailed documentation, see [README.md](README.md).
+- **Setup fails immediately** — check `aws sts get-caller-identity`,
+  `sam --version`, `jq --version`; ensure the SAM bucket name is globally
+  unique or set `autoCreateSamBucket: false` and create it yourself.
+- **Admin dashboard shows no cells** — wait 5 minutes (registration schedule),
+  then check CloudWatch logs for `{project}-{cellId}-registration`.
+- **Smoke test hash-parity failure** — the deployed Lambda bundle is stale;
+  re-run `cd backend && npm run build` and redeploy (the build step installs
+  runtime deps into `backend/dist/`).
+- **Custom domain not resolving** — DNS + certificate validation can take
+  10–15 minutes; check the certificate status in ACM (us-east-1).

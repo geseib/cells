@@ -19,7 +19,7 @@ workload into isolated cells with consistent-hash routing. Two deliverables:
 | `frontend/admin/` | Admin dashboard (React + webpack, recharts) |
 | `frontend/router/` | Static router pages (`index.html`, `auto.html`) deployed to the admin bucket |
 | `infrastructure/templates/` | Live templates only: `global-resources.yaml`, `routing-layer.yaml`, `cell-template.yaml` |
-| `infrastructure/scripts/` | `deploy.sh`, `deploy-frontend.sh`, `cleanup.sh` |
+| `infrastructure/scripts/` | `deploy.sh`, `deploy-frontend.sh`, `smoke-test.sh` (post-deploy verification), `cleanup.sh` |
 | `tests/` | Playwright E2E suite, parameterized by env vars (`tests/tests/config.ts`) |
 
 ## Build & test commands
@@ -67,6 +67,9 @@ real account IDs, hosted zone IDs, domains, or API Gateway IDs anywhere;
   it to fake network calls; real failover is Route 53 health checks.
 - AWS deployment can't be verified in CI (no credentials) — builds and unit
   tests are the automated gate; E2E tests skip when endpoint env vars are unset.
+  After a real deploy, run `infrastructure/scripts/smoke-test.sh`: it checks
+  registration, hash-parity against the jest golden value, and per-cell APIs,
+  then prints the env vars for the Playwright suite.
 
 ## Docs
 
