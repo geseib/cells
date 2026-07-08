@@ -39,26 +39,50 @@ Resources:
         - DomainName: !Sub 'api.${DomainName}'
           HostedZoneId: !Ref HostedZoneId
 
-  # API Gateway for routing
+  # API Gateway for routing.
+  # The custom domain is declared as plain CloudFormation below rather than
+  # SAM's Domain property: the transform requires literal Domain fields, so it
+  # can neither be wrapped in !If nor left with AWS::NoValue values when no
+  # domain is configured.
   RoutingApi:
     Type: AWS::Serverless::Api
     Properties:
       Name: !Sub '${ProjectName}-routing-api'
       StageName: prod
-      # The whole Domain block must be conditional: SAM generates the API
-      # Gateway domain resources whenever the property exists, even if the
-      # inner fields resolve to AWS::NoValue.
-      Domain: !If
-        - HasCustomDomain
-        - DomainName: !Sub 'api.${DomainName}'
-          CertificateArn: !Ref ApiCertificate
-          Route53:
-            HostedZoneId: !Ref HostedZoneId
-        - !Ref 'AWS::NoValue'
       Cors:
         AllowMethods: "'*'"
         AllowHeaders: "'*'"
         AllowOrigin: "'*'"
+
+  ApiCustomDomain:
+    Type: AWS::ApiGateway::DomainName
+    Condition: HasCustomDomain
+    Properties:
+      DomainName: !Sub 'api.${DomainName}'
+      RegionalCertificateArn: !Ref ApiCertificate
+      EndpointConfiguration:
+        Types: [REGIONAL]
+      SecurityPolicy: TLS_1_2
+
+  ApiBasePathMapping:
+    Type: AWS::ApiGateway::BasePathMapping
+    Condition: HasCustomDomain
+    DependsOn: RoutingApiprodStage
+    Properties:
+      DomainName: !Ref ApiCustomDomain
+      RestApiId: !Ref RoutingApi
+      Stage: prod
+
+  ApiDomainRecord:
+    Type: AWS::Route53::RecordSet
+    Condition: HasCustomDomain
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub 'api.${DomainName}'
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt ApiCustomDomain.RegionalDomainName
+        HostedZoneId: !GetAtt ApiCustomDomain.RegionalHostedZoneId
 
   # Lambda function for routing decisions
   RoutingFunction:
