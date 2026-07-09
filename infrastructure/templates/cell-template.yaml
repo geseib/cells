@@ -287,6 +287,13 @@ Resources:
         Variables:
           CELL_REGISTRY_TABLE: !Sub '${ProjectName}-cell-registry'
           CELL_WEIGHT: !Ref CellWeight
+          # Each cell registers its own public URL - custom domain when it has
+          # one, otherwise its CloudFront URL (non-us-east-1 cells can't get
+          # CloudFront certificates in-region)
+          CELL_URL: !If
+            - HasCustomDomain
+            - !Sub 'https://${CellId}.${DomainName}'
+            - !Sub 'https://${CellCloudFront.DomainName}'
       Policies:
         - Version: '2012-10-17'
           Statement:

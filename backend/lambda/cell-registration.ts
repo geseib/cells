@@ -19,6 +19,9 @@ export const handler: ScheduledHandler = async (event) => {
       region: CELL_REGION,
       availabilityZone: AVAILABILITY_ZONE,
       weight: CELL_WEIGHT,
+      // The cell knows its own public URL (custom domain or CloudFront);
+      // consumers must use this instead of deriving URLs from the cellId
+      url: process.env.CELL_URL || '',
       active: true,
       registeredAt: new Date().toISOString(),
       lastHeartbeat: new Date().toISOString(),

@@ -196,15 +196,17 @@ async function handleGetCellUrls() {
     TableName: CELL_REGISTRY_TABLE
   }));
 
-  const cells = (scanResult.Items || []) as Cell[];
+  const cells = (scanResult.Items || []) as (Cell & { url?: string })[];
   const activeCells = cells.filter(cell => cell.active);
 
   const cellUrls = activeCells.map(cell => {
-    const baseUrl = CUSTOM_DOMAIN 
-      ? `https://${cell.cellId}.${CUSTOM_DOMAIN}`
-      : `https://${cell.cellId}-cloudfront-url.cloudfront.net`;
-    
-    const routingUrl = CUSTOM_DOMAIN 
+    // Prefer the URL the cell registered for itself (custom domain or its
+    // CloudFront URL) - deriving names from cellId breaks for cells without
+    // custom domains (only us-east-1 cells can have them)
+    const baseUrl = cell.url
+      || (CUSTOM_DOMAIN ? `https://${cell.cellId}.${CUSTOM_DOMAIN}` : '');
+
+    const routingUrl = CUSTOM_DOMAIN
       ? `https://api.${CUSTOM_DOMAIN}/route/`
       : `https://api-gateway-url.execute-api.${cell.region}.amazonaws.com/prod/route/`;
 
