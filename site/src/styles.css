@@ -333,6 +333,58 @@ input[type='range'] {
   transition: background 0.4s ease, opacity 0.4s ease;
 }
 
+/* Why-cells blast radius: clients clustered into one bordered group per cell */
+.cell-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.cell-group {
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem 0.7rem;
+  transition: border-color 0.4s ease, opacity 0.4s ease;
+}
+
+.cell-group.failed {
+  opacity: 0.85;
+}
+
+.cell-group .title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.5rem;
+  transition: color 0.4s ease;
+}
+
+.cell-group .dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cell-group .dots .dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  transition: background 0.4s ease, opacity 0.4s ease;
+}
+
+/* Topology contrast: marching dashes on broken flow segments. The global
+   prefers-reduced-motion rule above disables the animation. */
+.flow-broken {
+  animation: flow-dash 0.9s linear infinite;
+}
+
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -9;
+  }
+}
+
 .viz-flex {
   display: flex;
   flex-wrap: wrap;
