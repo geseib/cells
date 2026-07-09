@@ -266,9 +266,19 @@ Resources:
       Environment:
         Variables:
           CLIENT_TRACKING_TABLE: !Ref CellClientTrackingTable
+          # Global live-client records (us-east-1) - written fire-and-forget
+          # so the admin ring sees every cell's visitors; the cell's serving
+          # path never depends on this write succeeding
+          GLOBAL_CLIENT_RECORDS_TABLE: !Sub '${ProjectName}-client-tracking'
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref CellClientTrackingTable
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:PutItem
+              Resource: !Sub 'arn:aws:dynamodb:us-east-1:${AWS::AccountId}:table/${ProjectName}-client-tracking'
       Events:
         TrackClient:
           Type: Api

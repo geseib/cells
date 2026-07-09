@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MAX_HASH, arcPath, makeCellColors, ownershipArcs, pointOnCircle } from '../ring';
 
 interface CellData {
@@ -47,6 +47,15 @@ interface CellUrlsData {
   totalCells: number;
 }
 
+interface LiveClientRecord {
+  clientId: string;
+  cellId: string;
+  region: string;
+  az: string;
+  lastSeen: string;
+  hashValue: number;
+}
+
 interface CellDemoProps {
   apiUrl: string;
 }
@@ -59,7 +68,8 @@ const CY = HEIGHT / 2;
 const R_OUTER = 140;
 const R_INNER = 104;
 const R_DOT = 148;
-const RING_CLIENT_LIMIT = 10;
+const RING_LABEL_LIMIT = 10; // labels for the most recent; every live client gets a dot
+const RING_DOT_LIMIT = 60;
 
 // Client -> cell mappings displayed below always come from the backend's own
 // routing decisions (the /clients response and /admin/client-route) - never
@@ -73,13 +83,9 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
   const [clientRoute, setClientRoute] = useState<ClientRoute | null>(null);
   const [cellUrls, setCellUrls] = useState<CellUrlsData | null>(null);
   const [qrCodes, setQrCodes] = useState<Map<string, string>>(new Map());
-  const [recentClients, setRecentClients] = useState<string[]>([]);
-  const [cellClients, setCellClients] = useState<Map<string, string[]>>(new Map());
-  const [clientHashes, setClientHashes] = useState<Map<string, number>>(new Map());
+  const [liveRecords, setLiveRecords] = useState<LiveClientRecord[]>([]);
+  const [recordFilter, setRecordFilter] = useState(''); // SK prefix: '' | 'region#' | 'region#az#'
   const [loading, setLoading] = useState(true);
-  // A client's hash never changes (it is a pure MD5 of the ID), so cache
-  // backend lookups for the lifetime of the page.
-  const hashCache = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
     if (apiUrl) {
@@ -94,49 +100,14 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
     }
   }, [apiUrl]);
 
-  // Fetch client data when cells are loaded
-  useEffect(() => {
-    if (cells.length > 0) {
-      fetchRecentClients();
-
-      // Set up interval to refresh client data
-      const clientInterval = setInterval(() => {
-        fetchRecentClients();
-      }, 5000);
-
-      return () => clearInterval(clientInterval);
-    }
-  }, [cells]);
-
-  // Resolve each displayed client's real ring position (uint32 hash) from the
-  // backend, so its dot sits at the exact angle the router computes.
+  // Live client records (everyone seen in the last hour), refreshed and
+  // re-queried whenever the region/AZ filter changes.
   useEffect(() => {
     if (!apiUrl) return;
-    const missing = recentClients
-      .slice(0, RING_CLIENT_LIMIT)
-      .filter((id) => !hashCache.current.has(id));
-    if (missing.length === 0) return;
-    let cancelled = false;
-    Promise.all(
-      missing.map(async (id) => {
-        try {
-          const response = await fetch(`${apiUrl}/admin/client-route/${encodeURIComponent(id)}`);
-          if (!response.ok) return;
-          const data = await response.json();
-          if (typeof data.hashValue === 'number') {
-            hashCache.current.set(id, data.hashValue);
-          }
-        } catch (error) {
-          console.error('Failed to fetch client hash position:', error);
-        }
-      })
-    ).then(() => {
-      if (!cancelled) setClientHashes(new Map(hashCache.current));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [recentClients, apiUrl]);
+    fetchLiveRecords(recordFilter);
+    const interval = setInterval(() => fetchLiveRecords(recordFilter), 10000);
+    return () => clearInterval(interval);
+  }, [apiUrl, recordFilter]);
 
   const fetchCells = async () => {
     try {
@@ -174,24 +145,22 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
     }
   };
 
-  const fetchRecentClients = async () => {
+  const fetchLiveRecords = async (prefix: string) => {
     try {
-      // Call API to get recent clients across all cells
-      const response = await fetch(`${apiUrl}/clients`);
-
+      // Hierarchical SK query: no prefix = every client, 'us-east-1#' = one
+      // region, 'us-east-1#az1#' = one cell. Records expire after an hour.
+      const qs = prefix ? `?prefix=${encodeURIComponent(prefix)}` : '';
+      const response = await fetch(`${apiUrl}/clients/records${qs}`);
       if (response.ok) {
         const data = await response.json();
-        setCellClients(new Map(Object.entries(data.cellClients || {})));
-        setRecentClients(data.recentClients || []);
+        setLiveRecords(data.records || []);
       } else {
-        console.error('Failed to fetch recent clients from API');
-        setCellClients(new Map());
-        setRecentClients([]);
+        console.error('Failed to fetch live client records');
+        setLiveRecords([]);
       }
     } catch (error) {
-      console.error('Error fetching recent clients:', error);
-      setCellClients(new Map());
-      setRecentClients([]);
+      console.error('Error fetching live client records:', error);
+      setLiveRecords([]);
     }
   };
 
@@ -225,7 +194,7 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
       }
 
       // Refresh client data to update the ring
-      fetchRecentClients();
+      fetchLiveRecords(recordFilter);
 
     } catch (error) {
       console.error('Failed to check client route:', error);
@@ -273,7 +242,7 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
       await fetchHashRing();
       await fetchCellUrls();
       // Force re-render of client list with new hash ring
-      await fetchRecentClients();
+      await fetchLiveRecords(recordFilter);
     } catch (error) {
       console.error('Failed to update cell:', error);
     }
@@ -291,7 +260,7 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
       await fetchHashRing();
       await fetchCellUrls();
       // Force re-render of client list with new hash ring
-      await fetchRecentClients();
+      await fetchLiveRecords(recordFilter);
     } catch (error) {
       console.error('Failed to update region:', error);
     }
@@ -306,17 +275,32 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
   // Ownership arcs from the REAL ring positions the backend routes with.
   const arcs = hashRing ? ownershipArcs(hashRing.ring) : [];
 
-  // Backend's client -> cell decisions (from /clients)
-  const clientToCell = new Map<string, string>();
-  for (const [cell, ids] of cellClients.entries()) {
-    for (const id of ids) clientToCell.set(id, cell);
+  // Every live client carries its backend-computed hash; dots for all (capped),
+  // labels for the most recent few.
+  const ringClients = liveRecords
+    .slice(0, RING_DOT_LIMIT)
+    .map((r, i) => ({ record: r, index: i, labeled: i < RING_LABEL_LIMIT }));
+
+  const clientsPerCell = new Map<string, number>();
+  for (const r of liveRecords) {
+    clientsPerCell.set(r.cellId, (clientsPerCell.get(r.cellId) || 0) + 1);
   }
 
-  // Clients we can place on the ring: recent, with a backend-provided hash.
-  const ringClients = recentClients
-    .slice(0, RING_CLIENT_LIMIT)
-    .filter((id) => clientHashes.has(id))
-    .map((id, i) => ({ id, hash: clientHashes.get(id)!, index: i }));
+  // Filter chips built from the registered cells: all / each region / each cell
+  const regionsForFilter = [...new Set(cells.map((c) => c.region))].sort();
+  const filterChips: Array<{ label: string; prefix: string }> = [
+    { label: 'All clients', prefix: '' },
+    ...regionsForFilter.map((r) => ({ label: r, prefix: `${r}#` })),
+    ...[...cells].sort((a, b) => a.cellId.localeCompare(b.cellId)).map((c) => {
+      const az = c.cellId.slice(c.cellId.lastIndexOf('-') + 1);
+      return { label: c.cellId, prefix: `${c.region}#${az}#` };
+    }),
+  ];
+
+  const relTime = (iso: string) => {
+    const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    return mins === 0 ? 'just now' : `${mins}m ago`;
+  };
 
   const sortedDistribution = hashRing
     ? [...hashRing.distribution].sort((a, b) => a.cellId.localeCompare(b.cellId))
@@ -416,6 +400,17 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
             inside the arc of the cell that owns it.
           </p>
           <div className="panel">
+            <div className="controls" role="group" aria-label="Filter live clients by region or cell">
+              {filterChips.map((chip) => (
+                <button
+                  key={chip.prefix || 'all'}
+                  className={recordFilter === chip.prefix ? 'selected' : ''}
+                  onClick={() => setRecordFilter(chip.prefix)}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
             <div className="ring-layout">
               <svg
                 width={WIDTH}
@@ -433,18 +428,33 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
                     strokeWidth={hashRing.ring.length <= 64 ? 1.5 : 0}
                   />
                 ))}
-                {ringClients.map(({ id, hash, index }) => {
-                  const frac = hash / MAX_HASH;
-                  const owner = clientToCell.get(id);
-                  const color = owner ? colorFor(owner) : 'var(--muted)';
+                {ringClients.map(({ record, index, labeled }) => {
+                  const frac = record.hashValue / MAX_HASH;
+                  const color = colorFor(record.cellId);
                   const dot = pointOnCircle(CX, CY, R_DOT, frac);
+                  if (!labeled) {
+                    return (
+                      <circle
+                        key={record.clientId}
+                        cx={dot.x}
+                        cy={dot.y}
+                        r={3.5}
+                        fill={color}
+                        stroke="var(--surface-1)"
+                        strokeWidth={1}
+                        opacity={0.85}
+                      >
+                        <title>{record.clientId} → {record.cellId} ({relTime(record.lastSeen)})</title>
+                      </circle>
+                    );
+                  }
                   // Stagger label radii so neighbouring labels don't collide
                   const labelR = 172 + (index % 2) * 24;
                   const label = pointOnCircle(CX, CY, labelR, frac);
                   const anchor = label.x > CX + 14 ? 'start' : label.x < CX - 14 ? 'end' : 'middle';
                   const dx = anchor === 'start' ? 4 : anchor === 'end' ? -4 : 0;
                   return (
-                    <g key={id}>
+                    <g key={record.clientId}>
                       <line
                         x1={dot.x}
                         y1={dot.y}
@@ -469,7 +479,7 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
                         fontSize="10.5"
                         fill="var(--ink-2)"
                       >
-                        {truncate(id)}
+                        {truncate(record.clientId)}
                       </text>
                     </g>
                   );
@@ -498,15 +508,15 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
                           {d.cellId}
                         </td>
                         <td>{d.percentage.toFixed(1)}%</td>
-                        <td>{cellClients.get(d.cellId)?.length || 0}</td>
+                        <td>{clientsPerCell.get(d.cellId) || 0}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 <div className="stat-row">
                   <div className="stat">
-                    <div className="value">{recentClients.length}</div>
-                    <div className="label">recent clients</div>
+                    <div className="value">{liveRecords.length}</div>
+                    <div className="label">live clients (last hour{recordFilter ? ', filtered' : ''})</div>
                   </div>
                   <div className="stat">
                     <div className="value">{activeRegions}</div>
@@ -514,19 +524,23 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
                   </div>
                 </div>
                 <div className="client-list">
-                  {recentClients.length > 0 ? (
-                    recentClients.map(client => (
-                      <div className="entry" key={client}>
+                  {liveRecords.length > 0 ? (
+                    liveRecords.slice(0, 12).map(record => (
+                      <div className="entry" key={record.clientId}>
                         <span
                           className="swatch"
-                          style={{ background: clientToCell.has(client) ? colorFor(clientToCell.get(client)!) : 'var(--muted)' }}
+                          style={{ background: colorFor(record.cellId) }}
                         />
-                        <span className="client-id">{client}</span>
-                        <span className="hash-chip">{clientToCell.get(client) || 'unknown'}</span>
+                        <span className="client-id">{record.clientId}</span>
+                        <span className="meta">{relTime(record.lastSeen)}</span>
+                        <span className="hash-chip">{record.cellId}</span>
                       </div>
                     ))
                   ) : (
-                    <div className="empty-note">No recent client activity</div>
+                    <div className="empty-note">No clients in the last hour{recordFilter ? ' for this filter' : ''}</div>
+                  )}
+                  {liveRecords.length > 12 && (
+                    <div className="empty-note">+{liveRecords.length - 12} more on the ring</div>
                   )}
                 </div>
               </div>

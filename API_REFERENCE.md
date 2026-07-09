@@ -26,7 +26,8 @@ All endpoints return JSON with permissive CORS headers.
 | GET | `/admin/client-route/{clientId}` | `lambda/admin.ts` | Routing decision incl. raw hash value |
 | GET | `/admin/cell-urls` | `lambda/admin.ts` | Direct/routing URLs for every cell |
 | POST | `/track-client` | `lambda/client-tracking.ts` | Record a client visit (`{clientId, cellId, sourceIp}`) |
-| GET | `/clients` | `lambda/client-tracking.ts` | Recent clients across all cells (feeds the admin pie chart) |
+| GET | `/clients/records` | `lambda/client-tracking.ts` | All live clients seen anywhere in the last hour (feeds the admin ring); `?prefix=us-east-1#` filters by region, `?prefix=us-east-1#az1#` by cell |
+| GET | `/clients` | `lambda/client-tracking.ts` | Recent clients across all cells |
 | GET | `/clients/cell/{cellId}` | `lambda/client-tracking.ts` | Last 5 clients for one cell |
 | GET | `/clients/count/cell/{cellId}` | `lambda/client-tracking.ts` | Client count for one cell |
 | POST | `/qr-code` | `lambda/qr-generator.ts` | Generate a QR code (`{text, size}` → `{qrCodeUrl}` data URI) |
@@ -76,6 +77,21 @@ All endpoints return JSON with permissive CORS headers.
   }
 }
 ```
+
+### Live client records
+
+Every `/track-client` call (global or per-cell) also writes a fire-and-forget
+record to the global tracking table in us-east-1 under a hierarchical key:
+
+```
+PK = CLIENTRECORDS
+SK = {region}#{az}#{clientId}     e.g. us-east-1#az1#user123
+```
+
+Records carry a one-hour TTL; because DynamoDB TTL deletion lags, the query
+also filters expired items so the window is exact. Cell writes are
+best-effort telemetry — a cell keeps serving even if the global table is
+unreachable.
 
 ## Cell API (per cell)
 

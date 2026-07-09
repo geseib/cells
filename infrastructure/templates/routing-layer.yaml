@@ -211,6 +211,9 @@ Resources:
       Environment:
         Variables:
           CLIENT_TRACKING_TABLE: !Sub '${ProjectName}-client-tracking'
+          # Live-client records share the global tracking table (this stack
+          # is already in us-east-1)
+          GLOBAL_CLIENT_RECORDS_TABLE: !Sub '${ProjectName}-client-tracking'
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Sub '${ProjectName}-client-tracking'
@@ -221,6 +224,12 @@ Resources:
             RestApiId: !Ref RoutingApi
             Path: /track-client
             Method: POST
+        GetLiveRecords:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /clients/records
+            Method: GET
         GetAllClients:
           Type: Api
           Properties:
