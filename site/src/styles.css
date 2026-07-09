@@ -543,6 +543,168 @@ section.lesson a {
   color: var(--accent);
 }
 
+/* ---- Beyond cells ---- */
+
+section#beyond-cells h3 {
+  margin: 2.6rem 0 0.5rem;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+}
+
+section#beyond-cells h3 + p {
+  color: var(--ink-2);
+  max-width: 720px;
+  margin-top: 0;
+}
+
+.mini-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+  margin-bottom: 0.4rem;
+}
+
+.az-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+@media (max-width: 560px) {
+  .az-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.az-card {
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem 0.75rem;
+  transition: border-color 0.3s ease, opacity 0.3s ease;
+}
+
+.az-card.down {
+  border-color: var(--critical);
+  opacity: 0.8;
+}
+
+.az-card .name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.az-card .prov {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0.1rem 0 0.45rem;
+}
+
+.az-bar {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--grid);
+  overflow: hidden;
+}
+
+.az-bar .fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.5s ease, background 0.3s ease;
+}
+
+.meter-wrap {
+  margin-top: 1rem;
+}
+
+.meter-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+}
+
+.meter {
+  position: relative;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--grid);
+  overflow: hidden;
+}
+
+.meter > div {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.meter .fill-ok {
+  left: 0;
+  background: var(--good);
+  transition: width 0.5s ease;
+}
+
+.meter .fill-extra {
+  background: color-mix(in srgb, var(--good) 35%, transparent);
+  transition: left 0.5s ease, width 0.5s ease;
+}
+
+.meter .fill-gap {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--critical),
+    var(--critical) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  opacity: 0.75;
+  transition: left 0.5s ease, width 0.5s ease;
+}
+
+.meter .demand-line {
+  width: 2px;
+  background: var(--ink);
+}
+
+.pulse-chip {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--critical);
+  color: var(--critical);
+  animation: chip-pulse 1.3s ease-in-out infinite;
+}
+
+.pulse-chip.calm {
+  border-color: var(--good);
+  color: var(--good);
+  animation: none;
+}
+
+@keyframes chip-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.user-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 0.9rem;
+}
+
+.user-strip span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  transition: background 0.4s ease;
+}
+
 .try-live {
   margin: 0.9rem 0 0;
   text-align: right;

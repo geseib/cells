@@ -4,6 +4,7 @@ import HashRing from './sections/HashRing';
 import RouteClient from './sections/RouteClient';
 import KillCell from './sections/KillCell';
 import Scale from './sections/Scale';
+import BeyondCells from './sections/BeyondCells';
 import TradeOffs from './sections/TradeOffs';
 import { arcPath, buildRing, cellColor, makeCells, ownershipArcs } from './sim/simulation';
 import { demoAdminUrl, hasLiveDemo } from './TryLive';
@@ -35,6 +36,7 @@ const App: React.FC = () => (
       <a href="#route-a-client">Routing</a>
       <a href="#kill-a-cell">Failure</a>
       <a href="#scale">Scaling</a>
+      <a href="#beyond-cells">Beyond cells</a>
       <a href="#trade-offs">Trade-offs</a>
       {hasLiveDemo && (
         <>
@@ -61,6 +63,7 @@ const App: React.FC = () => (
       <RouteClient />
       <KillCell />
       <Scale />
+      <BeyondCells />
       <TradeOffs />
     </main>
     <footer className="site-footer">

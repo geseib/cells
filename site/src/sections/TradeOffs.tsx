@@ -2,7 +2,7 @@ import React from 'react';
 
 const TradeOffs: React.FC = () => (
   <section className="lesson" id="trade-offs">
-    <div className="kicker">06 · The fine print</div>
+    <div className="kicker">07 · The fine print</div>
     <h2>Trade-offs and design decisions</h2>
     <p>
       Cells aren't free. The pattern trades global simplicity for bounded failure — these are the
@@ -67,12 +67,9 @@ const TradeOffs: React.FC = () => (
       <a href="https://docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/reducing-scope-of-impact-with-cell-based-architecture.html" target="_blank" rel="noopener noreferrer">
         AWS whitepaper on cell-based architecture
       </a>{' '}
-      and the{' '}
-      <a href="https://aws.amazon.com/builders-library/workload-isolation-using-shuffle-sharding/" target="_blank" rel="noopener noreferrer">
-        Builders' Library article on shuffle sharding
-      </a>{' '}
-      cover the production version of everything on this page. Then deploy this repo's real AWS
-      implementation — Lambda, DynamoDB, CloudFront, one stack per cell — by following{' '}
+      covers the production version of everything on this page (the sibling patterns above have
+      their own reading list). Then deploy this repo's real AWS implementation — Lambda, DynamoDB,
+      CloudFront, one stack per cell — by following{' '}
       <a href="https://github.com/geseib/cells/blob/main/QUICKSTART.md" target="_blank" rel="noopener noreferrer">
         the quick start
       </a>
