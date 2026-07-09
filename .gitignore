@@ -147,3 +147,6 @@ dist-*/
 packaged-*.yaml
 playwright-report/
 test-results/
+
+# Agent worktrees (transient)
+.claude/worktrees/
