@@ -705,6 +705,54 @@ section#beyond-cells h3 + p {
   transition: background 0.4s ease;
 }
 
+/* Beyond cells: one-line narration under a panel's controls */
+.panel-hint {
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  border-left: 3px solid var(--accent);
+  padding-left: 0.65rem;
+  margin: 0.75rem 0 1rem;
+  max-width: 680px;
+}
+
+/* Beyond cells: the constant-work health-check table */
+.cw-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 4px;
+  margin-top: 0.35rem;
+  max-width: 420px;
+}
+
+.cw-cell {
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--grid);
+  transition: background 0.35s ease;
+}
+
+.cw-cell.changed {
+  background: var(--good);
+}
+
+.cw-flat {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 0.7rem;
+  max-width: 420px;
+}
+
+.cw-flat .bar {
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--good);
+  opacity: 0.85;
+}
+
 .try-live {
   margin: 0.9rem 0 0;
   text-align: right;

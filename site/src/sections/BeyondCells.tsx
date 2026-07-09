@@ -1,5 +1,19 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { hashKey, CELL_COLOR_VARS, FAILED_COLOR } from '../sim/simulation';
+
+/** True when the user asked the OS for reduced motion — gates the SMIL/JS animation. */
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = () => setReduced(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return reduced;
+}
 
 /* ------------------------------------------------------------------ */
 /* 1 · Shuffle sharding                                                */
@@ -41,6 +55,12 @@ const PLAIN_PAIRS: Pair[] = Array.from({ length: CUSTOMER_COUNT }, (_, i) => {
 /** Shuffle sharding: 16 distinct pairs drawn (deterministically) from the 28. */
 const SHUFFLE_PAIRS: Pair[] = seededShuffle(ALL_PAIRS, 'beyond-shuffle').slice(0, CUSTOMER_COUNT);
 
+/** The order the auto-demo (and the "poison a random customer" button) walks through. */
+const AUTO_ORDER: number[] = seededShuffle(
+  Array.from({ length: CUSTOMER_COUNT }, (_, i) => i),
+  'beyond-auto'
+);
+
 function shardImpact(pairs: Pair[], poison: number | null) {
   const deadWorkers = new Set<number>(poison === null ? [] : pairs[poison]);
   const states: CustomerState[] = pairs.map((p, i) => {
@@ -52,7 +72,39 @@ function shardImpact(pairs: Pair[], poison: number | null) {
 }
 
 const ShuffleSharding: React.FC = () => {
+  const reduced = usePrefersReducedMotion();
   const [poison, setPoison] = useState<number | null>(null);
+  const [auto, setAuto] = useState(false);
+  const [step, setStep] = useState(0);
+
+  // Auto-demo: march the poison through every customer so the counters tell
+  // the story hands-free. Any manual click takes over.
+  useEffect(() => {
+    if (!auto) return undefined;
+    setPoison(AUTO_ORDER[step % CUSTOMER_COUNT]);
+    const id = setInterval(() => {
+      setStep((s) => {
+        const next = s + 1;
+        setPoison(AUTO_ORDER[next % CUSTOMER_COUNT]);
+        return next;
+      });
+    }, 2000);
+    return () => clearInterval(id);
+  }, [auto]);
+
+  const pickManually = (i: number | null) => {
+    setAuto(false);
+    setPoison(i);
+  };
+
+  const poisonNext = () => {
+    setAuto(false);
+    setStep((s) => {
+      const next = s + 1;
+      setPoison(AUTO_ORDER[next % CUSTOMER_COUNT]);
+      return next;
+    });
+  };
 
   const plain = useMemo(() => shardImpact(PLAIN_PAIRS, poison), [poison]);
   const shuffle = useMemo(() => shardImpact(SHUFFLE_PAIRS, poison), [poison]);
@@ -110,6 +162,28 @@ const ShuffleSharding: React.FC = () => {
             );
           })
         )}
+        {/* live traffic: one request dot per healthy link, forever in flight.
+            Dead links get no dots — traffic visibly stops where the failure is. */}
+        {!reduced &&
+          pairs.map((p, i) => {
+            const state = states[i];
+            if (state === 'poison' || state === 'down') return null;
+            return p.map((w) => {
+              if (deadWorkers.has(w)) return null;
+              const dur = 1.3 + (hashKey(`dot-dur-${mode}-${i}-${w}`) % 700) / 1000;
+              const begin = -((hashKey(`dot-${mode}-${i}-${w}`) % 2000) / 1000);
+              return (
+                <circle key={`dot-${i}-${w}`} r={2.4} fill={workerColor(w)} opacity={0.85}>
+                  <animateMotion
+                    dur={`${dur}s`}
+                    begin={`${begin}s`}
+                    repeatCount="indefinite"
+                    path={`M ${custCX(i)} ${CUST_Y - 8} L ${workerCX(w)} 52`}
+                  />
+                </circle>
+              );
+            });
+          })}
         {/* workers */}
         {Array.from({ length: WORKER_COUNT }, (_, w) => {
           const dead = deadWorkers.has(w);
@@ -129,14 +203,14 @@ const ShuffleSharding: React.FC = () => {
           return (
             <g
               key={i}
-              onClick={() => setPoison(poison === i ? null : i)}
+              onClick={() => pickManually(poison === i ? null : i)}
               style={{ cursor: 'pointer' }}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  setPoison(poison === i ? null : i);
+                  pickManually(poison === i ? null : i);
                 }
               }}
               aria-label={`customer-${i + 1}: ${state === 'fine' ? 'click to poison' : state}`}
@@ -180,10 +254,18 @@ const ShuffleSharding: React.FC = () => {
   return (
     <div className="panel">
       <div className="controls">
-        <strong>Same 8 workers, same poison customer — two ways to slice them.</strong>
+        <button className={auto ? 'selected' : ''} onClick={() => (auto ? setAuto(false) : setAuto(true))}>
+          {auto ? '⏸ Stop the demo' : '▶ Auto-demo'}
+        </button>
+        <button onClick={poisonNext}>☠ Poison a random customer</button>
         <span style={{ flex: 1 }} />
-        {poison !== null && <button onClick={() => setPoison(null)}>Cure the poison</button>}
+        {poison !== null && <button onClick={() => pickManually(null)}>Cure the poison</button>}
       </div>
+      <p className="panel-hint">
+        {auto
+          ? 'The demo is poisoning one customer after another — watch the left counter swing while the right one never moves.'
+          : 'The dots in flight are live requests. Poison any customer (click it) and traffic stops exactly where the failure lands — a whole shard on the left, one combination on the right.'}
+      </p>
       <div className="viz-flex" style={{ alignItems: 'flex-start' }}>
         <div style={{ flex: '1 1 300px' }}>
           <div className="mini-title">Plain sharding — {PLAIN_SHARDS} fixed shards of {SHARD_SIZE}</div>
@@ -211,7 +293,7 @@ const ShuffleSharding: React.FC = () => {
             <div className="label">
               {poison === null
                 ? `16 of the ${ALL_PAIRS.length} possible combinations are in use — no two customers share both workers`
-                : `${degraded(shuffle.states)} customers lost one worker (dashed) — a retry against their other worker still succeeds`}
+                : `${degraded(shuffle.states)} customers lost one worker (dashed) — their traffic keeps flowing on the surviving link`}
             </div>
           </div>
         </div>
@@ -248,21 +330,21 @@ const ShuffleSharding: React.FC = () => {
 /* ------------------------------------------------------------------ */
 
 const AZ_NAMES = ['us-east-1a', 'us-east-1b', 'us-east-1c'];
-const DEMAND = 100; // all capacity numbers are % of demand
-const HOT_PER_AZ = 34; // ≈ demand ÷ 3
-const STATIC_PER_AZ = 50; // demand ÷ (3 − 1)
-const METER_MAX = 160;
+const DEMAND_SRV = 90; // servers the workload needs at peak
+const HOT_PER_AZ = 30; // 3 × 30 = 90: exactly enough, nothing spare
+const STABLE_PER_AZ = 45; // 3 × 45 = 135: any TWO AZs sum to 90
+const METER_MAX = 150; // meter scale, in servers
 const USER_DOTS = 30;
 
 const StaticStability: React.FC = () => {
   const [strategy, setStrategy] = useState<'hot' | 'static'>('hot');
   const [lost, setLost] = useState(false);
 
-  const perAz = strategy === 'hot' ? HOT_PER_AZ : STATIC_PER_AZ;
+  const perAz = strategy === 'hot' ? HOT_PER_AZ : STABLE_PER_AZ;
   const liveAzs = lost ? AZ_NAMES.length - 1 : AZ_NAMES.length;
   const surviving = perAz * liveAzs;
-  const shortfall = Math.max(0, DEMAND - surviving);
-  const shed = Math.round((shortfall / DEMAND) * USER_DOTS);
+  const shortfall = Math.max(0, DEMAND_SRV - surviving);
+  const shed = Math.round((shortfall / DEMAND_SRV) * USER_DOTS);
 
   const pct = (v: number) => `${(v / METER_MAX) * 100}%`;
 
@@ -273,13 +355,13 @@ const StaticStability: React.FC = () => {
           className={strategy === 'hot' ? 'selected' : ''}
           onClick={() => setStrategy('hot')}
         >
-          Run hot — {HOT_PER_AZ}% per AZ
+          Just enough — {HOT_PER_AZ} servers per AZ ({HOT_PER_AZ * 3} total)
         </button>
         <button
           className={strategy === 'static' ? 'selected' : ''}
           onClick={() => setStrategy('static')}
         >
-          Statically stable — {STATIC_PER_AZ}% per AZ
+          Statically stable — {STABLE_PER_AZ} per AZ ({STABLE_PER_AZ * 3} total)
         </button>
         <span style={{ flex: 1 }} />
         {!lost ? (
@@ -288,6 +370,14 @@ const StaticStability: React.FC = () => {
           <button onClick={() => setLost(false)}>Recover the AZ</button>
         )}
       </div>
+      <p className="panel-hint">
+        The workload needs <strong>{DEMAND_SRV} servers</strong> either way. "Just enough" spreads
+        exactly {DEMAND_SRV} across three AZs — {HOT_PER_AZ} each, nothing spare. "Statically
+        stable" deliberately runs <strong>more per AZ</strong>: {STABLE_PER_AZ} × 3
+        = {STABLE_PER_AZ * 3}, sized so any <em>two</em> AZs alone still add up
+        to {DEMAND_SRV}. The bigger per-AZ number isn't overhead that crept in — it <em>is</em> the
+        strategy: the replacement capacity is already running before the failure happens.
+      </p>
       <div className="az-row">
         {AZ_NAMES.map((name, i) => {
           const down = lost && i === AZ_NAMES.length - 1;
@@ -297,13 +387,13 @@ const StaticStability: React.FC = () => {
                 {down ? '✗ ' : ''}{name}{down ? ' — offline' : ''}
               </div>
               <div className="prov">
-                {down ? `${perAz}% of demand, unreachable` : `running ${perAz}% of demand`}
+                {down ? `${perAz} servers, unreachable` : `${perAz} servers running`}
               </div>
               <div className="az-bar">
                 <div
                   className="fill"
                   style={{
-                    width: `${down ? 0 : (perAz / STATIC_PER_AZ) * 100}%`,
+                    width: `${down ? 0 : (perAz / STABLE_PER_AZ) * 100}%`,
                     background: CELL_COLOR_VARS[i],
                   }}
                 />
@@ -314,34 +404,34 @@ const StaticStability: React.FC = () => {
       </div>
       <div className="meter-wrap">
         <div className="meter-label">
-          <span>capacity running right now</span>
-          <span>demand = {DEMAND}%</span>
+          <span>servers still serving</span>
+          <span>demand = {DEMAND_SRV} servers</span>
         </div>
         <div
           className="meter"
           role="img"
-          aria-label={`${surviving}% of demand running, demand is ${DEMAND}%${shortfall > 0 ? `, ${shortfall}% shortfall` : ''}`}
+          aria-label={`${surviving} servers running, ${DEMAND_SRV} needed${shortfall > 0 ? `, ${shortfall} servers short` : ''}`}
         >
-          <div className="fill-ok" style={{ width: pct(Math.min(surviving, DEMAND)) }} />
-          {surviving > DEMAND && (
-            <div className="fill-extra" style={{ left: pct(DEMAND), width: pct(surviving - DEMAND) }} />
+          <div className="fill-ok" style={{ width: pct(Math.min(surviving, DEMAND_SRV)) }} />
+          {surviving > DEMAND_SRV && (
+            <div className="fill-extra" style={{ left: pct(DEMAND_SRV), width: pct(surviving - DEMAND_SRV) }} />
           )}
           {shortfall > 0 && (
             <div className="fill-gap" style={{ left: pct(surviving), width: pct(shortfall) }} />
           )}
-          <div className="demand-line" style={{ left: pct(DEMAND) }} />
+          <div className="demand-line" style={{ left: pct(DEMAND_SRV) }} />
         </div>
       </div>
       {lost && (
         <p style={{ margin: '0.9rem 0 0' }}>
           {strategy === 'hot' ? (
             <span className="pulse-chip">
-              ⏳ shortfall: {shortfall}% — asking the EC2 control plane for more capacity, along
-              with everyone else in the region…
+              ⏳ {shortfall} servers short — asking the EC2 control plane for replacements, in line
+              behind every other customer hit by the same event…
             </span>
           ) : (
             <span className="pulse-chip calm">
-              ✓ nothing to do — the replacement capacity was already running
+              ✓ nothing to do — the surviving two AZs already run {surviving} servers
             </span>
           )}
         </p>
@@ -353,9 +443,11 @@ const StaticStability: React.FC = () => {
       </div>
       <div className="stat-row">
         <div className="stat">
-          <div className={`value ${lost ? (surviving >= DEMAND ? 'good' : 'bad') : ''}`}>{surviving}%</div>
+          <div className={`value ${lost ? (surviving >= DEMAND_SRV ? 'good' : 'bad') : ''}`}>
+            {surviving} / {DEMAND_SRV}
+          </div>
           <div className="label">
-            capacity {lost ? 'surviving the AZ loss' : 'running'} vs demand of {DEMAND}%
+            servers {lost ? 'surviving the AZ loss' : 'running'} vs servers needed
           </div>
         </div>
         <div className="stat">
@@ -371,8 +463,12 @@ const StaticStability: React.FC = () => {
           <div className="label">actions needed at failure time</div>
         </div>
         <div className="stat">
-          <div className="value">{perAz * AZ_NAMES.length}%</div>
-          <div className="label">total capacity you pay for on a normal day — static stability isn't free</div>
+          <div className="value">{perAz * AZ_NAMES.length}</div>
+          <div className="label">
+            servers you pay for on a normal day — {strategy === 'static'
+              ? `50% more than demand; static stability isn't free`
+              : `exactly demand, and it shows the moment an AZ dies`}
+          </div>
         </div>
       </div>
     </div>
@@ -383,68 +479,81 @@ const StaticStability: React.FC = () => {
 /* 3 · Constant work                                                   */
 /* ------------------------------------------------------------------ */
 
-const TICKS = 24;
 const TABLE_SIZE = 48; // rows in the full health-check table
-const DELTA_CAPACITY = 12; // updates/tick the delta pipeline is provisioned for
-const STORM_START = 9;
-const STORM_END = 15;
+const GRID_COLS = 12;
+const WINDOW = 48; // ticks visible in the left chart
+const CAP_MIN = 4; // autoscaler floor (instances of work/tick)
+const RAMP_UP = 3; // how fast the autoscaler can add capacity per tick
+const RAMP_DOWN = 1; // …and how slowly it gives it back
+const LAG = 4; // ticks before the autoscaler even sees the spike
+const WAVE = 28; // storm waves repeat on this cycle…
+const WAVE_LEN = 10; // …and last this long
 
 /** Quiet-day change rate: 1–3 changes per tick, seeded so it never shifts. */
 const quietChanges = (t: number) => 1 + (hashKey(`beyond-tick-${t}`) % 3);
 
+const GRID_INDICES = Array.from({ length: TABLE_SIZE }, (_, i) => i);
+
 const ConstantWork: React.FC = () => {
-  const [storm, setStorm] = useState(false);
+  const reduced = usePrefersReducedMotion();
+  const [storm, setStorm] = useState(true);
   const [intensity, setIntensity] = useState(36);
+  const [running, setRunning] = useState(() => !reduced);
+  const [tick, setTick] = useState(WINDOW + WAVE); // start with a full window
+
+  useEffect(() => {
+    if (!running) return undefined;
+    const id = setInterval(() => setTick((t) => t + 1), 650);
+    return () => clearInterval(id);
+  }, [running]);
+
+  const demandAt = (t: number) =>
+    quietChanges(t) + (storm && t % WAVE < WAVE_LEN ? intensity : 0);
 
   const sim = useMemo(() => {
-    const changes = Array.from({ length: TICKS }, (_, t) =>
-      quietChanges(t) + (storm && t >= STORM_START && t <= STORM_END ? intensity : 0)
-    );
-    let backlog = 0;
-    for (const c of changes) backlog = Math.max(0, backlog + c - DELTA_CAPACITY);
-    // How long past the window the delta pipeline needs to drain the queue.
-    let drainTicks = 0;
-    for (let b = backlog, t = TICKS; b > 0 && drainTicks < 500; t++, drainTicks++) {
-      b = Math.max(0, b + quietChanges(t) - DELTA_CAPACITY);
+    const demand: number[] = [];
+    const cap: number[] = [];
+    const backlog: number[] = [];
+    let c = CAP_MIN;
+    let b = 0;
+    for (let t = 0; t <= tick; t++) {
+      const d = demandAt(t);
+      // the autoscaler chases demand as it looked LAG ticks ago, ramp-limited
+      const target = demandAt(Math.max(0, t - LAG));
+      c = Math.max(CAP_MIN, c + Math.max(-RAMP_DOWN, Math.min(RAMP_UP, target - c)));
+      b = Math.max(0, b + d - c);
+      demand.push(d);
+      cap.push(c);
+      backlog.push(b);
     }
-    const peak = Math.max(...changes);
-    const quietAvg =
-      Array.from({ length: TICKS }, (_, t) => quietChanges(t)).reduce((a, b) => a + b, 0) / TICKS;
-    return { changes, backlog, drainTicks, peak, quietAvg };
-  }, [storm, intensity]);
+    return { demand, cap, backlog };
+  }, [tick, storm, intensity]);
+
+  const from = Math.max(0, tick - WINDOW + 1);
+  const dWin = sim.demand.slice(from);
+  const cWin = sim.cap.slice(from);
+  const nowDemand = sim.demand[tick];
+  const nowBacklog = sim.backlog[tick];
+  const nowCap = sim.cap[tick];
+
+  // Which table rows changed value this tick (right panel). Seeded by tick so
+  // pausing and resuming replays identically.
+  const changedRows = useMemo(() => {
+    const n = Math.min(TABLE_SIZE, nowDemand);
+    return new Set(seededShuffle(GRID_INDICES, `cw-grid-${tick}`).slice(0, n));
+  }, [tick, nowDemand]);
 
   const W = 420;
-  const H = 150;
+  const H = 170;
   const PAD_T = 16;
   const PAD_B = 18;
-  const yMax = Math.max(TABLE_SIZE, sim.peak) * 1.1;
+  const yMax = Math.max(TABLE_SIZE, ...dWin, ...cWin) * 1.12;
   const y = (v: number) => H - PAD_B - (v / yMax) * (H - PAD_B - PAD_T);
-  const bw = W / TICKS;
+  const bw = W / WINDOW;
 
-  const stormShade = storm && (
-    <rect
-      x={STORM_START * bw}
-      y={PAD_T}
-      width={(STORM_END - STORM_START + 1) * bw}
-      height={H - PAD_T - PAD_B}
-      fill={FAILED_COLOR}
-      opacity={0.08}
-    />
-  );
-
-  const axis = (
-    <>
-      <line x1={0} y1={H - PAD_B} x2={W} y2={H - PAD_B} stroke="var(--grid)" />
-      <text x={W - 4} y={H - 6} textAnchor="end" fontSize={9} fill="var(--muted)">
-        time →
-      </text>
-      {storm && (
-        <text x={(STORM_START + (STORM_END - STORM_START + 1) / 2) * bw} y={H - 6} textAnchor="middle" fontSize={9} fill={FAILED_COLOR}>
-          storm
-        </text>
-      )}
-    </>
-  );
+  const capLine = cWin
+    .map((c, i) => `${(i + 0.5) * bw},${y(c)}`)
+    .join(' ');
 
   return (
     <div className="panel">
@@ -453,14 +562,17 @@ const ConstantWork: React.FC = () => {
           Quiet day
         </button>
         <button className={storm ? 'selected' : ''} onClick={() => setStorm(true)}>
-          🌩️ Storm
+          🌩️ Storm waves
+        </button>
+        <button onClick={() => setRunning((r) => !r)}>
+          {running ? '⏸ Pause' : '▶ Play'}
         </button>
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 220px' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--ink-2)' }}>storm size</span>
           <input
             type="range"
             min={8}
-            max={48}
+            max={46}
             value={intensity}
             onChange={(e) => setIntensity(Number(e.target.value))}
             style={{ flex: 1 }}
@@ -473,77 +585,100 @@ const ConstantWork: React.FC = () => {
       </div>
       <div className="viz-flex" style={{ alignItems: 'flex-start' }}>
         <div style={{ flex: '1 1 300px' }}>
-          <div className="mini-title">Delta-based — work per change</div>
+          <div className="mini-title">Scale reactively — chase the load, always behind</div>
           <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: W }} role="img"
-            aria-label={`Delta pipeline work per tick; peak ${sim.peak} against a capacity of ${DELTA_CAPACITY}`}>
-            {stormShade}
-            {sim.changes.map((c, t) => {
-              const within = Math.min(c, DELTA_CAPACITY);
-              const over = c - within;
+            aria-label={`Reactive autoscaling: demand ${nowDemand} changes this tick, capacity ${nowCap}, backlog ${nowBacklog}`}>
+            {/* faint red wash behind storm ticks */}
+            {dWin.map((_, i) => {
+              const t = from + i;
+              return storm && t % WAVE < WAVE_LEN ? (
+                <rect key={`s-${t}`} x={i * bw} y={PAD_T} width={bw} height={H - PAD_T - PAD_B} fill={FAILED_COLOR} opacity={0.06} />
+              ) : null;
+            })}
+            {/* demand bars: blue up to current capacity, red where the scaler hasn't caught up */}
+            {dWin.map((d, i) => {
+              const c = cWin[i];
+              const within = Math.min(d, c);
+              const over = d - within;
               return (
-                <g key={t}>
-                  <rect x={t * bw + 2} y={y(within)} width={bw - 4} height={y(0) - y(within)} fill="var(--cell-1)" />
+                <g key={from + i}>
+                  <rect x={i * bw + 1} y={y(within)} width={bw - 2} height={y(0) - y(within)} fill="var(--cell-1)" />
                   {over > 0 && (
-                    <rect x={t * bw + 2} y={y(c)} width={bw - 4} height={y(within) - y(c)} fill={FAILED_COLOR} />
+                    <rect x={i * bw + 1} y={y(d)} width={bw - 2} height={y(within) - y(d)} fill={FAILED_COLOR} />
                   )}
                 </g>
               );
             })}
-            <line x1={0} y1={y(DELTA_CAPACITY)} x2={W} y2={y(DELTA_CAPACITY)} stroke="var(--ink-2)" strokeWidth={1} strokeDasharray="5 4" />
-            <text x={4} y={y(DELTA_CAPACITY) - 4} fontSize={9.5} fill="var(--ink-2)">
-              provisioned capacity: {DELTA_CAPACITY}/tick
+            {/* the autoscaler's capacity, trailing the spikes */}
+            <polyline points={capLine} fill="none" stroke="var(--accent)" strokeWidth={2} />
+            <text x={4} y={y(cWin[cWin.length - 1]) - 5} fontSize={9.5} fontWeight={600} fill="var(--accent)">
+              capacity (lags {LAG} ticks, +{RAMP_UP}/tick max)
             </text>
-            {sim.backlog > 0 && (
+            {nowBacklog > 0 && (
               <text x={W - 4} y={PAD_T - 4} textAnchor="end" fontSize={11} fontWeight={700} fill={FAILED_COLOR}>
-                queue: {sim.backlog} updates behind
+                queue: {nowBacklog} updates behind
               </text>
             )}
-            {axis}
+            <line x1={0} y1={H - PAD_B} x2={W} y2={H - PAD_B} stroke="var(--grid)" />
+            <text x={W - 4} y={H - 6} textAnchor="end" fontSize={9} fill="var(--muted)">
+              time →
+            </text>
           </svg>
           <div className="stat">
-            <div className={`value ${sim.backlog > 0 ? 'bad' : ''}`} style={{ fontSize: '1.1rem' }}>
-              {sim.backlog > 0
-                ? `${sim.backlog} behind — ${sim.drainTicks} ticks to catch up`
-                : 'Keeping up (barely doing anything)'}
+            <div className={`value ${nowBacklog > 0 ? 'bad' : ''}`} style={{ fontSize: '1.1rem' }}>
+              {nowBacklog > 0
+                ? `${nowBacklog} updates behind right now`
+                : storm
+                  ? 'caught up — until the next wave'
+                  : 'keeping up (barely doing anything)'}
             </div>
             <div className="label">
-              {sim.backlog > 0
-                ? 'the red overflow is work it can\'t do in time — health updates lag during the exact storm they exist to report'
-                : 'cheap on a quiet day; the storm path is the one path that never gets exercised'}
+              {storm
+                ? 'the scaler reacts, ramps, and arrives after the front of every wave has already queued — the red area is work done late, during the exact storm it exists to report'
+                : 'cheap on a quiet day; the scale-up path is the one path that never gets rehearsed'}
             </div>
           </div>
         </div>
         <div style={{ flex: '1 1 300px' }}>
-          <div className="mini-title">Constant work — push the full table every tick</div>
-          <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: W }} role="img"
-            aria-label={`Constant-work pipeline: ${TABLE_SIZE} units every tick regardless of storm`}>
-            {stormShade}
-            {sim.changes.map((_, t) => (
-              <rect key={t} x={t * bw + 2} y={y(TABLE_SIZE)} width={bw - 4} height={y(0) - y(TABLE_SIZE)} fill="var(--cell-2)" />
+          <div className="mini-title">Constant work — push the whole table, every tick</div>
+          <div
+            className="cw-grid"
+            role="img"
+            aria-label={`Health-check table: ${changedRows.size} of ${TABLE_SIZE} rows changed this push; all ${TABLE_SIZE} pushed regardless`}
+          >
+            {GRID_INDICES.map((i) => (
+              <span key={i} className={`cw-cell${changedRows.has(i) ? ' changed' : ''}`} />
             ))}
-            <text x={4} y={y(TABLE_SIZE) - 4} fontSize={9.5} fill="var(--ink-2)">
-              full {TABLE_SIZE}-row table, every tick
-            </text>
-            {axis}
-          </svg>
+          </div>
+          <div className="legend" style={{ marginTop: '0.5rem' }}>
+            <span><span className="swatch" style={{ background: 'var(--good)' }} />changed this push ({changedRows.size})</span>
+            <span><span className="swatch" style={{ background: 'var(--grid)' }} />unchanged — pushed anyway ({TABLE_SIZE - changedRows.size})</span>
+          </div>
+          <div className="cw-flat">
+            <span>work this tick</span>
+            <div className="bar" />
+            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{TABLE_SIZE} rows — always</span>
+          </div>
           <div className="stat">
             <div className="value good" style={{ fontSize: '1.1rem' }}>
-              {storm ? 'The chart did not move' : `${TABLE_SIZE} units, every single tick`}
+              {changedRows.size >= TABLE_SIZE * 0.7
+                ? 'the whole table lit up — the push didn\'t grow'
+                : `${changedRows.size} row${changedRows.size === 1 ? '' : 's'} changed, ${TABLE_SIZE} pushed`}
             </div>
             <div className="label">
               {storm
-                ? `${intensity} simultaneous changes cost exactly the same as 1 — they're just different values in the same table push`
-                : 'looks wasteful on a quiet day; that "waste" is a rehearsal for the storm'}
+                ? 'in a storm the shaded squares flip green — different values in the same fixed-size push, so the pipeline literally cannot tell it\'s a bad day'
+                : 'on a quiet day most squares are shaded "no change" and still shipped — that "waste" is the storm path being rehearsed every few seconds'}
             </div>
           </div>
         </div>
       </div>
       <div className="stat-row">
         <div className="stat">
-          <div className={`value ${storm ? 'bad' : ''}`}>
-            {storm ? `${Math.round(sim.peak / sim.quietAvg)}×` : '1×'}
+          <div className={`value ${nowBacklog > 0 ? 'bad' : ''}`}>
+            {storm ? `${Math.round((intensity + 2) / 2)}×` : '1×'}
           </div>
-          <div className="label">delta pipeline: peak work vs a quiet tick (avg {sim.quietAvg.toFixed(1)} changes/tick)</div>
+          <div className="label">reactive pipeline: storm work vs a quiet tick — and it queues whenever the scaler is mid-chase</div>
         </div>
         <div className="stat">
           <div className="value good">1×</div>
@@ -577,7 +712,8 @@ const BeyondCells: React.FC = () => (
       of workers instead. With 8 workers in plain shards of 2, there are only 4 shards, so a
       "poison" customer (one whose requests crash whatever serves them) takes their 3 shard-mates
       down with them. But there are C(8,2)&nbsp;=&nbsp;28 possible <em>combinations</em> of 2
-      workers, so no two customers need to share both. Click a customer below and compare worlds:
+      workers, so no two customers need to share both. Hit <strong>auto-demo</strong> and watch
+      the same poison land in both worlds, over and over:
     </p>
     <ShuffleSharding />
 
@@ -585,11 +721,12 @@ const BeyondCells: React.FC = () => (
     <p>
       A statically stable system survives a dependency failure <em>without changing anything at
       failure time</em> — no scale-up, no control-plane calls, no reconfiguration in the critical
-      moment. The canonical example: run three availability zones at 50% of demand each, so losing
-      one leaves 2&nbsp;×&nbsp;50% = 100% already serving. The tempting alternative — run hot at
-      ~33% each and scale up reactively — needs the EC2 control plane at the exact moment an
-      AZ-wide event has every other customer asking it for the same instances. Rule of thumb: the
-      data plane must not depend on the control plane during recovery.
+      moment. Concretely: if demand takes 90 servers, run 45 in each of three AZs — 135 in total,
+      sized so any <em>two</em> AZs still sum to the full 90. Losing an AZ then changes nothing.
+      The tempting alternative — run exactly 90 as 30 per AZ and scale up when something fails —
+      needs the EC2 control plane at the exact moment an AZ-wide event has every other customer
+      asking it for the same instances. Rule of thumb: the data plane must not depend on the
+      control plane during recovery.
     </p>
     <StaticStability />
 
@@ -599,9 +736,9 @@ const BeyondCells: React.FC = () => (
       exactly during the storm. That's <em>bimodal</em> behavior, and the failure mode is
       correlated with the moment you can least afford it. The constant-work alternative, from
       Route&nbsp;53's health-check aggregators: push the <em>entire</em> table every few seconds,
-      whether 1 row changed or 1,000. No modes, nothing to queue, and the busy-day path gets
-      exercised every quiet day too — the mise en place is prepped every morning, so the rush
-      can't surprise you.
+      whether 1 row changed or 1,000. Below, both pipelines face the same storm waves: on the
+      left an autoscaler chases the load and never catches the front of a wave; on the right the
+      shaded "no change" rows simply flip green while the push stays exactly the same size.
     </p>
     <ConstantWork />
 
