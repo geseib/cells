@@ -385,6 +385,42 @@ input[type='range'] {
   }
 }
 
+/* Rerouted traffic: same marching dashes, but healthy — the flow found a new home. */
+.flow-reroute {
+  animation: flow-dash 0.9s linear infinite;
+}
+
+/* Intermittent failure: a red overlay that blinks in and out while marching.
+   With reduced motion the animation is stripped and it reads as a constant break. */
+.flow-flicker {
+  animation: flow-flicker 2.4s steps(1) infinite, flow-dash 0.9s linear infinite;
+}
+
+@keyframes flow-flicker {
+  0%, 44% {
+    opacity: 1;
+  }
+  45%, 100% {
+    opacity: 0;
+  }
+}
+
+/* Monolith brownout: every client fails on and off, each on its own clock.
+   With reduced motion the animation is stripped and the dots stay solid red. */
+.dot-grid .dot.flicker {
+  background: var(--critical);
+  animation: dot-flicker 2s steps(1) infinite;
+}
+
+@keyframes dot-flicker {
+  0%, 54% {
+    background: var(--critical);
+  }
+  55%, 100% {
+    background: var(--baseline);
+  }
+}
+
 .viz-flex {
   display: flex;
   flex-wrap: wrap;
