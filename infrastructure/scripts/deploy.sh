@@ -140,10 +140,13 @@ for region in "${REGION_ARRAY[@]}"; do
             fi
         fi
         
+        # --resolve-s3: deployment artifacts must live in the cell's own
+        # region, so let SAM manage a per-region bucket instead of the
+        # configured (us-east-1) one.
         sam deploy \
             --template-file ../templates/cell-template.yaml \
             --stack-name ${PROJECT_NAME}-cell-${CELL_ID} \
-            --s3-bucket ${SAM_BUCKET} \
+            --resolve-s3 \
             --region ${region} \
             --capabilities CAPABILITY_IAM \
             --parameter-overrides ${CELL_PARAMS} \
