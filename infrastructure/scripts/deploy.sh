@@ -126,17 +126,29 @@ for region in "${REGION_ARRAY[@]}"; do
         CELL_ID="${region}-az${AZ_COUNT}"
         echo -e "${GREEN}Deploying cell: ${CELL_ID} in ${az}${NC}"
         
-        # Build cell parameter overrides.
-        # Custom domains are only wired for us-east-1 cells: cell-template.yaml
-        # creates its ACM certificate in the stack's own region, and CloudFront
-        # only accepts us-east-1 certificates. Other regions fall back to the
-        # cell's CloudFront URL.
+        # Build cell parameter overrides. CloudFront only accepts us-east-1
+        # certificates, so cells in other regions get theirs from a small
+        # us-east-1 certificate stack and receive the ARN as a parameter;
+        # us-east-1 cells create the certificate in their own stack.
         CELL_PARAMS="ProjectName=${PROJECT_NAME} CellId=${CELL_ID} CellRegion=${region} AvailabilityZone=${az} CellWeight=1"
         if [ ! -z "$DOMAIN_NAME" ] && [ ! -z "$HOSTED_ZONE_ID" ]; then
-            if [ "$region" == "us-east-1" ]; then
-                CELL_PARAMS="${CELL_PARAMS} DomainName=${DOMAIN_NAME} HostedZoneId=${HOSTED_ZONE_ID}"
-            else
-                echo -e "${YELLOW}Note: skipping custom domain for ${CELL_ID} (CloudFront requires a us-east-1 certificate); it will use its CloudFront URL${NC}"
+            CELL_PARAMS="${CELL_PARAMS} DomainName=${DOMAIN_NAME} HostedZoneId=${HOSTED_ZONE_ID}"
+            if [ "$region" != "us-east-1" ]; then
+                echo -e "${YELLOW}Creating us-east-1 certificate for ${CELL_ID}...${NC}"
+                sam deploy \
+                    --template-file ../templates/cell-certificate.yaml \
+                    --stack-name ${PROJECT_NAME}-cert-${CELL_ID} \
+                    --s3-bucket ${SAM_BUCKET} \
+                    --region us-east-1 \
+                    --parameter-overrides ProjectName=${PROJECT_NAME} CellId=${CELL_ID} DomainName=${DOMAIN_NAME} HostedZoneId=${HOSTED_ZONE_ID} \
+                    --no-confirm-changeset \
+                    --no-fail-on-empty-changeset
+                CERT_ARN=$(aws cloudformation describe-stacks \
+                    --stack-name ${PROJECT_NAME}-cert-${CELL_ID} \
+                    --region us-east-1 \
+                    --query 'Stacks[0].Outputs[?OutputKey==`CertificateArn`].OutputValue' \
+                    --output text)
+                CELL_PARAMS="${CELL_PARAMS} CertificateArn=${CERT_ARN}"
             fi
         fi
         

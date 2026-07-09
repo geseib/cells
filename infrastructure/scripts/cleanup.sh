@@ -68,6 +68,31 @@ for region in "${REGION_ARRAY[@]}"; do
     done
 done
 
+# Delete per-cell certificate stacks (us-east-1; created for cells in other
+# regions since CloudFront only accepts us-east-1 certificates)
+echo -e "\n${YELLOW}Deleting cell certificate stacks...${NC}"
+CERT_STACKS=$(aws cloudformation list-stacks \
+    --region us-east-1 \
+    --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \
+    --query "StackSummaries[?starts_with(StackName, '${PROJECT_NAME}-cert-')].StackName" \
+    --output text)
+for stack in ${CERT_STACKS}; do
+    echo "Deleting certificate stack: ${stack}"
+    aws cloudformation delete-stack --stack-name ${stack} --region us-east-1 || true
+done
+
+# Delete the educational-site hosting stack if present
+SITE_BUCKET=$(aws cloudformation describe-stacks \
+    --stack-name ${PROJECT_NAME}-site \
+    --region us-east-1 \
+    --query 'Stacks[0].Outputs[?OutputKey==`SiteBucket`].OutputValue' \
+    --output text 2>/dev/null || true)
+if [ ! -z "$SITE_BUCKET" ] && [ "$SITE_BUCKET" != "None" ]; then
+    echo "Emptying site bucket: ${SITE_BUCKET}"
+    aws s3 rm s3://${SITE_BUCKET} --recursive || true
+    aws cloudformation delete-stack --stack-name ${PROJECT_NAME}-site --region us-east-1 || true
+fi
+
 # Delete routing layer
 echo -e "\n${YELLOW}Deleting routing layer...${NC}"
 

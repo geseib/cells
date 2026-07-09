@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  ACM certificate for a cell's CloudFront distribution. CloudFront only
+  accepts us-east-1 certificates, so cells deployed in other regions get
+  their certificate from this stack (deployed to us-east-1) and receive the
+  ARN as a parameter. The DNS name itself is region-agnostic.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: cell-demo
+  CellId:
+    Type: String
+    Description: Unique identifier for this cell (e.g., us-west-2-az1)
+  DomainName:
+    Type: String
+    Description: Base domain the cells hang under (e.g., cells.example.com)
+  HostedZoneId:
+    Type: String
+    Description: Route53 hosted zone ID for DNS validation
+
+Resources:
+  CellCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub '${CellId}.${DomainName}'
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub '${CellId}.${DomainName}'
+          HostedZoneId: !Ref HostedZoneId
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+Outputs:
+  CertificateArn:
+    Value: !Ref CellCertificate
+    Description: Pass as the CertificateArn parameter of cell-template.yaml

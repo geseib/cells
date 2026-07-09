@@ -66,9 +66,12 @@ region-only names can't distinguish the AZs.
 - **Cells are isolated.** A cell page/API must never call another cell's API or
   the global API at runtime — fault isolation is the lesson being taught.
   Client tracking goes to the cell's own `/track-client`.
-- **CloudFront certificates must live in us-east-1.** `cell-template.yaml`
-  creates its ACM cert in the stack's own region, so custom domains only
-  validate for us-east-1 cells; other regions fall back to the CloudFront URL.
+- **CloudFront certificates must live in us-east-1** (the DNS name itself is
+  region-agnostic). us-east-1 cells create their cert in-stack; for other
+  regions deploy.sh creates a `{project}-cert-{cellId}` stack in us-east-1
+  (`cell-certificate.yaml`) and passes the ARN via the cell template's
+  `CertificateArn` parameter. Cells register their actual URL (`url` in the
+  registry) — never derive a cell URL from its cellId.
 - **The failover demo is a simulation** (labeled as such in the UI). Don't wire
   it to fake network calls; real failover is Route 53 health checks.
 - AWS deployment can't be verified in CI (no credentials) — builds and unit

@@ -84,11 +84,14 @@ re-run `./setup.sh`. You get:
 - Educational site: `https://{siteDomainName}` (own S3+CloudFront stack)
 - Admin dashboard + router pages: `https://admin.{domain}`
 - Routing API: `https://api.{domain}`
-- Cells **in us-east-1**: `https://{cell-id}.{domain}`
+- Every cell: `https://{cell-id}.{domain}`
 
 The demo hangs everything under the `domainName` subdomain, so records like
 `us-east-1-az1.cells.example.com` live in your parent hosted zone — no
-delegation needed.
+delegation needed. CloudFront only accepts us-east-1 certificates, so cells
+in other regions get theirs from a small `{project}-cert-{cellId}` stack that
+deploy.sh creates in us-east-1 automatically (the DNS name itself is
+region-agnostic).
 
 **Limitation:** CloudFront only accepts ACM certificates from us-east-1, and
 the cell template creates its certificate in the cell's own region — so cells

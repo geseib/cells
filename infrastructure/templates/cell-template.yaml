@@ -27,9 +27,21 @@ Parameters:
     Type: String
     Description: Route53 hosted zone ID for the domain
     Default: ''
+  CertificateArn:
+    Type: String
+    Description: >
+      Pre-created us-east-1 ACM certificate ARN for this cell's domain.
+      Required for cells outside us-east-1 (CloudFront only accepts
+      us-east-1 certificates); us-east-1 cells may leave this empty and the
+      stack creates the certificate itself.
+    Default: ''
 
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref DomainName, '']]
+  HasProvidedCert: !Not [!Equals [!Ref CertificateArn, '']]
+  CreateOwnCert: !And
+    - !Condition HasCustomDomain
+    - !Not [!Condition HasProvidedCert]
 
 Globals:
   Function:
@@ -70,12 +82,13 @@ Resources:
             Action: 's3:GetObject'
             Resource: !Sub '${CellContentBucket.Arn}/*'
 
-  # ACM Certificate for cell CloudFront
-  # Note: This certificate must be deployed in us-east-1 for CloudFront
-  # If deploying in another region, create a separate stack in us-east-1
+  # ACM certificate created in-stack - only valid for us-east-1 cells
+  # (CloudFront requires us-east-1 certificates). Cells in other regions
+  # receive a pre-created us-east-1 certificate via the CertificateArn
+  # parameter (see cell-certificate.yaml) and skip this resource.
   CellCertificate:
     Type: AWS::CertificateManager::Certificate
-    Condition: HasCustomDomain
+    Condition: CreateOwnCert
     Properties:
       DomainName: !Sub '${CellId}.${DomainName}'
       ValidationMethod: DNS
@@ -102,7 +115,7 @@ Resources:
           - !Ref 'AWS::NoValue'
         ViewerCertificate: !If
           - HasCustomDomain
-          - AcmCertificateArn: !Ref CellCertificate
+          - AcmCertificateArn: !If [HasProvidedCert, !Ref CertificateArn, !Ref CellCertificate]
             SslSupportMethod: sni-only
             MinimumProtocolVersion: TLSv1.2_2021
           - CloudFrontDefaultCertificate: true
