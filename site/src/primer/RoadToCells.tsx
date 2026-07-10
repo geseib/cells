@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CELL_COLOR_VARS, FAILED_COLOR, cellColor, hashKey } from '../sim/simulation';
 import Icon from '../ui/icons';
+import KeyHint, { useHotkeys } from '../ui/KeyHint';
 
 /**
  * "The road to cells" — one SVG, five steps, driven by a Prev/Next stepper.
@@ -122,8 +123,17 @@ const funnel = (i: number, tx: number, ty: number, stroke: string, opacity = 1) 
   );
 };
 
-const RoadToCells: React.FC = () => {
+const RoadToCells: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const [step, setStep] = useState(0);
+
+  // Presenter keys (slide deck only): 1-5 jump straight to a step.
+  useHotkeys(hotkeys, {
+    '1': () => setStep(0),
+    '2': () => setStep(1),
+    '3': () => setStep(2),
+    '4': () => setStep(3),
+    '5': () => setStep(4),
+  });
   const s = STEPS[step];
 
   const dots = Array.from({ length: CLIENTS }, (_, i) => {
@@ -271,7 +281,13 @@ const RoadToCells: React.FC = () => {
               aria-pressed={i === step}
               onClick={() => setStep(i)}
             >
-              {st.pill}
+              {hotkeys ? (
+                <>
+                  <KeyHint k={String(i + 1)} /> {st.pill.slice(st.pill.indexOf('·') + 2)}
+                </>
+              ) : (
+                st.pill
+              )}
             </button>
           ))}
         </div>

@@ -280,6 +280,32 @@ body,
   color: var(--good);
 }
 
+/* Presenter hotkey chips: subtle kbd markers on the demo buttons. They
+   inherit currentColor, so they read correctly on plain, primary, and
+   danger buttons in both themes. */
+.key-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35em;
+  height: 1.35em;
+  padding: 0 0.3em;
+  margin-left: 0.45em;
+  border: 1px solid color-mix(in srgb, currentColor 40%, transparent);
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.68em;
+  font-weight: 600;
+  line-height: 1;
+  opacity: 0.75;
+}
+
+/* on the stepper pills the chip leads the label instead of trailing it */
+.reveal .step-pill .key-hint {
+  margin-left: 0;
+  margin-right: 0.4em;
+}
+
 /* speaker notes styling inside the presenter view is reveal's; the inline
    asides just need to never render on stage */
 .reveal .slides aside.notes {

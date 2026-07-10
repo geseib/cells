@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Reveal from 'reveal.js';
 import Notes from 'reveal.js/plugin/notes';
 import RingMark from '../ui/RingMark';
+import KeyHint, { useHotkeys } from '../ui/KeyHint';
 import RoadToCells from '../primer/RoadToCells';
 import { BlastRadiusDemo, PagerTest } from '../sections/WhyCells';
 import {
@@ -25,7 +26,7 @@ const RCX = RING_SIZE / 2;
 const RCY = RING_SIZE / 2;
 const PRESETS = ['user123', 'customer456', 'admin789', 'alice@example.com'];
 
-const RingRouteSlide: React.FC = () => {
+const RingRouteSlide: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const [history, setHistory] = useState<{ clientId: string; hash: number; cellId: string }[]>([]);
 
   const cells = useMemo(() => makeCells(4), []);
@@ -42,6 +43,14 @@ const RingRouteSlide: React.FC = () => {
   };
 
   const marker = current ? pointOnCircle(RCX, RCY, 173, current.hash / MAX_HASH) : null;
+
+  // Presenter keys (deck): 1-4 route the presets
+  useHotkeys(hotkeys, {
+    '1': () => route(PRESETS[0]),
+    '2': () => route(PRESETS[1]),
+    '3': () => route(PRESETS[2]),
+    '4': () => route(PRESETS[3]),
+  });
 
   return (
     <div className="stage-ring">
@@ -79,9 +88,10 @@ const RingRouteSlide: React.FC = () => {
       </svg>
       <div className="stage-ring-side">
         <div className="controls" style={{ justifyContent: 'center' }}>
-          {PRESETS.map((p) => (
+          {PRESETS.map((p, i) => (
             <button key={p} className={current?.clientId === p ? 'selected' : ''} onClick={() => route(p)}>
               {p}
+              {hotkeys && <KeyHint k={String(i + 1)} />}
             </button>
           ))}
         </div>
@@ -102,6 +112,7 @@ const RingRouteSlide: React.FC = () => {
 
 const DeckApp: React.FC = () => {
   const deckRef = useRef<HTMLDivElement>(null);
+  const [slide, setSlide] = useState(0);
 
   useEffect(() => {
     if (!deckRef.current) return undefined;
@@ -120,7 +131,10 @@ const DeckApp: React.FC = () => {
       touch: true,
       preloadIframes: false,
     });
-    deck.initialize();
+    deck.initialize().then(() => setSlide(deck.getIndices().h));
+    deck.on('slidechanged', (event: unknown) => {
+      setSlide((event as { indexh: number }).indexh);
+    });
     return () => {
       try {
         deck.destroy();
@@ -156,7 +170,7 @@ const DeckApp: React.FC = () => {
         <section>
           <h2>The road to cells</h2>
           <div className="stage-embed">
-            <RoadToCells />
+            <RoadToCells hotkeys={slide === 1} />
           </div>
           <aside className="notes">
             <p>Drive the stepper left to right. Same 24 clients on every step — only the architecture changes.</p>
@@ -173,7 +187,7 @@ const DeckApp: React.FC = () => {
         {/* 3 · Blast radius */}
         <section>
           <h2>25%, not 100%</h2>
-          <BlastRadiusDemo />
+          <BlastRadiusDemo hotkeys={slide === 2} />
           <aside className="notes">
             <p>100 real clients, hashed onto the ring with MD5 — the same code that runs in the deployed router.</p>
             <ul>
@@ -188,7 +202,7 @@ const DeckApp: React.FC = () => {
         {/* 4 · The 2am test */}
         <section>
           <h2>The 2am test</h2>
-          <PagerTest />
+          <PagerTest hotkeys={slide === 3} />
           <aside className="notes">
             <p>The percentage is the visible win. The deeper one: what does the on-call human have to FIGURE OUT before they can act?</p>
             <ul>
@@ -203,7 +217,7 @@ const DeckApp: React.FC = () => {
         {/* 5 · The hash ring */}
         <section>
           <h2>Same answer, every time, everywhere</h2>
-          <RingRouteSlide />
+          <RingRouteSlide hotkeys={slide === 4} />
           <aside className="notes">
             <p>How does every router agree on who lives where — with no lookup table and no coordination?</p>
             <ul>

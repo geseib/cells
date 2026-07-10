@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { assign, buildRing, cellColor, clientIds, hashKey, makeCells, CELL_COLOR_VARS, FAILED_COLOR } from '../sim/simulation';
 import Icon from '../ui/icons';
+import KeyHint, { useHotkeys } from '../ui/KeyHint';
 
 const CLIENT_COUNT = 100;
 const CELL_COUNT = 4;
@@ -244,10 +245,28 @@ const DEAD_END_VERDICTS = [
   'slightly elevated… could be downstream',
 ];
 
-export const PagerTest: React.FC = () => {
+/** The order the presenter's I key investigates components — culprit last. */
+const INVESTIGATE_ORDER = ['Cache', 'App-2', 'DB-primary', 'LB-1', CULPRIT];
+
+export const PagerTest: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const [drained, setDrained] = useState(false);
   const [checked, setChecked] = useState<string[]>([]);
   const found = checked.includes(CULPRIT);
+
+  // Presenter keys (slide deck only)
+  useHotkeys(hotkeys, {
+    d: () => setDrained(true),
+    i: () =>
+      setChecked((prev) => {
+        if (prev.includes(CULPRIT)) return prev;
+        const next = INVESTIGATE_ORDER.find((c) => !prev.includes(c));
+        return next ? [...prev, next] : prev;
+      }),
+    r: () => {
+      setDrained(false);
+      setChecked([]);
+    },
+  });
 
   const verdict = (c: string) =>
     c === CULPRIT
@@ -264,7 +283,7 @@ export const PagerTest: React.FC = () => {
           </div>
           {!drained ? (
             <button className="danger" onClick={() => setDrained(true)} style={{ marginTop: '0.8rem' }}>
-              <Icon name="bolt" />Drain cell-2 and move its clients
+              <Icon name="bolt" />Drain cell-2 and move its clients{hotkeys && <KeyHint k="D" />}
             </button>
           ) : (
             <>
@@ -278,7 +297,7 @@ export const PagerTest: React.FC = () => {
                   <Icon name="check" size={13} strokeWidth={2.4} /> recovered in 1 action — root cause is
                   now a daytime problem
                 </span>
-                <button onClick={() => setDrained(false)}>Reset</button>
+                <button onClick={() => setDrained(false)}>Reset{hotkeys && <KeyHint k="R" />}</button>
               </div>
             </>
           )}
@@ -289,7 +308,8 @@ export const PagerTest: React.FC = () => {
             02:13 ALARM · elevated errors for clients 123, 879, 432, 345, 776, 091… (no pattern)
           </div>
           <p className="pager-hint">
-            Something shared is sick. Which component do you restart? Investigate one at a time:
+            Something shared is sick. Which component do you restart? Investigate one at a
+            time{hotkeys && <>{' '}<KeyHint k="I" /></>}:
           </p>
           <div className="chip-grid">
             {SHARED_COMPONENTS.map((c) => {
@@ -315,7 +335,7 @@ export const PagerTest: React.FC = () => {
                   ? `${checked.length} investigated · error rate still 42% · still correlating…`
                   : 'the alarm names clients, not a component — start guessing'}
             </span>
-            {checked.length > 0 && <button onClick={() => setChecked([])}>Reset</button>}
+            {checked.length > 0 && <button onClick={() => setChecked([])}>Reset{hotkeys && <KeyHint k="R" />}</button>}
           </div>
         </div>
       </div>
@@ -324,9 +344,22 @@ export const PagerTest: React.FC = () => {
 };
 
 /** The blast-radius dot grid — used by the section below and embedded in the slide deck. */
-export const BlastRadiusDemo: React.FC = () => {
+export const BlastRadiusDemo: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const [mode, setMode] = useState<'monolith' | 'cells'>('monolith');
   const [failed, setFailed] = useState(false);
+
+  // Presenter keys (slide deck only)
+  useHotkeys(hotkeys, {
+    '1': () => {
+      setMode('monolith');
+      setFailed(false);
+    },
+    '2': () => {
+      setMode('cells');
+      setFailed(false);
+    },
+    t: () => setFailed((f) => !f),
+  });
 
   const cells = useMemo(() => makeCells(CELL_COUNT), []);
   const clients = useMemo(() => clientIds(CLIENT_COUNT, 'user'), []);
@@ -355,16 +388,16 @@ export const BlastRadiusDemo: React.FC = () => {
     <div className="panel">
         <div className="controls">
           <button className={mode === 'monolith' ? 'selected' : ''} onClick={() => { setMode('monolith'); setFailed(false); }}>
-            One big system
+            One big system{hotkeys && <KeyHint k="1" />}
           </button>
           <button className={mode === 'cells' ? 'selected' : ''} onClick={() => { setMode('cells'); setFailed(false); }}>
-            {CELL_COUNT} cells
+            {CELL_COUNT} cells{hotkeys && <KeyHint k="2" />}
           </button>
           <span style={{ flex: 1 }} />
           {!failed ? (
-            <button className="danger" onClick={() => setFailed(true)}><Icon name="bolt" />Trigger a failure</button>
+            <button className="danger" onClick={() => setFailed(true)}><Icon name="bolt" />Trigger a failure{hotkeys && <KeyHint k="T" />}</button>
           ) : (
-            <button onClick={() => setFailed(false)}>Recover</button>
+            <button onClick={() => setFailed(false)}>Recover{hotkeys && <KeyHint k="T" />}</button>
           )}
         </div>
         {mode === 'monolith' ? (
