@@ -31,6 +31,7 @@ const App: React.FC = () => (
   <>
     <nav className="top-nav" aria-label="Sections">
       <span className="brand"><RingMark size={18} band={5} vnodes={4} /> Cells</span>
+      <a href="./primer.html">Primer</a>
       <a href="#why-cells">Why cells</a>
       <a href="#hash-ring">The ring</a>
       <a href="#route-a-client">Routing</a>
@@ -53,7 +54,8 @@ const App: React.FC = () => (
         How AWS, Netflix, and Slack shrink outages from "everyone" to "a few percent": partition
         the workload into isolated cells and route every client to exactly one. Everything below is
         interactive and runs in your browser — powered by the same consistent-hashing code this
-        repository deploys to AWS.
+        repository deploys to AWS. New to the problem itself? Start with the{' '}
+        <a href="./primer.html">cloud-neutral primer</a>.
       </p>
       <RingMark className="hero-ring" size={240} band={4} vnodes={36} />
     </header>

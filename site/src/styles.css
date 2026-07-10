@@ -932,3 +932,143 @@ section#beyond-cells h3 + p {
 .try-live a:hover {
   text-decoration: underline;
 }
+
+/* ---- Primer (primer.html) ---- */
+
+/* Hero lede on the primer links into the deep dive */
+.hero p.lede a {
+  color: var(--accent);
+}
+
+/* The road to cells: step pills between Prev/Next */
+.stepper-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+button.step-pill {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.26rem 0.65rem;
+  border-radius: 999px;
+  color: var(--ink-2);
+}
+
+button.step-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* SVG twin of .dot-grid .dot.flicker: fill instead of background. With
+   reduced motion the animation is stripped and the circle keeps its solid
+   red fill attribute. */
+.road-svg circle.client {
+  transition: fill 0.4s ease;
+}
+
+.road-svg circle.client.flicker {
+  animation: svg-dot-flicker 2s steps(1) infinite;
+}
+
+@keyframes svg-dot-flicker {
+  0%, 54% {
+    fill: var(--critical);
+  }
+  55%, 100% {
+    fill: var(--baseline);
+  }
+}
+
+.road-caption {
+  border-left: 3px solid var(--accent);
+  padding: 0.15rem 0 0.15rem 0.9rem;
+  margin-top: 0.75rem;
+  min-height: 7.2em;
+}
+
+.road-caption .step-title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.2rem;
+}
+
+.road-caption p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--ink-2);
+  max-width: 700px;
+}
+
+section.lesson a.deep-dive-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.7rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.48rem 0.95rem;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  transition: transform 0.15s ease;
+}
+
+a.deep-dive-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* Wide primer tables scroll inside the panel, never the page */
+.table-scroll {
+  overflow-x: auto;
+}
+
+.table-scroll table.data td {
+  color: var(--ink-2);
+}
+
+.table-scroll table.data td:first-child {
+  color: var(--ink);
+}
+
+/* Reading list: grouped by dialect */
+.reading-group h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reading-group h3 .icon {
+  color: var(--ink-2);
+}
+
+.reading-blurb {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.reading-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--ink-2);
+}
+
+.reading-list a {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.reading-list a:hover {
+  text-decoration: underline;
+}

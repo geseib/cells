@@ -3,10 +3,13 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
 
 module.exports = {
-  entry: './src/index.tsx',
+  entry: {
+    main: './src/index.tsx',
+    primer: './src/primer.tsx'
+  },
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'bundle.[contenthash].js',
+    filename: '[name].[contenthash].js',
     clean: true
   },
   resolve: {
@@ -32,7 +35,15 @@ module.exports = {
   plugins: [
     new HtmlWebpackPlugin({
       template: './src/index.html',
+      filename: 'index.html',
+      chunks: ['main'],
       title: 'Cell-Based Architecture — Interactive Guide'
+    }),
+    new HtmlWebpackPlugin({
+      template: './src/primer.html',
+      filename: 'primer.html',
+      chunks: ['primer'],
+      title: 'Before Cells — Why Big Systems Fail Big'
     }),
     new webpack.DefinePlugin({
       // Optional: URL of a live AWS demo deployment's admin dashboard. When
