@@ -229,6 +229,100 @@ const TopologyContrast: React.FC = () => {
   );
 };
 
+/* ------------------------------------------------------------------ */
+/* The 2am pager test: recovery without diagnosis                      */
+/* ------------------------------------------------------------------ */
+
+const SHARED_COMPONENTS = [
+  'LB-1', 'LB-2', 'App-1', 'App-2', 'App-3', 'Cache',
+  'Queue', 'DB-primary', 'Replica-A', 'Replica-B', 'DNS', 'Config-svc',
+];
+const CULPRIT = 'Replica-B';
+const DEAD_END_VERDICTS = [
+  'metrics look normal',
+  'inconclusive — logs are noisy',
+  'slightly elevated… could be downstream',
+];
+
+const PagerTest: React.FC = () => {
+  const [drained, setDrained] = useState(false);
+  const [checked, setChecked] = useState<string[]>([]);
+  const found = checked.includes(CULPRIT);
+
+  const verdict = (c: string) =>
+    c === CULPRIT
+      ? 'memory pressure — this is it'
+      : DEAD_END_VERDICTS[hashKey(`pager-${c}`) % DEAD_END_VERDICTS.length];
+
+  return (
+    <div className="panel">
+      <div className="viz-flex" style={{ alignItems: 'flex-start' }}>
+        <div style={{ flex: '1 1 300px' }}>
+          <div className="mini-title">With cells — the alarm names the failure domain</div>
+          <div className="pager-alert">
+            02:13 ALARM · cell-2 error rate 42% · every affected client is in cell-2
+          </div>
+          {!drained ? (
+            <button className="danger" onClick={() => setDrained(true)} style={{ marginTop: '0.8rem' }}>
+              <Icon name="bolt" />Drain cell-2 and move its clients
+            </button>
+          ) : (
+            <>
+              <ul className="pager-steps">
+                <li><Icon name="check" size={13} strokeWidth={2.4} />cell-2 fenced off at the routing layer</li>
+                <li><Icon name="check" size={13} strokeWidth={2.4} />its clients rehashed onto cells 1, 3, 4</li>
+                <li><Icon name="check" size={13} strokeWidth={2.4} />error rate back to 0%</li>
+              </ul>
+              <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span className="pulse-chip calm">
+                  <Icon name="check" size={13} strokeWidth={2.4} /> recovered in 1 action — root cause is
+                  now a daytime problem
+                </span>
+                <button onClick={() => setDrained(false)}>Reset</button>
+              </div>
+            </>
+          )}
+        </div>
+        <div style={{ flex: '1 1 300px' }}>
+          <div className="mini-title">One big system — the alarm names victims</div>
+          <div className="pager-alert">
+            02:13 ALARM · elevated errors for clients 123, 879, 432, 345, 776, 091… (no pattern)
+          </div>
+          <p className="pager-hint">
+            Something shared is sick. Which component do you restart? Investigate one at a time:
+          </p>
+          <div className="chip-grid">
+            {SHARED_COMPONENTS.map((c) => {
+              const done = checked.includes(c);
+              return (
+                <button
+                  key={c}
+                  className={`chip-btn${done ? (c === CULPRIT ? ' culprit' : ' cleared') : ''}`}
+                  onClick={() => setChecked((p) => (p.includes(c) || found ? p : [...p, c]))}
+                  disabled={done || found}
+                >
+                  {c}
+                  {done ? ` · ${verdict(c)}` : ''}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className={`pager-status${found ? ' found' : ''}`}>
+              {found
+                ? `root cause found after ${checked.length} investigation${checked.length === 1 ? '' : 's'} — now design a safe fix. It is still 2am.`
+                : checked.length
+                  ? `${checked.length} investigated · error rate still 42% · still correlating…`
+                  : 'the alarm names clients, not a component — start guessing'}
+            </span>
+            {checked.length > 0 && <button onClick={() => setChecked([])}>Reset</button>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const WhyCells: React.FC = () => {
   const [mode, setMode] = useState<'monolith' | 'cells'>('monolith');
   const [failed, setFailed] = useState(false);
@@ -265,7 +359,9 @@ const WhyCells: React.FC = () => {
         domain. When something breaks — a bad deploy, a poison-pill request, an overloaded
         dependency — it breaks for <em>everyone</em>. A cell-based architecture splits the workload
         into independent, identical replicas called <strong>cells</strong>, and pins every client to
-        exactly one of them. The same outage now touches only the clients in the affected cell.
+        exactly one of them. That single decision buys three different things at once: failures
+        get a <em>size limit</em>, recovery stops requiring <em>diagnosis</em>, and scaling stops
+        requiring a <em>model</em>. Take them one at a time.
       </p>
       <div className="panel">
         <div className="controls">
@@ -351,6 +447,64 @@ const WhyCells: React.FC = () => {
           </div>
         </div>
       </div>
+      <h3>The 2am test: act first, diagnose later</h3>
+      <p>
+        The percentage is the visible win. The deeper one is what the on-call engineer has
+        to <em>figure out</em> before they can act. In a cell world, the failure domain and the
+        recovery action are the same object: clients of cell&nbsp;2 are having a problem →
+        drain cell&nbsp;2, move its clients, go back to sleep. In a shared system the alarm hands
+        you a list of victims — clients 123, 879, 432, 345… — and the question "which of our forty
+        shared components do we restart?" has to be answered <em>before</em> anyone is helped.
+        You get to be the on-call for both:
+      </p>
+      <PagerTest />
+
+      <h3>Scale by multiplication, not by modeling</h3>
+      <p>
+        Nobody can tell you the true maximum size of a large shared system. Its limits are
+        emergent — hot keys, lock contention, connection storms, the accumulated entropy of years
+        of coupling — and you usually discover them the bad way, in production, at peak. A small
+        thing is different: a small thing can be load-tested to a ceiling you actually trust.
+        Cells turn that into the whole capacity plan: prove one cell handles X, cap it below X,
+        and add cells. Growth becomes multiplication instead of a model with error bars — and
+        because a cell's maximum size never changes, you can keep rehearsing it at full size
+        forever.
+      </p>
+      <div className="tradeoff-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+        <div className="panel">
+          <h3><Icon name="clock" size={18} />Recovery without diagnosis</h3>
+          <p>
+            "Cell 2 is sick" is simultaneously the diagnosis, the blast-radius estimate, and the
+            runbook. Mean-time-to-recovery stops being chained to mean-time-to-root-cause — the
+            bug hunt moves to daylight hours, after every client is already served.
+          </p>
+        </div>
+        <div className="panel">
+          <h3><Icon name="maximize" size={18} />A unit of scale you can trust</h3>
+          <p>
+            Load-test one cell to a proven ceiling and never let any cell grow past it. Capacity
+            planning becomes cells × ceiling. The question "will the system survive 2× traffic?"
+            has an arithmetic answer, not a meeting.
+          </p>
+        </div>
+        <div className="panel">
+          <h3><Icon name="check-circle" size={18} />Testable at full size</h3>
+          <p>
+            A monolith that grows without bound can never be tested at tomorrow's size. A cell's
+            maximum is fixed by policy, so the thing you run in production is a thing you can
+            rehearse — at max load, including its failure and drain procedures.
+          </p>
+        </div>
+        <div className="panel">
+          <h3><Icon name="refresh" size={18} />Deploys become waves</h3>
+          <p>
+            Roll every change one cell at a time and watch the canaries. The worst possible
+            deploy is now a cell-sized incident with a built-in rollback: drain the cell. The
+            same math that bounds failures bounds your own mistakes.
+          </p>
+        </div>
+      </div>
+
       <p style={{ marginTop: '2rem' }}>
         A common objection: "we already have redundancy at every layer." That's not the same
         thing. Cross-wired shared tiers create a <em>complex</em> failure pattern — a single bad

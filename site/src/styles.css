@@ -772,6 +772,100 @@ section#beyond-cells h3 + p {
   max-width: 680px;
 }
 
+/* Why cells: the 2am pager test */
+.pager-alert {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--critical);
+  border: 1px solid var(--critical);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  background: color-mix(in srgb, var(--critical) 6%, transparent);
+}
+
+.pager-hint {
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  margin: 0.8rem 0 0.5rem;
+}
+
+.pager-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0.8rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+}
+
+.pager-steps li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.pager-steps li .icon {
+  color: var(--good);
+}
+
+.chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 0.8rem;
+}
+
+.chip-btn {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+}
+
+.chip-btn.cleared {
+  opacity: 0.55;
+  border-style: dashed;
+  cursor: default;
+}
+
+.chip-btn.culprit {
+  border-color: var(--critical);
+  color: var(--critical);
+  opacity: 1;
+  cursor: default;
+}
+
+.pager-status {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.pager-status.found {
+  color: var(--critical);
+  font-weight: 600;
+}
+
+/* Pull quotes with linked attribution */
+.quote {
+  margin: 2rem 0 0;
+  padding: 0.35rem 0 0.35rem 1.15rem;
+  border-left: 3px solid var(--accent);
+  font-size: 1.12rem;
+  line-height: 1.55;
+  font-style: italic;
+  color: var(--ink);
+}
+
+.quote footer {
+  font-size: 0.85rem;
+  font-style: normal;
+  color: var(--ink-2);
+  margin-top: 0.45rem;
+}
+
 /* Beyond cells: shuffle-sharding math */
 .formula {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
