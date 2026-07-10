@@ -1,4 +1,5 @@
 import React from 'react';
+import Icon from '../ui/icons';
 
 const TradeOffs: React.FC = () => (
   <section className="lesson" id="trade-offs">
@@ -10,7 +11,7 @@ const TradeOffs: React.FC = () => (
     </p>
     <div className="tradeoff-grid">
       <div className="panel">
-        <h3>🗂️ Data partitioning</h3>
+        <h3><Icon name="database" size={18} />Data partitioning</h3>
         <p>
           Each cell owns its clients' data. That's what makes failure containment real — but it
           means cross-client features (search, analytics, leaderboards) need an aggregation path
@@ -18,7 +19,7 @@ const TradeOffs: React.FC = () => (
         </p>
       </div>
       <div className="panel">
-        <h3>📏 Cell sizing</h3>
+        <h3><Icon name="maximize" size={18} />Cell sizing</h3>
         <p>
           Small cells → small blast radius but more operational overhead; big cells → the opposite.
           A common approach: pick a maximum cell size you can load-test to, and add cells before
@@ -26,7 +27,7 @@ const TradeOffs: React.FC = () => (
         </p>
       </div>
       <div className="panel">
-        <h3>🧭 The router is sacred — or optional</h3>
+        <h3><Icon name="compass" size={18} />The router is sacred — or optional</h3>
         <p>
           The routing layer is the one component every request touches, so its availability bounds
           the whole system. Keep it as thin as possible. Better yet, notice that the ring is a
@@ -37,7 +38,7 @@ const TradeOffs: React.FC = () => (
         </p>
       </div>
       <div className="panel">
-        <h3>🔀 Rebalancing & migration</h3>
+        <h3><Icon name="shuffle" size={18} />Rebalancing & migration</h3>
         <p>
           Adding a cell moves ~1/N of clients — and their data. Plan for gradual migration: route
           new sessions to the new assignment while draining old ones, or move cohorts explicitly.
@@ -46,7 +47,7 @@ const TradeOffs: React.FC = () => (
         </p>
       </div>
       <div className="panel">
-        <h3>🌊 Retry storms & shared deps</h3>
+        <h3><Icon name="waves" size={18} />Retry storms & shared deps</h3>
         <p>
           Isolation only holds if cells share nothing at runtime: no common database, no
           cross-cell calls, separate quotas per cell. One hidden shared dependency quietly
@@ -54,7 +55,7 @@ const TradeOffs: React.FC = () => (
         </p>
       </div>
       <div className="panel">
-        <h3>👀 Observability per cell</h3>
+        <h3><Icon name="eye" size={18} />Observability per cell</h3>
         <p>
           Dashboards, alarms, and canaries should be per-cell, with the cell ID on every metric and
           log line. "Which cell is this user in?" should be answerable in seconds during an

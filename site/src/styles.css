@@ -214,6 +214,15 @@ button {
   color: var(--ink);
   cursor: pointer;
   transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Stroke-line icon set (site/src/ui/icons.tsx): inherits currentColor. */
+.icon {
+  flex: none;
+  vertical-align: -2px;
 }
 
 button:hover {
@@ -531,6 +540,13 @@ table.data td {
 .tradeoff-grid h3 {
   margin: 0 0 0.5rem;
   font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tradeoff-grid h3 .icon {
+  color: var(--ink-2);
 }
 
 .tradeoff-grid p {
@@ -629,6 +645,9 @@ section#beyond-cells h3 + p {
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.03em;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .az-card .prov {
@@ -705,7 +724,9 @@ section#beyond-cells h3 + p {
 }
 
 .pulse-chip {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   font-size: 0.8rem;
   font-weight: 600;
   padding: 0.25rem 0.65rem;

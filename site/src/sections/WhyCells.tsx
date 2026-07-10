@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { assign, buildRing, cellColor, clientIds, hashKey, makeCells, CELL_COLOR_VARS, FAILED_COLOR } from '../sim/simulation';
+import Icon from '../ui/icons';
 
 const CLIENT_COUNT = 100;
 const CELL_COUNT = 4;
@@ -155,9 +156,15 @@ const TopologyContrast: React.FC = () => {
               <g key={tier.label}>
                 <rect x={cx - BOX_W / 2} y={tier.y} width={BOX_W} height={BOX_H} rx={5} fill={fill}
                   opacity={cellDown && !isDead ? 0.5 : 1} />
-                <text x={cx} y={tier.y + 17} textAnchor="middle" fontSize={10} fontWeight={600} fill="#fff"
+                {isDead && (
+                  <path
+                    d={`M ${cx - BOX_W / 2 + 6} ${tier.y + 9.5} l 7 7 M ${cx - BOX_W / 2 + 13} ${tier.y + 9.5} l -7 7`}
+                    stroke="#fff" strokeWidth={1.75} strokeLinecap="round"
+                  />
+                )}
+                <text x={cx + (isDead ? 6 : 0)} y={tier.y + 17} textAnchor="middle" fontSize={10} fontWeight={600} fill="#fff"
                   opacity={cellDown && !isDead ? 0.6 : 1}>
-                  {isDead ? '✗ ' : ''}{tier.label}{tier.label === 'Replica' ? ` ${'ABC'[col]}` : ''}
+                  {tier.label}{tier.label === 'Replica' ? ` ${'ABC'[col]}` : ''}
                 </text>
               </g>
             );
@@ -185,7 +192,7 @@ const TopologyContrast: React.FC = () => {
         <strong>Cells ≠ redundancy at every layer.</strong>
         <span style={{ flex: 1 }} />
         {!failed ? (
-          <button className="danger" onClick={() => setFailed(true)}>💥 Fail Replica A in both</button>
+          <button className="danger" onClick={() => setFailed(true)}><Icon name="bolt" />Fail Replica A in both</button>
         ) : (
           <button onClick={() => setFailed(false)}>Recover</button>
         )}
@@ -270,7 +277,7 @@ const WhyCells: React.FC = () => {
           </button>
           <span style={{ flex: 1 }} />
           {!failed ? (
-            <button className="danger" onClick={() => setFailed(true)}>💥 Trigger a failure</button>
+            <button className="danger" onClick={() => setFailed(true)}><Icon name="bolt" />Trigger a failure</button>
           ) : (
             <button onClick={() => setFailed(false)}>Recover</button>
           )}

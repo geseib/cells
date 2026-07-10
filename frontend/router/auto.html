@@ -97,7 +97,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🚀 Auto-Routing Active</h1>
+        <h1><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px"><circle cx="12" cy="12" r="9"/><path d="M8 12h8m0 0-3-3m3 3-3 3"/></svg> Auto-Routing Active</h1>
         <div class="status" id="status">Finding your optimal cell...</div>
         <div class="spinner" id="spinner"></div>
         <div id="cellInfo"></div>
@@ -130,7 +130,7 @@
             document.getElementById('countdown').style.display = 'none';
             document.getElementById('error').innerHTML = `
                 <div class="error">
-                    <p>❌ ${message}</p>
+                    <p><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg> ${message}</p>
                     <button class="skip-button" onclick="location.reload()">Try Again</button>
                 </div>
             `;
@@ -166,7 +166,7 @@
         function showCellInfo(cellData, targetUrl, clientId) {
             document.getElementById('cellInfo').innerHTML = `
                 <div class="cell-info">
-                    <h2>✅ Cell Assigned!</h2>
+                    <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16.5 9"/></svg> Cell Assigned!</h2>
                     <p><strong>Your ID:</strong> ${clientId}</p>
                     <p><strong>Target Cell:</strong> ${cellData.targetCell.cellId}</p>
                     <p><strong>Region:</strong> ${cellData.targetCell.region}</p>
@@ -180,7 +180,7 @@
         // Route to appropriate cell
         async function routeToCell() {
             const clientId = getClientId();
-            updateStatus(`🔄 Routing ${clientId} to optimal cell...`);
+            updateStatus(`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1L20.5 8"/><path d="M20.5 3.5V8H16"/></svg> Routing ${clientId} to optimal cell...`);
 
             try {
                 // ROUTING_API_URL is substituted by infrastructure/scripts/deploy-frontend.sh
@@ -213,7 +213,7 @@
                 }
 
                 document.getElementById('spinner').style.display = 'none';
-                updateStatus(`🎯 Redirecting to ${targetCell.cellId} in...`);
+                updateStatus(`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> Redirecting to ${targetCell.cellId} in...`);
                 showCellInfo(routingData, targetCell.directUrl, clientId);
 
             } catch (error) {

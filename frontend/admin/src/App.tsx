@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Icon from './icons';
 import CellDemo from './components/CellDemo';
 import FailoverDemo from './components/FailoverDemo';
 
@@ -57,7 +58,7 @@ const App: React.FC = () => {
                 rel="noopener noreferrer"
                 className="nav-btn primary"
               >
-                📖 Learn: How Cells Work
+                <Icon name="book-open" size={15} /> Learn: How Cells Work
               </a>
             )}
             <a href="/demo-script.html" className="nav-btn">Demo walkthrough</a>

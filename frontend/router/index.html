@@ -126,7 +126,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>🌐 Cell Architecture Router</h1>
+        <h1><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a13.5 13.5 0 0 1 0 18 13.5 13.5 0 0 1 0-18Z"/></svg> Cell Architecture Router</h1>
         <div class="status" id="status">Welcome to the Cell Router</div>
         <div class="spinner" id="spinner" style="display: none;"></div>
         <div id="cellInfo"></div>
@@ -134,7 +134,7 @@
         
         <!-- Client ID Input Section -->
         <div class="client-input-section" id="clientInputSection">
-            <h2>🎯 Direct Client Routing</h2>
+            <h2><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> Direct Client Routing</h2>
             <p>Enter a client ID to see which cell it routes to:</p>
             <div class="input-group">
                 <input type="text" id="clientIdInput" placeholder="Enter client ID (e.g., user123)" class="client-input">
@@ -143,7 +143,7 @@
             <div id="routingResult"></div>
         </div>
         <p id="introLink" style="margin-top: 1.5rem; font-size: 0.9rem;">
-            <a href="%%INTRO_URL%%" style="color: #fff; opacity: 0.85;">📖 New to cell architecture? Start with the interactive guide</a>
+            <a href="%%INTRO_URL%%" style="color: #fff; opacity: 0.85;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><path d="M2 5h6a4 4 0 0 1 4 4v11a3 3 0 0 0-3-3H2V5ZM22 5h-6a4 4 0 0 0-4 4v11a3 3 0 0 1 3-3h7V5Z"/></svg> New to cell architecture? Start with the interactive guide</a>
         </p>
     </div>
     <script>
@@ -205,7 +205,7 @@
             if (spinner) spinner.style.display = 'none';
             document.getElementById('error').innerHTML = `
                 <div class="error">
-                    <p>❌ ${message}</p>
+                    <p><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg> ${message}</p>
                     <button class="retry-button" onclick="routeToCell()">Retry</button>
                 </div>
             `;
@@ -246,7 +246,7 @@
 
                 showRoutingResult(`
                     <div>
-                        <h3>🎯 Routing Result for "${clientId}"</h3>
+                        <h3><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> Routing Result for "${clientId}"</h3>
                         <p><strong>Target Cell:</strong> ${targetCell.cellId}</p>
                         <p><strong>Region:</strong> ${targetCell.region}</p>
                         <p><strong>Availability Zone:</strong> ${targetCell.availabilityZone}</p>
@@ -266,7 +266,7 @@
                 `, true);
 
             } catch (error) {
-                showRoutingResult(`❌ Error: ${error.message}`, false);
+                showRoutingResult(`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg> Error: ${error.message}`, false);
             }
         }
 
@@ -294,7 +294,7 @@
             document.getElementById('error').innerHTML = '';
 
             const clientId = getClientId();
-            updateStatus(`🔄 Routing ${clientId} to optimal cell...`);
+            updateStatus(`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1L20.5 8"/><path d="M20.5 3.5V8H16"/></svg> Routing ${clientId} to optimal cell...`);
 
             try {
                 const response = await fetch(`${getApiUrl()}/admin/client-route/${clientId}`);
@@ -312,7 +312,7 @@
                     throw new Error('Target cell is not available');
                 }
 
-                updateStatus(`✅ Ready! You'll be redirected to ${targetCell.cellId}...`);
+                updateStatus(`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16.5 9"/></svg> Ready! You'll be redirected to ${targetCell.cellId}...`);
 
                 // Show the client input section after successful routing
                 showClientInputSection();
@@ -357,7 +357,7 @@
             const currentClientSection = document.createElement('div');
             currentClientSection.innerHTML = `
                 <div style="margin: 2rem 0; padding: 1.5rem; background: rgba(255, 255, 255, 0.1); border-radius: 15px;">
-                    <h3 style="margin-bottom: 1rem;">🎲 Route Your Client ID</h3>
+                    <h3 style="margin-bottom: 1rem;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><circle cx="8.5" cy="8.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="0.9" fill="currentColor" stroke="none"/></svg> Route Your Client ID</h3>
                     <p style="margin-bottom: 1rem; opacity: 0.8;">Your current client ID: <strong>${getClientId()}</strong></p>
                     <button onclick="routeToCell()" class="route-btn" style="padding: 0.75rem 2rem;">
                         Route Me to a Cell

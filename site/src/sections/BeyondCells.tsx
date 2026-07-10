@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { hashKey, CELL_COLOR_VARS, FAILED_COLOR } from '../sim/simulation';
+import Icon from '../ui/icons';
 
 /** True when the user asked the OS for reduced motion — gates the SMIL/JS animation. */
 function usePrefersReducedMotion(): boolean {
@@ -190,8 +191,14 @@ const ShuffleSharding: React.FC = () => {
           return (
             <g key={w}>
               <rect x={workerBoxX(w)} y={26} width={44} height={26} rx={5} fill={workerColor(w)} />
-              <text x={workerCX(w)} y={43} textAnchor="middle" fontSize={11} fontWeight={600} fill="#fff">
-                {dead ? '✗ ' : ''}W{w + 1}
+              {dead && (
+                <path
+                  d={`M ${workerBoxX(w) + 6} 35.5 l 7 7 M ${workerBoxX(w) + 13} 35.5 l -7 7`}
+                  stroke="#fff" strokeWidth={1.75} strokeLinecap="round"
+                />
+              )}
+              <text x={workerCX(w) + (dead ? 5 : 0)} y={43} textAnchor="middle" fontSize={11} fontWeight={600} fill="#fff">
+                W{w + 1}
               </text>
             </g>
           );
@@ -223,9 +230,10 @@ const ShuffleSharding: React.FC = () => {
               <circle cx={custCX(i)} cy={CUST_Y} r={12} fill="transparent" />
               <circle cx={custCX(i)} cy={CUST_Y} r={7} fill={fill} opacity={state === 'down' ? 0.85 : 1} />
               {state === 'poison' && (
-                <text x={custCX(i)} y={CUST_Y + 3.5} textAnchor="middle" fontSize={9} fontWeight={700} fill="#fff">
-                  ☠
-                </text>
+                <path
+                  d={`M ${custCX(i) - 2.5} ${CUST_Y - 2.5} l 5 5 M ${custCX(i) + 2.5} ${CUST_Y - 2.5} l -5 5`}
+                  stroke="#fff" strokeWidth={1.6} strokeLinecap="round"
+                />
               )}
               {state === 'degraded' && (
                 <circle
@@ -255,9 +263,9 @@ const ShuffleSharding: React.FC = () => {
     <div className="panel">
       <div className="controls">
         <button className={auto ? 'selected' : ''} onClick={() => (auto ? setAuto(false) : setAuto(true))}>
-          {auto ? '⏸ Stop the demo' : '▶ Auto-demo'}
+          <Icon name={auto ? 'pause' : 'play'} />{auto ? 'Stop the demo' : 'Auto-demo'}
         </button>
-        <button onClick={poisonNext}>☠ Poison a random customer</button>
+        <button onClick={poisonNext}><Icon name="skull" />Poison a random customer</button>
         <span style={{ flex: 1 }} />
         {poison !== null && <button onClick={() => pickManually(null)}>Cure the poison</button>}
       </div>
@@ -365,7 +373,7 @@ const StaticStability: React.FC = () => {
         </button>
         <span style={{ flex: 1 }} />
         {!lost ? (
-          <button className="danger" onClick={() => setLost(true)}>💥 Lose an AZ</button>
+          <button className="danger" onClick={() => setLost(true)}><Icon name="bolt" />Lose an AZ</button>
         ) : (
           <button onClick={() => setLost(false)}>Recover the AZ</button>
         )}
@@ -384,7 +392,7 @@ const StaticStability: React.FC = () => {
           return (
             <div key={name} className={`az-card${down ? ' down' : ''}`}>
               <div className="name" style={{ color: down ? 'var(--critical)' : 'var(--ink)' }}>
-                {down ? '✗ ' : ''}{name}{down ? ' — offline' : ''}
+                {down && <Icon name="x" size={12} strokeWidth={2.4} />}{name}{down ? ' — offline' : ''}
               </div>
               <div className="prov">
                 {down ? `${perAz} servers, unreachable` : `${perAz} servers running`}
@@ -426,12 +434,14 @@ const StaticStability: React.FC = () => {
         <p style={{ margin: '0.9rem 0 0' }}>
           {strategy === 'hot' ? (
             <span className="pulse-chip">
-              ⏳ {shortfall} servers short — asking the EC2 control plane for replacements, in line
-              behind every other customer hit by the same event…
+              <Icon name="clock" size={13} strokeWidth={2} /> {shortfall} servers short — asking the
+              EC2 control plane for replacements, in line behind every other customer hit by the
+              same event…
             </span>
           ) : (
             <span className="pulse-chip calm">
-              ✓ nothing to do — the surviving two AZs already run {surviving} servers
+              <Icon name="check" size={13} strokeWidth={2.4} /> nothing to do — the surviving two
+              AZs already run {surviving} servers
             </span>
           )}
         </p>
@@ -562,10 +572,10 @@ const ConstantWork: React.FC = () => {
           Quiet day
         </button>
         <button className={storm ? 'selected' : ''} onClick={() => setStorm(true)}>
-          🌩️ Storm waves
+          <Icon name="cloud-bolt" />Storm waves
         </button>
         <button onClick={() => setRunning((r) => !r)}>
-          {running ? '⏸ Pause' : '▶ Play'}
+          <Icon name={running ? 'pause' : 'play'} />{running ? 'Pause' : 'Play'}
         </button>
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 220px' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--ink-2)' }}>storm size</span>

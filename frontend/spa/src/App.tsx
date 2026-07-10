@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Icon from './icons';
 
 interface CellInfo {
   cellId: string;
@@ -194,18 +195,12 @@ const App: React.FC = () => {
     return clientId;
   };
 
-  // Generate unique color for each cell
+  // Cell identity color: the same categorical palette the hash ring, admin
+  // dashboard, and intro site use, keyed off the cellId.
+  const CELL_PALETTE = ['#2a78d6', '#1baf7a', '#eda100', '#4a3aa7', '#e87ba4', '#eb6834'];
   const getCellColor = (cellId: string) => {
-    const colors = [
-      { bg: '#667eea', accent: '#764ba2', name: 'Purple Galaxy', emoji: '🌌' },
-      { bg: '#f093fb', accent: '#f5576c', name: 'Pink Sunset', emoji: '🌅' },
-      { bg: '#4facfe', accent: '#00f2fe', name: 'Blue Ocean', emoji: '🌊' },
-      { bg: '#43e97b', accent: '#38f9d7', name: 'Green Forest', emoji: '🌲' },
-      { bg: '#fa709a', accent: '#fee140', name: 'Warm Gradient', emoji: '🔥' },
-      { bg: '#a8edea', accent: '#fed6e3', name: 'Soft Pastel', emoji: '🦄' }
-    ];
     const hash = cellId.split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-    return colors[hash % colors.length];
+    return CELL_PALETTE[hash % CELL_PALETTE.length];
   };
 
   if (loading) return (
@@ -217,7 +212,7 @@ const App: React.FC = () => {
   
   if (error) return (
     <div className="error-container">
-      <div className="error-icon">❌</div>
+      <div className="error-icon"><Icon name="x-circle" size={44} /></div>
       <div>{error}</div>
     </div>
   );
@@ -236,18 +231,20 @@ const App: React.FC = () => {
         </div>
         <div className="cell-banner">
           <h1 className="cell-title">
-            {cellColor.emoji} CELL {cellInfo.cellId.toUpperCase()} {cellColor.emoji}
+            <span className="cell-badge" style={{ background: cellColor }}>
+              {cellInfo.cellId.slice(cellInfo.cellId.lastIndexOf('-') + 1).toUpperCase()}
+            </span>
+            CELL {cellInfo.cellId.toUpperCase()}
           </h1>
-          <div className="cell-theme">{cellColor.name}</div>
           <div className="cell-location">
-            📍 {cellInfo.region} • {cellInfo.availabilityZone}
+            <Icon name="map-pin" size={14} /> {cellInfo.region} • {cellInfo.availabilityZone}
           </div>
         </div>
       </div>
 
       <div className="content-grid">
         <div className="card">
-          <h2>📊 Cell Information</h2>
+          <h2><Icon name="bar-chart" size={17} /> Cell Information</h2>
           <div className="info-grid">
             <div className="info-item">
               <span className="label">Cell ID:</span>
@@ -270,28 +267,32 @@ const App: React.FC = () => {
 
         {healthInfo && (
           <div className="card">
-            <h2>💗 Health Status</h2>
+            <h2><Icon name="heart-pulse" size={17} /> Health Status</h2>
             <div className="health-status">
               <div className={`status-indicator ${healthInfo.status}`}>
-                {healthInfo.status === 'healthy' ? '✅' : healthInfo.status === 'degraded' ? '⚠️' : '❌'} 
+                <Icon
+                  name={healthInfo.status === 'healthy' ? 'check-circle' : healthInfo.status === 'degraded' ? 'alert-triangle' : 'x-circle'}
+                  size={16}
+                  strokeWidth={2}
+                />
                 {healthInfo.status.toUpperCase()}
               </div>
               <div className="health-checks">
                 <div className="check-item">
                   <span className={`check-icon ${healthInfo.checks.dynamodb ? 'ok' : 'fail'}`}>
-                    {healthInfo.checks.dynamodb ? '✅' : '❌'}
+                    <Icon name={healthInfo.checks.dynamodb ? 'check-circle' : 'x-circle'} size={15} strokeWidth={2} />
                   </span>
                   DynamoDB
                 </div>
                 <div className="check-item">
                   <span className={`check-icon ${healthInfo.checks.memory ? 'ok' : 'fail'}`}>
-                    {healthInfo.checks.memory ? '✅' : '⚠️'}
+                    <Icon name={healthInfo.checks.memory ? 'check-circle' : 'alert-triangle'} size={15} strokeWidth={2} />
                   </span>
                   Memory ({healthInfo.memoryUsage.percentage})
                 </div>
                 <div className="check-item">
                   <span className={`check-icon ${healthInfo.checks.cpu ? 'ok' : 'fail'}`}>
-                    {healthInfo.checks.cpu ? '✅' : '❌'}
+                    <Icon name={healthInfo.checks.cpu ? 'check-circle' : 'x-circle'} size={15} strokeWidth={2} />
                   </span>
                   CPU
                 </div>
@@ -301,7 +302,7 @@ const App: React.FC = () => {
         )}
 
         <div className="card">
-          <h2>👥 Recent Visitors</h2>
+          <h2><Icon name="users" size={17} /> Recent Visitors</h2>
           {recentClients.length > 0 ? (
             <div className="clients-list">
               {recentClients.map((visit, index) => (
@@ -322,28 +323,28 @@ const App: React.FC = () => {
         </div>
 
         <div className="card">
-          <h2>🔗 Navigation</h2>
+          <h2><Icon name="link" size={17} /> Navigation</h2>
           <div className="nav-buttons">
             {adminUrl && (
               <a href={adminUrl} className="nav-btn admin-btn">
-                🎛️ Admin Dashboard
+                <Icon name="sliders" size={15} /> Admin Dashboard
               </a>
             )}
             {adminUrl && (
               <a href={`${adminUrl}/router.html`} className="nav-btn router-btn">
-                🔀 Router Page
+                <Icon name="shuffle" size={15} /> Router Page
               </a>
             )}
             {introUrl && (
               <a href={introUrl} className="nav-btn" target="_blank" rel="noopener noreferrer">
-                📖 How Cells Work
+                <Icon name="book-open" size={15} /> How Cells Work
               </a>
             )}
             <button 
               onClick={() => window.location.reload()} 
               className="nav-btn refresh-btn"
             >
-              🔄 Refresh Data
+              <Icon name="refresh" size={15} /> Refresh Data
             </button>
           </div>
         </div>
@@ -351,7 +352,7 @@ const App: React.FC = () => {
 
       <div className="footer">
         <div className="footer-info">
-          ⏰ Last updated: {new Date(cellInfo.timestamp).toLocaleString()}
+          <Icon name="clock" size={13} /> Last updated: {new Date(cellInfo.timestamp).toLocaleString()}
         </div>
       </div>
     </div>
