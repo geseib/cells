@@ -866,6 +866,18 @@ section#beyond-cells h3 + p {
   margin-top: 0.45rem;
 }
 
+.quote-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem 2rem;
+  margin-top: 2rem;
+}
+
+.quote-grid .quote {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
 /* Beyond cells: shuffle-sharding math */
 .formula {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

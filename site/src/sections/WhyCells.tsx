@@ -363,6 +363,16 @@ const WhyCells: React.FC = () => {
         get a <em>size limit</em>, recovery stops requiring <em>diagnosis</em>, and scaling stops
         requiring a <em>model</em>. Take them one at a time.
       </p>
+      <blockquote className="quote">
+        "Everything fails, all the time."
+        <footer>
+          — Werner Vogels, CTO, Amazon.com · the epigraph of the{' '}
+          <a href="https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/failure-management.html" target="_blank" rel="noopener noreferrer">
+            AWS Well-Architected Reliability Pillar
+          </a>
+          . Cells don't argue with that — they decide in advance how big "everything" gets to be.
+        </footer>
+      </blockquote>
       <div className="panel">
         <div className="controls">
           <button className={mode === 'monolith' ? 'selected' : ''} onClick={() => { setMode('monolith'); setFailed(false); }}>
@@ -514,11 +524,40 @@ const WhyCells: React.FC = () => {
         ever sees it:
       </p>
       <TopologyContrast />
+      <div className="quote-grid">
+        <blockquote className="quote">
+          "If a workload uses 10 cells to service 100 requests, when a failure occurs in one
+          cell, 90% of the overall requests would be unaffected by the failure."
+          <footer>
+            —{' '}
+            <a href="https://docs.aws.amazon.com/wellarchitected/latest/reducing-scope-of-impact-with-cell-based-architecture/what-is-a-cell-based-architecture.html" target="_blank" rel="noopener noreferrer">
+              Reducing the Scope of Impact with Cell-Based Architecture
+            </a>
+            , AWS Well-Architected
+          </footer>
+        </blockquote>
+        <blockquote className="quote">
+          "Cellular architectures have become increasingly popular for large online services as
+          a way to increase redundancy and limit the blast radius of site failures."
+          <footer>
+            — Cooper Bethea,{' '}
+            <a href="https://slack.engineering/slacks-migration-to-a-cellular-architecture/" target="_blank" rel="noopener noreferrer">
+              Slack's Migration to a Cellular Architecture
+            </a>
+          </footer>
+        </blockquote>
+      </div>
       <div className="callout">
         <strong>The math is honest:</strong> with N equal cells, one cell failing affects roughly
         1/N of your clients — 25% here, not 100%. And unlike shared tiers, the other cells aren't
         just "probably fine" — they can't even be reached by the failure. The catch: you now need
-        a way to decide, consistently, which cell each client belongs to. That's the next section.
+        a way to decide, consistently, which cell each client belongs to. That's the next
+        section. (For the hour-long version of this argument, watch Peter Vosshall's re:Invent
+        talk{' '}
+        <a href="https://www.youtube.com/watch?v=swQbA4zub20" target="_blank" rel="noopener noreferrer">
+          How AWS Minimizes the Blast Radius of Failures
+        </a>
+        .)
       </div>
     </section>
   );
