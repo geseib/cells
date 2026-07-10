@@ -306,6 +306,69 @@ body,
   margin-right: 0.4em;
 }
 
+/* Touch presenter bar: fixed under the deck, never scaled by reveal.
+   Hidden on fine-pointer/hover devices, so the desktop deck is unchanged. */
+.touch-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.45rem 0.8rem calc(0.45rem + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--surface-1) 86%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+}
+
+.touch-bar button {
+  min-width: 46px;
+  min-height: 44px;
+  justify-content: center;
+}
+
+.touch-bar .tb-actions {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.touch-bar .tb-chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.touch-bar .tb-nav {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1.15rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .touch-bar {
+    display: none;
+  }
+}
+
+/* On touch devices the keyboard hints are noise on tiny scaled buttons,
+   and reveal's corner arrows move up above the bar */
+@media (hover: none) and (pointer: coarse) {
+  .key-hint {
+    display: none;
+  }
+
+  .reveal aside.controls {
+    bottom: 76px;
+  }
+}
+
 /* speaker notes styling inside the presenter view is reveal's; the inline
    asides just need to never render on stage */
 .reveal .slides aside.notes {

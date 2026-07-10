@@ -107,11 +107,68 @@ const RingRouteSlide: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) =>
 };
 
 /* ------------------------------------------------------------------ */
+/* Touch presenter bar: on iPad/iPhone there is no keyboard, and       */
+/* reveal's canvas scaling makes the embedded buttons tiny. This bar   */
+/* lives OUTSIDE .reveal (never scaled), gives 44px tap targets, and   */
+/* drives the demos by dispatching the same keys the hotkeys listen    */
+/* for — zero extra wiring into the shared components.                 */
+/* ------------------------------------------------------------------ */
+
+const SLIDE_ACTIONS: { key: string; label: string }[][] = [
+  [], // title
+  [
+    { key: '1', label: 'Step 1 — Monolith' },
+    { key: '2', label: 'Step 2 — Scale up' },
+    { key: '3', label: 'Step 3 — Scale out' },
+    { key: '4', label: 'Step 4 — Blast radius' },
+    { key: '5', label: 'Step 5 — Cells' },
+  ],
+  [
+    { key: '1', label: 'One big system' },
+    { key: '2', label: '4 cells' },
+    { key: 't', label: 'Trigger / recover the failure' },
+  ],
+  [
+    { key: 'd', label: 'Drain cell-2' },
+    { key: 'i', label: 'Investigate the next component' },
+    { key: 'r', label: 'Reset both pagers' },
+  ],
+  [
+    { key: '1', label: 'Route user123' },
+    { key: '2', label: 'Route customer456' },
+    { key: '3', label: 'Route admin789' },
+    { key: '4', label: 'Route alice@example.com' },
+  ],
+];
+
+const pressKey = (key: string) =>
+  document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+
+const TouchBar: React.FC<{ slide: number; onPrev: () => void; onNext: () => void }> = ({
+  slide,
+  onPrev,
+  onNext,
+}) => (
+  <div className="touch-bar" role="toolbar" aria-label="Slide and demo controls">
+    <button className="tb-nav" onClick={onPrev} aria-label="Previous slide">←</button>
+    <div className="tb-actions">
+      {(SLIDE_ACTIONS[slide] ?? []).map(({ key, label }) => (
+        <button key={key} className="tb-chip" title={label} aria-label={label} onClick={() => pressKey(key)}>
+          {key.toUpperCase()}
+        </button>
+      ))}
+    </div>
+    <button className="tb-nav" onClick={onNext} aria-label="Next slide">→</button>
+  </div>
+);
+
+/* ------------------------------------------------------------------ */
 /* The deck                                                            */
 /* ------------------------------------------------------------------ */
 
 const DeckApp: React.FC = () => {
   const deckRef = useRef<HTMLDivElement>(null);
+  const revealRef = useRef<{ prev: () => void; next: () => void } | null>(null);
   const [slide, setSlide] = useState(0);
 
   useEffect(() => {
@@ -130,7 +187,11 @@ const DeckApp: React.FC = () => {
       // slides embed clickable sims — don't let reveal swallow their clicks
       touch: true,
       preloadIframes: false,
+      // never fall back to reveal's phone "scroll view": the touch bar and
+      // per-slide demos need real slide semantics on iPhone-width screens
+      scrollActivationWidth: 0,
     });
+    revealRef.current = deck;
     deck.initialize().then(() => setSlide(deck.getIndices().h));
     deck.on('slidechanged', (event: unknown) => {
       setSlide((event as { indexh: number }).indexh);
@@ -145,6 +206,7 @@ const DeckApp: React.FC = () => {
   }, []);
 
   return (
+    <>
     <div className="reveal" ref={deckRef}>
       <div className="slides">
         {/* 1 · Title */}
@@ -230,6 +292,12 @@ const DeckApp: React.FC = () => {
         </section>
       </div>
     </div>
+    <TouchBar
+      slide={slide}
+      onPrev={() => revealRef.current?.prev()}
+      onNext={() => revealRef.current?.next()}
+    />
+    </>
   );
 };
 
