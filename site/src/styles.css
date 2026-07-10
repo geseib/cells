@@ -777,7 +777,7 @@ section#beyond-cells h3 + p {
   display: grid;
   grid-template-columns: repeat(12, 1fr);
   gap: 4px;
-  margin-top: 0.35rem;
+  margin-top: 0.6rem;
   max-width: 420px;
 }
 
@@ -792,23 +792,6 @@ section#beyond-cells h3 + p {
   background: var(--good);
 }
 
-.cw-flat {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.78rem;
-  color: var(--muted);
-  margin-top: 0.7rem;
-  max-width: 420px;
-}
-
-.cw-flat .bar {
-  flex: 1;
-  height: 10px;
-  border-radius: 5px;
-  background: var(--good);
-  opacity: 0.85;
-}
 
 .try-live {
   margin: 0.9rem 0 0;

@@ -651,34 +651,59 @@ const ConstantWork: React.FC = () => {
         </div>
         <div style={{ flex: '1 1 300px' }}>
           <div className="mini-title">Constant work — push the whole table, every tick</div>
+          <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: W }} role="img"
+            aria-label={`Constant work: ${TABLE_SIZE} rows processed every tick; ${Math.min(TABLE_SIZE, nowDemand)} of them are real updates this tick`}>
+            {/* same faint red wash so the two charts share a clock */}
+            {dWin.map((_, i) => {
+              const t = from + i;
+              return storm && t % WAVE < WAVE_LEN ? (
+                <rect key={`cs-${t}`} x={i * bw} y={PAD_T} width={bw} height={H - PAD_T - PAD_B} fill={FAILED_COLOR} opacity={0.06} />
+              ) : null;
+            })}
+            {/* every bar is full height (the whole table is processed every
+                cycle); only the bottom slice — the same demand the left chart
+                is chasing — is real updates, the rest is shaded "no change" */}
+            {dWin.map((d, i) => {
+              const changed = Math.min(TABLE_SIZE, d);
+              return (
+                <g key={from + i}>
+                  <rect x={i * bw + 1} y={y(TABLE_SIZE)} width={bw - 2} height={y(changed) - y(TABLE_SIZE)} fill="var(--grid)" />
+                  <rect x={i * bw + 1} y={y(changed)} width={bw - 2} height={y(0) - y(changed)} fill="var(--good)" />
+                </g>
+              );
+            })}
+            <line x1={0} y1={y(TABLE_SIZE)} x2={W} y2={y(TABLE_SIZE)} stroke="var(--ink-2)" strokeWidth={1} strokeDasharray="5 4" />
+            <text x={4} y={y(TABLE_SIZE) - 5} fontSize={9.5} fontWeight={600} fill="var(--ink-2)">
+              every bar: the full {TABLE_SIZE}-row table
+            </text>
+            <line x1={0} y1={H - PAD_B} x2={W} y2={H - PAD_B} stroke="var(--grid)" />
+            <text x={W - 4} y={H - 6} textAnchor="end" fontSize={9} fill="var(--muted)">
+              time →
+            </text>
+          </svg>
+          <div className="legend" style={{ marginTop: '0.35rem' }}>
+            <span><span className="swatch" style={{ background: 'var(--good)' }} />real updates (= the load on the left)</span>
+            <span><span className="swatch" style={{ background: 'var(--grid)' }} />processed anyway — no change</span>
+          </div>
           <div
             className="cw-grid"
             role="img"
-            aria-label={`Health-check table: ${changedRows.size} of ${TABLE_SIZE} rows changed this push; all ${TABLE_SIZE} pushed regardless`}
+            aria-label={`This tick's push: ${changedRows.size} of ${TABLE_SIZE} rows changed; all ${TABLE_SIZE} pushed regardless`}
           >
             {GRID_INDICES.map((i) => (
               <span key={i} className={`cw-cell${changedRows.has(i) ? ' changed' : ''}`} />
             ))}
           </div>
-          <div className="legend" style={{ marginTop: '0.5rem' }}>
-            <span><span className="swatch" style={{ background: 'var(--good)' }} />changed this push ({changedRows.size})</span>
-            <span><span className="swatch" style={{ background: 'var(--grid)' }} />unchanged — pushed anyway ({TABLE_SIZE - changedRows.size})</span>
-          </div>
-          <div className="cw-flat">
-            <span>work this tick</span>
-            <div className="bar" />
-            <span style={{ fontVariantNumeric: 'tabular-nums' }}>{TABLE_SIZE} rows — always</span>
-          </div>
           <div className="stat">
             <div className="value good" style={{ fontSize: '1.1rem' }}>
               {changedRows.size >= TABLE_SIZE * 0.7
-                ? 'the whole table lit up — the push didn\'t grow'
-                : `${changedRows.size} row${changedRows.size === 1 ? '' : 's'} changed, ${TABLE_SIZE} pushed`}
+                ? 'the bar filled solid green — and its height didn\'t move'
+                : `${changedRows.size} real update${changedRows.size === 1 ? '' : 's'} inside a ${TABLE_SIZE}-row push`}
             </div>
             <div className="label">
               {storm
-                ? 'in a storm the shaded squares flip green — different values in the same fixed-size push, so the pipeline literally cannot tell it\'s a bad day'
-                : 'on a quiet day most squares are shaded "no change" and still shipped — that "waste" is the storm path being rehearsed every few seconds'}
+                ? 'same load as the left chart, but here it just recolors the inside of an already-full bar — the work done per tick never changes, so there is nothing to queue'
+                : 'on a quiet day almost the whole bar is shaded "no change" and still shipped — that "waste" is the storm path being rehearsed every few seconds (the grid shows this tick\'s push)'}
             </div>
           </div>
         </div>
