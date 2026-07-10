@@ -772,6 +772,24 @@ section#beyond-cells h3 + p {
   max-width: 680px;
 }
 
+/* Beyond cells: shuffle-sharding math */
+.formula {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  margin: 0 0 0.9rem;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.formula strong {
+  color: var(--ink);
+}
+
 /* Beyond cells: the constant-work health-check table */
 .cw-grid {
   display: grid;

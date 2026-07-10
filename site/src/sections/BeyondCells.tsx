@@ -334,6 +334,172 @@ const ShuffleSharding: React.FC = () => {
 };
 
 /* ------------------------------------------------------------------ */
+/* 1b · Shuffle sharding: the math + calculator                        */
+/* ------------------------------------------------------------------ */
+
+/** C(n, k) via the multiplicative formula — exact enough in doubles for n ≤ 500. */
+function choose(n: number, k: number): number {
+  if (k < 0 || k > n) return 0;
+  let r = 1;
+  for (let i = 0; i < k; i++) r = (r * (n - i)) / (i + 1);
+  return r;
+}
+
+const SUPERSCRIPTS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+const sup = (n: number) => String(n).split('').map((d) => SUPERSCRIPTS[+d]).join('');
+
+/** 75,287,520 below a trillion; 1.6 × 10¹⁴ above. */
+const fmtBig = (v: number): string => {
+  if (!isFinite(v)) return '∞';
+  if (v >= 1e12) {
+    const e = Math.floor(Math.log10(v));
+    return `${(v / 10 ** e).toFixed(1)} × 10${sup(e)}`;
+  }
+  return Math.round(v).toLocaleString('en-US');
+};
+
+const fmtCount = (v: number): string =>
+  v < 1.05 ? '≈ 1' : v < 10 ? `≈ ${v.toFixed(1)}` : `≈ ${fmtBig(v)}`;
+
+const fmtPct = (x: number): string => {
+  const p = 100 * x;
+  if (p >= 10) return `${p.toFixed(0)}%`;
+  if (p >= 1) return `${p.toFixed(1)}%`;
+  if (p >= 0.01) return `${p.toFixed(2)}%`;
+  return '< 0.01%';
+};
+
+const MAX_WORKERS = 200;
+
+const ShuffleMath: React.FC = () => {
+  const [workers, setWorkers] = useState(100);
+  const [shardSize, setShardSize] = useState(5);
+  const [clientExp, setClientExp] = useState(6); // clients = 10^clientExp
+
+  const s = Math.min(shardSize, Math.floor(workers / 2));
+  const clients = Math.round(10 ** clientExp);
+  const combos = choose(workers, s);
+  const plainShards = Math.max(1, Math.floor(workers / s));
+
+  // Poison customer: kills all S workers of their shard. Plain sharding takes
+  // the whole fixed shard's population with them; shuffle sharding takes only
+  // clients whose ENTIRE combination is inside the dead set — i.e. the same combo.
+  const othersOnMyCombo = (clients - 1) / combos;
+  const poisonShuffle = 1 + othersOnMyCombo;
+  const poisonPlain = clients / plainShards;
+  const chanceAnyOther = 1 - Math.exp(-othersOnMyCombo);
+
+  // Single worker dies: every client holding it loses 1 of S — degraded, not down.
+  const nodeTouched = (clients * s) / workers;
+
+  // Growth chart: C(n, s) vs plain n/s, log scale, n up to MAX_WORKERS.
+  const W = 420;
+  const H = 130;
+  const PAD_B = 18;
+  const PAD_T = 12;
+  const nMin = Math.max(4, s * 2);
+  const yMax = Math.log10(choose(MAX_WORKERS, s));
+  const xOf = (n: number) => ((n - nMin) / (MAX_WORKERS - nMin)) * (W - 60) + 52;
+  const yOf = (v: number) => H - PAD_B - (Math.max(0, Math.log10(Math.max(1, v))) / yMax) * (H - PAD_B - PAD_T);
+  const line = (f: (n: number) => number) =>
+    Array.from({ length: MAX_WORKERS - nMin + 1 }, (_, i) => {
+      const n = nMin + i;
+      return `${xOf(n)},${yOf(f(n))}`;
+    }).join(' ');
+  const decades: number[] = [];
+  for (let d = 3; d <= yMax; d += 3) decades.push(d);
+
+  const slider = (
+    label: string,
+    value: number,
+    display: string,
+    min: number,
+    max: number,
+    step: number,
+    onChange: (v: number) => void,
+    aria: string
+  ) => (
+    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 200px' }}>
+      <span style={{ fontSize: '0.85rem', color: 'var(--ink-2)', whiteSpace: 'nowrap' }}>{label}</span>
+      <input type="range" min={min} max={max} step={step} value={value}
+        onChange={(e) => onChange(Number(e.target.value))} style={{ flex: 1 }} aria-label={aria} />
+      <span style={{ fontSize: '0.85rem', fontVariantNumeric: 'tabular-nums', color: 'var(--ink)', fontWeight: 600, whiteSpace: 'nowrap' }}>
+        {display}
+      </span>
+    </label>
+  );
+
+  return (
+    <div className="panel">
+      <div className="controls">
+        {slider('workers (N)', workers, String(workers), 4, MAX_WORKERS, 1, setWorkers, 'Number of workers')}
+        {slider('shard size (S)', shardSize, String(s), 2, 8, 1, setShardSize, 'Workers per shard')}
+        {slider('clients', clientExp, fmtBig(clients), 2, 7, 0.5, setClientExp, 'Number of clients (log scale)')}
+      </div>
+      <div className="formula">
+        C(N,S) = N! / (S!·(N−S)!) &nbsp;→&nbsp; C({workers},{s}) = <strong>{fmtBig(combos)}</strong> shards
+        &nbsp;·&nbsp; plain N/S = <strong>{fmtBig(plainShards)}</strong>
+      </div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: W }} role="img"
+        aria-label={`Combinations C(N,${s}) grow to ${fmtBig(choose(MAX_WORKERS, s))} at ${MAX_WORKERS} workers while plain shards stay near ${Math.floor(MAX_WORKERS / s)}`}>
+        {decades.map((d) => (
+          <g key={d}>
+            <line x1={52} y1={yOf(10 ** d)} x2={W} y2={yOf(10 ** d)} stroke="var(--grid)" />
+            <text x={48} y={yOf(10 ** d) + 3} textAnchor="end" fontSize={9} fill="var(--muted)">10{sup(d)}</text>
+          </g>
+        ))}
+        <polyline points={line((n) => Math.max(1, Math.floor(n / s)))} fill="none" stroke="var(--baseline)" strokeWidth={1.75} strokeDasharray="5 4" />
+        <polyline points={line((n) => choose(n, s))} fill="none" stroke="var(--good)" strokeWidth={2} />
+        <circle cx={xOf(Math.max(nMin, workers))} cy={yOf(combos)} r={4} fill="var(--good)" />
+        <text x={Math.min(xOf(Math.max(nMin, workers)) + 7, W - 110)} y={Math.max(yOf(combos) - 7, 10)} fontSize={9.5} fontWeight={700} fill="var(--good)">
+          C({workers},{s}) = {fmtBig(combos)}
+        </text>
+        <text x={W - 4} y={yOf(Math.floor(MAX_WORKERS / s)) - 5} textAnchor="end" fontSize={9} fill="var(--muted)">
+          plain shards (N/S)
+        </text>
+        <line x1={52} y1={H - PAD_B} x2={W} y2={H - PAD_B} stroke="var(--grid)" />
+        <text x={W - 4} y={H - 6} textAnchor="end" fontSize={9} fill="var(--muted)">workers →</text>
+      </svg>
+      <div className="stat-row">
+        <div className="stat">
+          <div className="value">{fmtBig(plainShards)} → {fmtBig(combos)}</div>
+          <div className="label">possible shards, plain vs shuffle — the same {workers} workers, just recombined</div>
+        </div>
+        <div className="stat">
+          <div className="value">1 in {fmtBig(combos)}</div>
+          <div className="label">chance a given other client holds your exact {s}-worker combination</div>
+        </div>
+        <div className="stat">
+          <div className="value">{othersOnMyCombo < 0.001 ? '≈ 0' : fmtCount(othersOnMyCombo).replace('≈ ', '')}</div>
+          <div className="label">expected other clients (of {fmtBig(clients)}) sharing your full shard</div>
+        </div>
+      </div>
+      <div className="stat-row">
+        <div className="stat">
+          <div className="value bad">{fmtCount(poisonPlain)} · {fmtPct(poisonPlain / clients)}</div>
+          <div className="label">poison customer, plain sharding: their whole fixed shard of clients goes down</div>
+        </div>
+        <div className="stat">
+          <div className="value good">{fmtCount(poisonShuffle)} · {fmtPct(poisonShuffle / clients)}</div>
+          <div className="label">
+            poison customer, shuffle sharding: {chanceAnyOther < 0.5
+              ? `only a ${fmtPct(chanceAnyOther)} chance even one other client goes down with them`
+              : 'their combo-mates only — everyone else keeps at least one live worker'}
+          </div>
+        </div>
+        <div className="stat">
+          <div className="value">{fmtCount(nodeTouched)} · {fmtPct(Math.min(1, nodeTouched / clients))}</div>
+          <div className="label">
+            one worker dies: clients briefly degraded (they lose 1 of {s}; a retry lands on the
+            other {s - 1}) — <strong>0 fully down</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
 /* 2 · Static stability                                                */
 /* ------------------------------------------------------------------ */
 
@@ -751,6 +917,17 @@ const BeyondCells: React.FC = () => (
       the same poison land in both worlds, over and over:
     </p>
     <ShuffleSharding />
+
+    <p>
+      Why does this get <em>better</em> as you grow? Because combinations multiply where shards
+      only divide. Plain sharding gives you N/S shards; shuffle sharding gives you
+      C(N,S)&nbsp;=&nbsp;N!/(S!(N−S)!) possible combinations of the <em>same workers</em> — and
+      that number explodes: at shard size 5, going from 20 workers to 100 takes you from
+      ~15&nbsp;thousand combinations to ~75&nbsp;million. The blast radius of a poison customer
+      shrinks just as fast, because taking a second customer down requires them to share
+      your <em>entire</em> combination. Run the numbers yourself:
+    </p>
+    <ShuffleMath />
 
     <h3>Static stability: pay for the failure before it happens</h3>
     <p>
