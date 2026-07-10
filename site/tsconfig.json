@@ -15,7 +15,10 @@
       // Types for the crypto-js import inside ../backend/lib/consistent-hash.ts.
       // TypeScript resolves relative to the importing file, which would look in
       // backend/node_modules - this keeps the site build standalone.
-      "crypto-js/*": ["./node_modules/@types/crypto-js/*"]
+      "crypto-js/*": ["./node_modules/@types/crypto-js/*"],
+      // reveal.js exposes plugins via package "exports", which TS's node10
+      // resolution can't read; point straight at the shipped declarations.
+      "reveal.js/plugin/*": ["./node_modules/reveal.js/dist/plugin/*"]
     }
   },
   "include": ["src", "../backend/lib/consistent-hash.ts"]

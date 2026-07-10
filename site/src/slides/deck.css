@@ -1,0 +1,287 @@
+/*
+ * Deck theme: reveal.js structural CSS + the site's tokens.
+ * Loaded ONLY by the slides entry, after reveal.css and styles.css —
+ * so it both themes reveal and repairs the few places the site's global
+ * rules (button, .controls) would otherwise bleed into reveal's chrome.
+ *
+ * Sizing model: the site's components are sized in rem, so scaling the
+ * root font-size scales every panel, dot, and stat for the back row.
+ * Reveal then transform-scales the 1280×800 canvas to the projector.
+ */
+
+html {
+  font-size: 19px;
+}
+
+/* reveal measures its nearest sized ancestor; the React #root sits between
+   body and .reveal and must be full-viewport or the deck scales to nothing */
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+.reveal-viewport {
+  background: var(--page);
+}
+
+.reveal {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 1.3rem;
+  color: var(--ink);
+}
+
+.reveal h1,
+.reveal h2 {
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  text-wrap: balance;
+  margin: 0 0 0.55em;
+  font-weight: 700;
+}
+
+.reveal h1 {
+  font-size: 3.1rem;
+}
+
+.reveal h2 {
+  font-size: 2.1rem;
+}
+
+.reveal .subtitle {
+  color: var(--ink-2);
+  font-size: 1.25rem;
+  margin: 0.4em 0 0;
+}
+
+.slide-title h1 {
+  margin-top: 0.5em;
+}
+
+/* Repair reveal's own chrome from the site's global button/.controls rules */
+.reveal aside.controls {
+  display: block;
+  gap: 0;
+  margin: 0;
+}
+
+.reveal aside.controls button {
+  background: transparent;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  display: inline-block;
+  transition: none;
+}
+
+.reveal aside.controls button:hover {
+  transform: none;
+  border: none;
+}
+
+.reveal .controls {
+  color: var(--accent);
+}
+
+.reveal .progress {
+  color: var(--accent);
+  height: 4px;
+}
+
+/* The site's .controls rows inside slides collide with reveal's .controls
+   (its nav arrows): reveal hides and absolutely-positions anything matching
+   .reveal .controls. Fully restore the embedded ones. */
+.reveal .slides .controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  position: static;
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+  bottom: auto;
+  right: auto;
+  z-index: auto;
+  user-select: auto;
+}
+
+.reveal .slides .controls button {
+  position: static;
+  visibility: visible;
+  opacity: 1;
+  width: auto;
+  height: auto;
+  transform: none;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  padding: 0.48rem 0.95rem;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.reveal .slides .controls button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.reveal .slides .controls button.danger {
+  background: var(--critical);
+  border-color: var(--critical);
+  color: #fff;
+}
+
+.reveal .slides .controls button.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.reveal .slides .controls button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Embedded site components: keep panels airy, drop web-page niceties */
+.reveal .panel {
+  margin-top: 0;
+  text-align: left;
+  padding: 1rem 1.25rem;
+}
+
+.reveal .stat {
+  padding: 0.55rem 0.9rem;
+}
+
+.reveal .panel-hint,
+.reveal .try-live {
+  display: none;
+}
+
+/* the road-to-cells stepper should own the slide width — but the slide is a
+   fixed 1280×800 canvas, so the caption prose (speaker material) is hidden
+   and only the step title + the closing deep-dive link stay on stage */
+.reveal .stage-embed .panel.road {
+  max-width: 1040px;
+  margin: 0 auto;
+}
+
+.reveal .road-svg {
+  max-width: 760px !important;
+  display: block;
+  margin: 0.25rem auto 0;
+}
+
+.reveal .panel.road .controls {
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.reveal .road-caption {
+  min-height: 0;
+  margin-top: 0.5rem;
+}
+
+.reveal .road-caption p {
+  display: none;
+}
+
+.reveal .road-caption .step-title {
+  font-size: 1.2rem;
+}
+
+/* the stepper's closing link is styled under section.lesson on the site;
+   restyle it for the deck */
+.reveal a.deep-dive-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 9px;
+  padding: 0.45rem 0.95rem;
+  text-decoration: none;
+}
+
+/* stats read from the back row */
+.reveal .stat .value {
+  font-size: 2rem;
+}
+
+.reveal .stat .label {
+  font-size: 0.8rem;
+}
+
+/* blast-radius dot grid: let the dots breathe on a big canvas */
+.reveal .dot-grid {
+  gap: 9px;
+  max-width: 1080px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.reveal .cell-groups {
+  max-width: 1080px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* pager test: two columns stay side by side on the 1280 canvas */
+.reveal .pager-alert {
+  font-size: 0.85rem;
+}
+
+/* ring slide */
+.stage-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3rem;
+  flex-wrap: wrap;
+}
+
+.stage-ring-side {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+  max-width: 480px;
+}
+
+.stage-ring .hash-line {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.05rem;
+  color: var(--ink-2);
+}
+
+.stage-ring .hash-line strong {
+  color: var(--ink);
+}
+
+.stage-ring .hash-verdict {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--good);
+}
+
+/* speaker notes styling inside the presenter view is reveal's; the inline
+   asides just need to never render on stage */
+.reveal .slides aside.notes {
+  display: none;
+}

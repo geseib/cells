@@ -244,7 +244,7 @@ const DEAD_END_VERDICTS = [
   'slightly elevated… could be downstream',
 ];
 
-const PagerTest: React.FC = () => {
+export const PagerTest: React.FC = () => {
   const [drained, setDrained] = useState(false);
   const [checked, setChecked] = useState<string[]>([]);
   const found = checked.includes(CULPRIT);
@@ -323,7 +323,8 @@ const PagerTest: React.FC = () => {
   );
 };
 
-const WhyCells: React.FC = () => {
+/** The blast-radius dot grid — used by the section below and embedded in the slide deck. */
+export const BlastRadiusDemo: React.FC = () => {
   const [mode, setMode] = useState<'monolith' | 'cells'>('monolith');
   const [failed, setFailed] = useState(false);
 
@@ -351,29 +352,7 @@ const WhyCells: React.FC = () => {
   }, [failed, mode, cells, clients, assignment, failedCell]);
 
   return (
-    <section className="lesson" id="why-cells">
-      <div className="kicker">01 · The problem</div>
-      <h2>Why cells? Blast radius.</h2>
-      <p>
-        A traditional architecture is one big shared system: one fleet, one database, one failure
-        domain. When something breaks — a bad deploy, a poison-pill request, an overloaded
-        dependency — it breaks for <em>everyone</em>. A cell-based architecture splits the workload
-        into independent, identical replicas called <strong>cells</strong>, and pins every client to
-        exactly one of them. That single decision buys three different things at once: failures
-        get a <em>size limit</em>, recovery stops requiring <em>diagnosis</em>, and scaling stops
-        requiring a <em>model</em>. Take them one at a time.
-      </p>
-      <blockquote className="quote">
-        "Everything fails, all the time."
-        <footer>
-          — Werner Vogels, CTO, Amazon.com · the epigraph of the{' '}
-          <a href="https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/failure-management.html" target="_blank" rel="noopener noreferrer">
-            AWS Well-Architected Reliability Pillar
-          </a>
-          . Cells don't argue with that — they decide in advance how big "everything" gets to be.
-        </footer>
-      </blockquote>
-      <div className="panel">
+    <div className="panel">
         <div className="controls">
           <button className={mode === 'monolith' ? 'selected' : ''} onClick={() => { setMode('monolith'); setFailed(false); }}>
             One big system
@@ -456,7 +435,35 @@ const WhyCells: React.FC = () => {
             <div className="label">of clients who never notice</div>
           </div>
         </div>
-      </div>
+    </div>
+  );
+};
+
+const WhyCells: React.FC = () => {
+  return (
+    <section className="lesson" id="why-cells">
+      <div className="kicker">01 · The problem</div>
+      <h2>Why cells? Blast radius.</h2>
+      <p>
+        A traditional architecture is one big shared system: one fleet, one database, one failure
+        domain. When something breaks — a bad deploy, a poison-pill request, an overloaded
+        dependency — it breaks for <em>everyone</em>. A cell-based architecture splits the workload
+        into independent, identical replicas called <strong>cells</strong>, and pins every client to
+        exactly one of them. That single decision buys three different things at once: failures
+        get a <em>size limit</em>, recovery stops requiring <em>diagnosis</em>, and scaling stops
+        requiring a <em>model</em>. Take them one at a time.
+      </p>
+      <blockquote className="quote">
+        "Everything fails, all the time."
+        <footer>
+          — Werner Vogels, CTO, Amazon.com · the epigraph of the{' '}
+          <a href="https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/failure-management.html" target="_blank" rel="noopener noreferrer">
+            AWS Well-Architected Reliability Pillar
+          </a>
+          . Cells don't argue with that — they decide in advance how big "everything" gets to be.
+        </footer>
+      </blockquote>
+      <BlastRadiusDemo />
       <h3>The 2am test: act first, diagnose later</h3>
       <p>
         The percentage is the visible win. The deeper one is what the on-call engineer has

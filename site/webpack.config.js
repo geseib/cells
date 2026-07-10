@@ -5,7 +5,8 @@ const webpack = require('webpack');
 module.exports = {
   entry: {
     main: './src/index.tsx',
-    primer: './src/primer.tsx'
+    primer: './src/primer.tsx',
+    slides: './src/slides.tsx'
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -44,6 +45,12 @@ module.exports = {
       filename: 'primer.html',
       chunks: ['primer'],
       title: 'Before Cells — Why Big Systems Fail Big'
+    }),
+    new HtmlWebpackPlugin({
+      template: './src/slides.html',
+      filename: 'slides.html',
+      chunks: ['slides'],
+      title: 'Cell-Based Architecture — Slides'
     }),
     new webpack.DefinePlugin({
       // Optional: URL of a live AWS demo deployment's admin dashboard. When
