@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="A cloud-neutral primer on cell-based architecture: from monolith to blast radius, with the vocabulary bridged across AWS, Azure, Google, and the companies that run cells in production.">
   <title>Before Cells — Why Big Systems Fail Big</title>
+  <script>
+    // Anti-flash: apply a manually forced theme (ThemeToggle) before first paint.
+    try {
+      var t = localStorage.getItem('cells-theme');
+      if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
 </head>
 <body>
   <div id="root"></div>

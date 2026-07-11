@@ -8,6 +8,7 @@ import BeyondCells from './sections/BeyondCells';
 import TradeOffs from './sections/TradeOffs';
 import { demoAdminUrl, hasLiveDemo } from './TryLive';
 import RingMark from './ui/RingMark';
+import ThemeToggle from './ui/ThemeToggle';
 
 const App: React.FC = () => (
   <>
@@ -22,6 +23,7 @@ const App: React.FC = () => (
       <a href="#scale">Scaling</a>
       <a href="#beyond-cells">Beyond cells</a>
       <a href="#trade-offs">Trade-offs</a>
+      <ThemeToggle />
       {hasLiveDemo && (
         <>
           <span style={{ flex: 1 }} />

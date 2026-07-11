@@ -374,3 +374,39 @@ body,
 .reveal .slides aside.notes {
   display: none;
 }
+
+/* Deck toolbar: fixed chrome outside .reveal (never transform-scaled), so
+   presenters can force light/dark for the projector from any slide. The
+   theme toggle is its only control today. */
+.deck-toolbar {
+  position: fixed;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 40;
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* restyle the site's quiet nav toggle as a toolbar pill; same specificity
+   tier as button.theme-toggle in styles.css, and deck.css loads after it */
+.deck-toolbar button.dt-btn {
+  background: color-mix(in srgb, var(--surface-1) 86%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.32rem 0.7rem;
+  color: var(--ink-2);
+}
+
+.deck-toolbar button.dt-btn:hover {
+  color: var(--ink);
+  border: 1px solid var(--baseline);
+}
+
+/* keep clear of the touch bar's raised nav arrows on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .deck-toolbar {
+    top: calc(0.6rem + env(safe-area-inset-top));
+  }
+}

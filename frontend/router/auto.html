@@ -10,8 +10,10 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             margin: 0;
-            padding: 0;
-            height: 100vh;
+            /* top padding clears the fixed demo banner */
+            padding: 76px 1rem 2rem;
+            box-sizing: border-box;
+            min-height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -93,9 +95,137 @@
             border-radius: 10px;
             margin-top: 1rem;
         }
+        /* ---------- Demo banner ---------- */
+        .demo-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0 1.25rem;
+            background: rgba(30, 30, 46, 0.45);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        .banner-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        .banner-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #43e97b;
+        }
+        .banner-menu {
+            position: relative;
+        }
+        .banner-menu-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: white;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 999px;
+            padding: 0.3rem 0.8rem;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .banner-menu-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .banner-dropdown {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            min-width: 200px;
+            display: flex;
+            flex-direction: column;
+            padding: 0.35rem;
+            background: rgba(30, 30, 46, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.45);
+            text-align: left;
+        }
+        .banner-dropdown a {
+            padding: 0.5rem 0.75rem;
+            border-radius: 7px;
+            color: white;
+            font-weight: 500;
+            font-size: 0.85rem;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: background 0.15s ease;
+        }
+        .banner-dropdown a:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+        /* the class display:flex outranks the UA [hidden] rule */
+        .banner-dropdown[hidden] {
+            display: none;
+        }
     </style>
 </head>
 <body>
+    <div class="demo-banner">
+        <span class="banner-brand"><span class="banner-dot"></span> Cell Demo · Auto-router</span>
+        <div class="banner-menu" id="bannerMenu">
+            <button class="banner-menu-btn" id="bannerMenuBtn" aria-haspopup="true" aria-expanded="false">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                Menu
+            </button>
+            <div class="banner-dropdown" id="bannerDropdown" role="menu" hidden>
+                <a role="menuitem" class="intro-dependent" href="%%INTRO_URL%%" target="_blank" rel="noopener noreferrer">Interactive guide</a>
+                <a role="menuitem" class="intro-dependent" href="%%INTRO_URL%%/primer.html" target="_blank" rel="noopener noreferrer">Primer</a>
+                <a role="menuitem" class="intro-dependent" href="%%INTRO_URL%%/slides.html" target="_blank" rel="noopener noreferrer">Slides</a>
+                <a role="menuitem" href="/">Admin dashboard</a>
+                <a role="menuitem" href="./index.html">Router page</a>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Plain-JS dropdown: toggles on the button, closes on outside click and
+        // Escape. Entries that need the intro site hide themselves when no
+        // %%INTRO_URL%% was substituted at deploy time (same pattern as the
+        // router page's #introLink script).
+        (function () {
+            var btn = document.getElementById('bannerMenuBtn');
+            var dropdown = document.getElementById('bannerDropdown');
+            var menu = document.getElementById('bannerMenu');
+            dropdown.querySelectorAll('a.intro-dependent').forEach(function (a) {
+                var href = a.getAttribute('href') || '';
+                if (href.indexOf('%%') === 0 || href === '') a.style.display = 'none';
+            });
+            function setOpen(open) {
+                dropdown.hidden = !open;
+                btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            }
+            btn.addEventListener('click', function () { setOpen(dropdown.hidden); });
+            document.addEventListener('click', function (e) {
+                if (!menu.contains(e.target)) setOpen(false);
+            });
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') setOpen(false);
+            });
+        })();
+    </script>
     <div class="container">
         <h1><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px"><circle cx="12" cy="12" r="9"/><path d="M8 12h8m0 0-3-3m3 3-3 3"/></svg> Auto-Routing Active</h1>
         <div class="status" id="status">Finding your optimal cell...</div>

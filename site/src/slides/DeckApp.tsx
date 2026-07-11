@@ -3,6 +3,7 @@ import Reveal from 'reveal.js';
 import Notes from 'reveal.js/plugin/notes';
 import RingMark from '../ui/RingMark';
 import KeyHint, { useHotkeys } from '../ui/KeyHint';
+import ThemeToggle from '../ui/ThemeToggle';
 import RoadToCells from '../primer/RoadToCells';
 import { BlastRadiusDemo, PagerTest } from '../sections/WhyCells';
 import {
@@ -291,6 +292,11 @@ const DeckApp: React.FC = () => {
           </aside>
         </section>
       </div>
+    </div>
+    {/* Deck toolbar: fixed chrome OUTSIDE .reveal (never scaled, and
+        unaffected by the aside.controls resets in deck.css). */}
+    <div className="deck-toolbar">
+      <ThemeToggle className="dt-btn" />
     </div>
     <TouchBar
       slide={slide}
