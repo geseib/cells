@@ -182,13 +182,122 @@ const SLIDE_ACTIONS: { key: string; label: string }[][] = [
 const pressKey = (key: string) =>
   document.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
 
-const TouchBar: React.FC<{ slide: number; onPrev: () => void; onNext: () => void }> = ({
-  slide,
-  onPrev,
-  onNext,
-}) => (
+/* ------------------------------------------------------------------ */
+/* Clicker scripts: each slide's demo progression as an ordered list   */
+/* of phases. Right-arrow (or ▶) fires the next phase's `fwd` keys —   */
+/* the same synthetic keydowns the hotkeys/TouchBar already dispatch — */
+/* past the last phase it advances the slide. Left-arrow steps back    */
+/* via `back`; at phase 0 it goes to the previous slide. `enter` runs  */
+/* on every slide entry so each slide starts from a deterministic      */
+/* state. (Manual button clicks mid-slide can drift off-script; the    */
+/* next slide entry re-syncs.) Letter/digit hotkeys stay as manual     */
+/* overrides.                                                          */
+/* ------------------------------------------------------------------ */
+
+interface SlideScript {
+  enter?: string[];                            // keys fired on entering the slide
+  phases: { fwd: string[]; back: string[] }[]; // fwd steps in; back restores the previous phase
+}
+
+const SLIDE_SCRIPTS: SlideScript[] = [
+  // 0 · Title
+  { phases: [] },
+  // 1 · Road to cells: walk the five architecture steps
+  {
+    enter: ['1'],
+    phases: [
+      { fwd: ['2'], back: ['1'] },
+      { fwd: ['3'], back: ['2'] },
+      { fwd: ['4'], back: ['3'] },
+      { fwd: ['5'], back: ['4'] },
+    ],
+  },
+  // 2 · Blast radius: monolith brownout → cells → contained failure
+  {
+    enter: ['1'], // '1' also clears any failure left over from a previous visit
+    phases: [
+      { fwd: ['t'], back: ['t'] },      // monolith brownout
+      { fwd: ['2'], back: ['1', 't'] }, // switch to cells, calm
+      { fwd: ['t'], back: ['t'] },      // one cell fails → reroute
+    ],
+  },
+  // 3 · 2am pager: drain, then the investigation montage
+  {
+    enter: ['r'],
+    phases: [
+      { fwd: ['d'], back: ['r'] },
+      { fwd: ['i', 'i', 'i', 'i', 'i'], back: ['r', 'd'] },
+    ],
+  },
+  // 4 · Ring: route user123 twice (consistency verdict), then customer456
+  {
+    phases: [
+      { fwd: ['1'], back: [] },
+      { fwd: ['1'], back: [] },
+      { fwd: ['2'], back: [] },
+    ],
+  },
+  // 5 · Kill a cell: kill 2, then 3 (keys toggle, so back = same key)
+  {
+    enter: ['r'],
+    phases: [
+      { fwd: ['2'], back: ['2'] },
+      { fwd: ['3'], back: ['3'] },
+    ],
+  },
+  // 6 · Add a cell, twice
+  {
+    phases: [
+      { fwd: ['a'], back: ['x'] },
+      { fwd: ['a'], back: ['x'] },
+    ],
+  },
+  // 7 · Shuffle sharding: cure = clean state (also stops any auto-demo),
+  //     then a single phase toggling the auto-demo
+  {
+    enter: ['c'],
+    phases: [{ fwd: ['a'], back: ['a'] }],
+  },
+  // 8 · The math: Route 53 preset → small fleet → mega
+  {
+    enter: ['1'],
+    phases: [
+      { fwd: ['2'], back: ['1'] },
+      { fwd: ['3'], back: ['2'] },
+    ],
+  },
+  // 9 · Static stability: lose AZ → recover → statically stable → lose again
+  {
+    enter: ['1'],
+    phases: [
+      { fwd: ['t'], back: ['t'] },
+      { fwd: ['t'], back: ['t'] },
+      { fwd: ['2'], back: ['1'] },
+      { fwd: ['t'], back: ['t'] },
+    ],
+  },
+  // 10 · Constant work: storm on entry, quiet for contrast, back to storm
+  {
+    enter: ['2'],
+    phases: [
+      { fwd: ['1'], back: ['2'] },
+      { fwd: ['2'], back: ['1'] },
+    ],
+  },
+  // 11 · Fine print
+  { phases: [] },
+  // 12 · Closing
+  { phases: [] },
+];
+
+const TouchBar: React.FC<{
+  slide: number;
+  onPrev: () => void;
+  onNext: () => void;
+  onSkip: () => void;
+}> = ({ slide, onPrev, onNext, onSkip }) => (
   <div className="touch-bar" role="toolbar" aria-label="Slide and demo controls">
-    <button className="tb-nav" onClick={onPrev} aria-label="Previous slide">←</button>
+    <button className="tb-nav" onClick={onPrev} aria-label="Back one step">◀</button>
     <div className="tb-actions">
       {(SLIDE_ACTIONS[slide] ?? []).map(({ key, label }) => (
         <button key={key} className="tb-chip" title={label} aria-label={label} onClick={() => pressKey(key)}>
@@ -196,7 +305,8 @@ const TouchBar: React.FC<{ slide: number; onPrev: () => void; onNext: () => void
         </button>
       ))}
     </div>
-    <button className="tb-nav" onClick={onNext} aria-label="Next slide">→</button>
+    <button className="tb-nav" onClick={onNext} aria-label="Next step">▶</button>
+    <button className="tb-nav" onClick={onSkip} aria-label="Skip to next slide">⏭</button>
   </div>
 );
 
@@ -228,7 +338,13 @@ const DeckToolbar: React.FC<{ onOverview: () => void; onNotes: () => void }> = (
 interface RevealHandle {
   prev: () => void;
   next: () => void;
+  left: () => void;
+  right: () => void;
+  up: () => void;
+  down: () => void;
+  isOverview: () => boolean;
   toggleOverview: () => void;
+  getIndices: () => { h: number };
   getPlugin: (name: string) => unknown;
 }
 
@@ -236,6 +352,68 @@ const DeckApp: React.FC = () => {
   const deckRef = useRef<HTMLDivElement>(null);
   const revealRef = useRef<RevealHandle | null>(null);
   const [slide, setSlide] = useState(0);
+  // Current phase within the current slide's script. A ref, not state:
+  // it's read/written inside reveal's keyboard callbacks and must never
+  // be stale. Reset synchronously on slidechanged AND by the enter
+  // effect below (the effect also fires the slide's `enter` keys).
+  const phaseRef = useRef(0);
+
+  /* Clicker navigation. All four handlers close over refs only, so the
+     instances captured by reveal's config at mount never go stale. */
+
+  // Right arrow / ▶: next phase of this slide's script; past the last
+  // phase, next slide. In overview: reveal's own right.
+  const stepForward = () => {
+    const deck = revealRef.current;
+    if (!deck) return;
+    if (deck.isOverview()) {
+      deck.right();
+      return;
+    }
+    const phases = SLIDE_SCRIPTS[deck.getIndices().h]?.phases ?? [];
+    if (phaseRef.current < phases.length) {
+      phases[phaseRef.current].fwd.forEach(pressKey);
+      phaseRef.current += 1;
+    } else {
+      deck.next();
+    }
+  };
+
+  // Left arrow / ◀: one phase back; at phase 0, previous slide (which
+  // re-enters at ITS phase 0 — no attempt to restore its final phase).
+  // In overview: reveal's own left.
+  const stepBack = () => {
+    const deck = revealRef.current;
+    if (!deck) return;
+    if (deck.isOverview()) {
+      deck.left();
+      return;
+    }
+    const phases = SLIDE_SCRIPTS[deck.getIndices().h]?.phases ?? [];
+    if (phaseRef.current > 0) {
+      phaseRef.current -= 1;
+      (phases[phaseRef.current]?.back ?? []).forEach(pressKey);
+    } else {
+      deck.prev();
+    }
+  };
+
+  // Down arrow / ⏭: skip straight to the next slide, past any remaining
+  // phases. In overview: reveal's own down.
+  const skipToNext = () => {
+    const deck = revealRef.current;
+    if (!deck) return;
+    if (deck.isOverview()) {
+      deck.down();
+      return;
+    }
+    deck.next();
+  };
+
+  // Up arrow: toggle the overview grid (open outside it, close inside it).
+  const toggleOverview = () => {
+    revealRef.current?.toggleOverview();
+  };
 
   useEffect(() => {
     if (!deckRef.current) return undefined;
@@ -256,10 +434,25 @@ const DeckApp: React.FC = () => {
       // never fall back to reveal's phone "scroll view": the touch bar and
       // per-slide demos need real slide semantics on iPhone-width screens
       scrollActivationWidth: 0,
+      // Clicker model: arrows drive the per-slide demo scripts instead of
+      // reveal's defaults. keyCode-keyed custom bindings run INSTEAD of
+      // reveal's own handling (including in overview mode, hence the
+      // isOverview() delegation inside each handler). Space keeps its
+      // default next-slide behavior; ESC/Enter/click in overview are
+      // untouched.
+      keyboard: {
+        37: stepBack, // ←  one phase back / previous slide
+        38: toggleOverview, // ↑  overview grid
+        39: stepForward, // →  next phase / next slide
+        40: skipToNext, // ↓  skip to next slide
+      },
     });
     revealRef.current = deck as unknown as RevealHandle;
     deck.initialize().then(() => setSlide(deck.getIndices().h));
     deck.on('slidechanged', (event: unknown) => {
+      // reset synchronously so a fast next keypress can't read a stale
+      // phase; the [slide] effect below re-resets and fires `enter`
+      phaseRef.current = 0;
       setSlide((event as { indexh: number }).indexh);
     });
     return () => {
@@ -270,6 +463,16 @@ const DeckApp: React.FC = () => {
       }
     };
   }, []);
+
+  // Fire the slide's `enter` keys on every slide entry — including the
+  // initially-loaded slide (URL hashes like #/9 land here via the
+  // setSlide() after initialize()). Runs as an effect on purpose: child
+  // effects commit first, so the NEW slide's hotkey listeners are already
+  // attached (and the old slide's detached) when these keys dispatch.
+  useEffect(() => {
+    phaseRef.current = 0;
+    SLIDE_SCRIPTS[slide]?.enter?.forEach(pressKey);
+  }, [slide]);
 
   return (
     <>
@@ -505,8 +708,9 @@ const DeckApp: React.FC = () => {
     />
     <TouchBar
       slide={slide}
-      onPrev={() => revealRef.current?.prev()}
-      onNext={() => revealRef.current?.next()}
+      onPrev={stepBack}
+      onNext={stepForward}
+      onSkip={skipToNext}
     />
     </>
   );
