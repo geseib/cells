@@ -1,14 +1,23 @@
 import React, { useMemo, useState } from 'react';
 import { arcPath, buildRing, cellColor, keyspaceShare, makeCells, ownershipArcs } from '../sim/simulation';
 import TryLive from '../TryLive';
+import KeyHint, { useHotkeys } from '../ui/KeyHint';
 
 const CELL_COUNT = 4;
 const SIZE = 300;
 const CX = SIZE / 2;
 const CY = SIZE / 2;
 
-const HashRing: React.FC = () => {
+/** The virtual-node ring demo — used by the section below and the slide deck. */
+export const HashRingDemo: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const [virtualNodes, setVirtualNodes] = useState(8);
+
+  // Presenter keys (slide deck only): vnode presets
+  useHotkeys(hotkeys, {
+    '1': () => setVirtualNodes(1),
+    '2': () => setVirtualNodes(8),
+    '3': () => setVirtualNodes(150),
+  });
   const cells = useMemo(() => makeCells(CELL_COUNT), []);
   const ring = useMemo(() => buildRing(cells, virtualNodes), [cells, virtualNodes]);
   const arcs = useMemo(() => ownershipArcs(ring), [ring]);
@@ -17,20 +26,11 @@ const HashRing: React.FC = () => {
   const ideal = 100 / CELL_COUNT;
 
   return (
-    <section className="lesson" id="hash-ring">
-      <div className="kicker">02 · The mechanism</div>
-      <h2>The hash ring</h2>
-      <p>
-        Imagine the entire range of a hash function — 0 to 2³² — bent into a circle. Each cell
-        places markers called <strong>virtual nodes</strong> around that circle (each marker is just
-        the MD5 hash of <code>"cellId:i"</code>). A client is routed by hashing its ID onto the
-        circle and walking clockwise to the next marker: that marker's cell owns the client. Each
-        colored arc below is the slice of keyspace one cell owns.
-      </p>
-      <div className="panel">
+    <div className="panel">
         <div className="controls">
           <label htmlFor="vnode-slider">
             Virtual nodes per cell: <strong>{virtualNodes}</strong>
+            {hotkeys && <> <KeyHint k="1" />1 <KeyHint k="2" />8 <KeyHint k="3" />150</>}
           </label>
           <input
             id="vnode-slider"
@@ -91,7 +91,23 @@ const HashRing: React.FC = () => {
             </table>
           </div>
         </div>
-      </div>
+    </div>
+  );
+};
+
+const HashRing: React.FC = () => {
+  return (
+    <section className="lesson" id="hash-ring">
+      <div className="kicker">02 · The mechanism</div>
+      <h2>The hash ring</h2>
+      <p>
+        Imagine the entire range of a hash function — 0 to 2³² — bent into a circle. Each cell
+        places markers called <strong>virtual nodes</strong> around that circle (each marker is just
+        the MD5 hash of <code>"cellId:i"</code>). A client is routed by hashing its ID onto the
+        circle and walking clockwise to the next marker: that marker's cell owns the client. Each
+        colored arc below is the slice of keyspace one cell owns.
+      </p>
+      <HashRingDemo />
       <div className="callout">
         <strong>Try it:</strong> drag the slider down to 1 virtual node per cell — the shares get
         wildly uneven, because a few random points rarely split a circle fairly. At 150 per cell

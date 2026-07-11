@@ -10,6 +10,7 @@ import { BlastRadiusDemo, PagerTest } from '../sections/WhyCells';
 import { KillCellDemo } from '../sections/KillCell';
 import { ScaleDemo } from '../sections/Scale';
 import { ShuffleSharding, ShuffleMath, StaticStability, ConstantWork } from '../sections/BeyondCells';
+import { HashRingDemo } from '../sections/HashRing';
 import {
   arcPath,
   buildRing,
@@ -18,6 +19,7 @@ import {
   makeCells,
   ownershipArcs,
   pointOnCircle,
+  CELL_COLOR_VARS,
   MAX_HASH,
 } from '../sim/simulation';
 
@@ -112,6 +114,169 @@ const RingRouteSlide: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) =>
 };
 
 /* ------------------------------------------------------------------ */
+/* Golden-value parity: one number, four independent consumers.        */
+/* ------------------------------------------------------------------ */
+
+const GOLDEN_CONSUMERS = [
+  { title: 'The jest golden test', body: 'backend/lib — the unit test that anchors the algorithm. Change the hash, break the build.' },
+  { title: 'The deployed routing Lambda', body: 'The production router computes it live for every request that hits the demo.' },
+  { title: 'This site — and this very slide', body: 'The browser imports the repository\u2019s actual ConsistentHash class. No port, no approximation.' },
+  { title: 'smoke-test.sh, after every deploy', body: 'The deployment gate asks the live API for user123 and fails the deploy on any other answer.' },
+];
+
+const GoldenValueSlide: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
+  const [stage, setStage] = useState(1);
+
+  useHotkeys(hotkeys, {
+    '1': () => setStage(1),
+    '2': () => setStage(2),
+    '3': () => setStage(3),
+    '4': () => setStage(4),
+  });
+
+  return (
+    <div className="golden-slide">
+      <div className="golden-stone">
+        md5("user123") → <strong>1,792,101,289</strong>
+      </div>
+      <div className="golden-cards">
+        {GOLDEN_CONSUMERS.map((c, i) => (
+          <div key={c.title} className={`panel golden-card${i < stage ? ' on' : ''}`}>
+            <h3>
+              <span className="golden-index">{i + 1}</span> {c.title}
+              {hotkeys && <KeyHint k={String(i + 1)} />}
+            </h3>
+            <p>{c.body}</p>
+          </div>
+        ))}
+      </div>
+      <p className="golden-verdict" style={{ opacity: stage === 4 ? 1 : 0 }}>
+        four codebases, zero drift — the invariant that keeps every visualization honest
+      </p>
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* Router placement: central / in every cell / in the client.          */
+/* ------------------------------------------------------------------ */
+
+const TOPOLOGY_MODES = [
+  {
+    key: '1',
+    label: 'Central router',
+    caption: 'One thin global service. Simple — but every request crosses it, so its availability bounds the whole system.',
+  },
+  {
+    key: '2',
+    label: 'Router in every cell',
+    caption: 'The ring is a pure function of the cell registry — identical wherever it runs. Any cell redirects a misrouted client; DNS is the only shared piece left.',
+  },
+  {
+    key: '3',
+    label: 'Router in the client',
+    caption: 'A smart client computes its own cell locally from the same function. Zero routing infrastructure on the request path.',
+  },
+];
+
+const RoutingTopologiesSlide: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
+  const [mode, setMode] = useState(0);
+
+  useHotkeys(hotkeys, {
+    '1': () => setMode(0),
+    '2': () => setMode(1),
+    '3': () => setMode(2),
+  });
+
+  const W = 760;
+  const H = 300;
+  const CELL_X = [130, 320, 510];
+  const CELL_W = 120;
+  const cellCX = (i: number) => CELL_X[i] + CELL_W / 2;
+  const CLIENT_X = [220, 380, 540];
+
+  return (
+    <div className="topo-slide">
+      <div className="controls" style={{ justifyContent: 'center' }}>
+        {TOPOLOGY_MODES.map((m, i) => (
+          <button key={m.key} className={mode === i ? 'selected' : ''} onClick={() => setMode(i)}>
+            {m.label}
+            {hotkeys && <KeyHint k={m.key} />}
+          </button>
+        ))}
+      </div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: W, display: 'block', margin: '0 auto' }} role="img"
+        aria-label={`Routing topology: ${TOPOLOGY_MODES[mode].label}`}>
+        {/* clients */}
+        {CLIENT_X.map((x, i) => (
+          <g key={i}>
+            <circle cx={x} cy={26} r={10} fill={CELL_COLOR_VARS[i]} />
+            {mode === 2 && (
+              <circle cx={x} cy={26} r={16} fill="none" stroke={CELL_COLOR_VARS[i]} strokeWidth={1.5} strokeDasharray="3 3" />
+            )}
+          </g>
+        ))}
+        {mode === 2 && (
+          <text x={CLIENT_X[2] + 30} y={30} fontSize={11} fill="var(--muted)">← the ring runs here</text>
+        )}
+        {/* central router */}
+        {mode === 0 && (
+          <>
+            {CLIENT_X.map((x, i) => (
+              <path key={`in-${i}`} d={`M ${x} 38 C ${x} 68, 380 58, 380 84`} fill="none" stroke={CELL_COLOR_VARS[i]} strokeWidth={2} opacity={0.8} />
+            ))}
+            <rect x={290} y={86} width={180} height={30} rx={7} fill="none" stroke="var(--baseline)" strokeWidth={1.75} />
+            <text x={380} y={106} textAnchor="middle" fontSize={13} fontWeight={600} fill="var(--ink)">Routing service</text>
+            {CELL_X.map((cx, i) => (
+              <path key={`out-${i}`} d={`M 380 118 C 380 150, ${cellCX(i)} 140, ${cellCX(i)} 170`} fill="none" stroke={CELL_COLOR_VARS[i]} strokeWidth={2} opacity={0.8} />
+            ))}
+            <text x={750} y={104} textAnchor="end" fontSize={11} fill="var(--critical)">every request passes here</text>
+          </>
+        )}
+        {/* in-cell routing */}
+        {mode === 1 && (
+          <>
+            {CLIENT_X.map((x, i) => (
+              <path key={`d-${i}`} d={`M ${x} 38 C ${x} 90, ${cellCX(i === 0 ? 1 : i)} 120, ${cellCX(i === 0 ? 1 : i)} 170`} fill="none"
+                stroke={CELL_COLOR_VARS[i]} strokeWidth={2} opacity={0.8} strokeDasharray={i === 0 ? '6 4' : undefined} />
+            ))}
+            {/* misroute redirect: client 0 hit cell B, which redirects to cell A */}
+            <path d={`M ${cellCX(1)} 200 C ${cellCX(1) - 60} 230, ${cellCX(0) + 60} 230, ${cellCX(0)} 202`} fill="none"
+              stroke={CELL_COLOR_VARS[0]} strokeWidth={2} strokeDasharray="6 4" className="flow-reroute" />
+            <text x={(cellCX(0) + cellCX(1)) / 2} y={250} textAnchor="middle" fontSize={11} fill="var(--muted)">
+              wrong cell? any cell redirects — same ring everywhere
+            </text>
+            <text x={750} y={104} textAnchor="end" fontSize={11} fill="var(--good)">no shared service left (only DNS)</text>
+          </>
+        )}
+        {/* client-side routing */}
+        {mode === 2 && (
+          <>
+            {CLIENT_X.map((x, i) => (
+              <path key={`c-${i}`} d={`M ${x} 44 C ${x} 100, ${cellCX(i)} 120, ${cellCX(i)} 170`} fill="none" stroke={CELL_COLOR_VARS[i]} strokeWidth={2} opacity={0.9} />
+            ))}
+            <text x={750} y={104} textAnchor="end" fontSize={11} fill="var(--good)">straight to the right cell</text>
+          </>
+        )}
+        {/* cells */}
+        {CELL_X.map((cx, i) => (
+          <g key={i}>
+            <rect x={cx} y={170} width={CELL_W} height={64} rx={9} fill="none" stroke={CELL_COLOR_VARS[i]} strokeWidth={1.75}
+              strokeDasharray="5 4" />
+            <rect x={cx + 14} y={182} width={CELL_W - 28} height={18} rx={4} fill={CELL_COLOR_VARS[i]} />
+            <text x={cx + CELL_W / 2} y={195} textAnchor="middle" fontSize={10} fontWeight={600} fill="#fff">
+              {mode === 1 ? 'ring + stack' : 'stack'}
+            </text>
+            <text x={cx + CELL_W / 2} y={222} textAnchor="middle" fontSize={11} fill="var(--ink-2)">Cell {'ABC'[i]}</text>
+          </g>
+        ))}
+      </svg>
+      <p className="topo-caption">{TOPOLOGY_MODES[mode].caption}</p>
+    </div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
 /* Touch presenter bar: on iPad/iPhone there is no keyboard, and       */
 /* reveal's canvas scaling makes the embedded buttons tiny. This bar   */
 /* lives OUTSIDE .reveal (never scaled), gives 44px tap targets, and   */
@@ -143,6 +308,22 @@ const SLIDE_ACTIONS: { key: string; label: string }[][] = [
     { key: '2', label: 'Route customer456' },
     { key: '3', label: 'Route admin789' },
     { key: '4', label: 'Route alice@example.com' },
+  ],
+  [
+    { key: '1', label: '1 virtual node per cell' },
+    { key: '2', label: '8 virtual nodes per cell' },
+    { key: '3', label: '150 virtual nodes (production)' },
+  ],
+  [
+    { key: '1', label: 'Show the golden test' },
+    { key: '2', label: 'Show the routing Lambda' },
+    { key: '3', label: 'Show this site' },
+    { key: '4', label: 'Show the smoke test' },
+  ],
+  [
+    { key: '1', label: 'Central router' },
+    { key: '2', label: 'Router in every cell' },
+    { key: '3', label: 'Router in the client' },
   ],
   [
     { key: '1', label: 'Toggle cell 1' },
@@ -235,6 +416,31 @@ const SLIDE_SCRIPTS: SlideScript[] = [
       { fwd: ['1'], back: [] },
       { fwd: ['1'], back: [] },
       { fwd: ['2'], back: [] },
+    ],
+  },
+  // 5 · Virtual nodes: default 8 → chaos at 1 → convergence at 150
+  {
+    enter: ['2'],
+    phases: [
+      { fwd: ['1'], back: ['2'] },
+      { fwd: ['3'], back: ['1'] },
+    ],
+  },
+  // 6 · Golden value: reveal the four consumers one by one
+  {
+    enter: ['1'],
+    phases: [
+      { fwd: ['2'], back: ['1'] },
+      { fwd: ['3'], back: ['2'] },
+      { fwd: ['4'], back: ['3'] },
+    ],
+  },
+  // 7 · Router placement: central → in every cell → in the client
+  {
+    enter: ['1'],
+    phases: [
+      { fwd: ['2'], back: ['1'] },
+      { fwd: ['3'], back: ['2'] },
     ],
   },
   // 5 · Kill a cell: kill 2, then 3 (keys toggle, so back = same key)
@@ -560,10 +766,54 @@ const DeckApp: React.FC = () => {
           </aside>
         </section>
 
-        {/* 6 · Kill a cell */}
+        {/* 6 · Virtual nodes */}
+        <section>
+          <h2>Virtual nodes: why 150 markers per cell</h2>
+          <HashRingDemo hotkeys={slide === 5} />
+          <aside className="notes">
+            <p>How does each cell end up owning a fair slice? Not one marker each — many.</p>
+            <ul>
+              <li>Start at 8 markers per cell: shares hover near 25% but wobble.</li>
+              <li>Drop to 1 (key 1): a few random points almost never split a circle fairly — someone owns 40%, someone 8%. Red deltas everywhere.</li>
+              <li>Jump to 150 (key 3) — the value the deployed backend actually uses: every cell converges on its fair share. Green across the table.</li>
+              <li>Weights ride on this: weight 1.0 = 150 markers, weight 0.5 = 75 — capacity steering with the same mechanism.</li>
+            </ul>
+          </aside>
+        </section>
+
+        {/* 7 · Golden value */}
+        <section>
+          <h2>One hash, four consumers</h2>
+          <GoldenValueSlide hotkeys={slide === 6} />
+          <aside className="notes">
+            <p>You saw 1,792,101,289 two slides ago — here's why that exact number matters.</p>
+            <ul>
+              <li>The invariant: ONE hash implementation, shared verbatim. The jest golden test pins it; the routing Lambda runs it; this site (and this slide) import the same class; the smoke test asks the live API after every deploy.</li>
+              <li>If any copy drifted, the visualizations would lie about production routing — the worst kind of documentation.</li>
+              <li>This is cheap to steal for your own systems: pick a canonical value, assert it everywhere the algorithm lives.</li>
+            </ul>
+          </aside>
+        </section>
+
+        {/* 8 · Router placement */}
+        <section>
+          <h2>Where should the router live?</h2>
+          <RoutingTopologiesSlide hotkeys={slide === 7} />
+          <aside className="notes">
+            <p>The routing layer is the one thing every request touches — so interrogate it.</p>
+            <ul>
+              <li>Central router: simplest, but its availability bounds the whole system. Keep it THIN — hash, lookup, redirect, nothing else.</li>
+              <li>Router in every cell: the ring is a pure function of the cell registry, identical everywhere it runs. A misrouted client gets redirected by whichever cell it hit. The only shared dependency left is DNS.</li>
+              <li>Router in the client: smart clients compute their own cell. Zero routing infrastructure on the request path.</li>
+              <li>The demo deploys the central version for clarity — but the math is the same in all three.</li>
+            </ul>
+          </aside>
+        </section>
+
+        {/* 9 · Kill a cell */}
         <section>
           <h2>Kill a cell. Watch who moves.</h2>
-          <KillCellDemo hotkeys={slide === 5} />
+          <KillCellDemo hotkeys={slide === 8} />
           <aside className="notes">
             <p>200 clients pinned to 4 cells. Kill cell 2 (key 2): only ITS clients slide clockwise into the survivors — and they arrive still wearing their old cell's color.</p>
             <ul>
@@ -575,10 +825,10 @@ const DeckApp: React.FC = () => {
           </aside>
         </section>
 
-        {/* 7 · Add a cell */}
+        {/* 10 · Add a cell */}
         <section>
           <h2>Scale out by adding cells</h2>
-          <ScaleDemo hotkeys={slide === 6} />
+          <ScaleDemo hotkeys={slide === 9} />
           <aside className="notes">
             <p>Growth is the same story as failure, in reverse. Add a cell (A): it claims ~1/(N+1) of the keyspace, a thin slice from every existing cell.</p>
             <ul>
@@ -589,10 +839,10 @@ const DeckApp: React.FC = () => {
           </aside>
         </section>
 
-        {/* 8 · Shuffle sharding */}
+        {/* 11 · Shuffle sharding */}
         <section>
           <h2>Shuffle sharding: everyone gets their own combination</h2>
-          <ShuffleSharding hotkeys={slide === 7} />
+          <ShuffleSharding hotkeys={slide === 10} />
           <aside className="notes">
             <p>Route 53's trick for surviving DDoS on a single domain. Same 8 workers, two ways to slice.</p>
             <ul>
@@ -604,10 +854,10 @@ const DeckApp: React.FC = () => {
           </aside>
         </section>
 
-        {/* 9 · The math */}
+        {/* 12 · The math */}
         <section>
           <h2>The math: combinations beat divisions</h2>
-          <ShuffleMath hotkeys={slide === 8} />
+          <ShuffleMath hotkeys={slide === 11} />
           <aside className="notes">
             <p>Three presets: 1 = Route 53 scale (100 workers, shard 5, 1M clients), 2 = small fleet (8/2/10k), 3 = mega (200/7/10M).</p>
             <ul>
@@ -618,10 +868,10 @@ const DeckApp: React.FC = () => {
           </aside>
         </section>
 
-        {/* 10 · Static stability */}
+        {/* 13 · Static stability */}
         <section>
           <h2>Static stability: pay for the failure in advance</h2>
-          <StaticStability hotkeys={slide === 9} />
+          <StaticStability hotkeys={slide === 12} />
           <aside className="notes">
             <p>Demand needs 90 servers. Two ways to spread them over 3 AZs.</p>
             <ul>
@@ -633,10 +883,10 @@ const DeckApp: React.FC = () => {
           </aside>
         </section>
 
-        {/* 11 · Constant work */}
+        {/* 14 · Constant work */}
         <section>
           <h2>Constant work: the busy path is the only path</h2>
-          <ConstantWork hotkeys={slide === 10} />
+          <ConstantWork hotkeys={slide === 13} />
           <aside className="notes">
             <p>Route 53's health-check aggregators push the ENTIRE table every few seconds, changed or not.</p>
             <ul>
@@ -647,7 +897,7 @@ const DeckApp: React.FC = () => {
           </aside>
         </section>
 
-        {/* 12 · The fine print */}
+        {/* 15 · The fine print */}
         <section>
           <h2>The fine print</h2>
           <div className="fine-print">
@@ -671,7 +921,7 @@ const DeckApp: React.FC = () => {
           </aside>
         </section>
 
-        {/* 13 · Closing */}
+        {/* 16 · Closing */}
         <section className="slide-title">
           <blockquote className="quote closing-quote">
             "Everything fails, all the time."

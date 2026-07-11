@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { assign, buildRing, cellColor, clientIds, countMoved, makeCells } from '../sim/simulation';
+import { assign, buildRing, cellColor, clientIds, countMoved, hashKey, makeCells } from '../sim/simulation';
 import TryLive from '../TryLive';
 import KeyHint, { useHotkeys } from '../ui/KeyHint';
 
@@ -23,6 +23,20 @@ export const KillCellDemo: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false 
 
   const moved = countMoved(baseline, current);
   const anyFailed = failedCells.size > 0;
+
+  // The honest contrast: with naive hash(id) mod N routing, shrinking N
+  // remaps almost EVERY client, not just the failed cell's share.
+  const modMoved = useMemo(() => {
+    if (!anyFailed) return 0;
+    let count = 0;
+    for (const id of clients) {
+      const before = cells[hashKey(id) % cells.length].cellId;
+      const after = liveCells[hashKey(id) % liveCells.length].cellId;
+      if (before !== after) count++;
+    }
+    return count;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients, cells, anyFailed, failedCells]);
 
   const toggle = (cellId: string) => {
     setFailedCells((prev) => {
@@ -100,11 +114,23 @@ export const KillCellDemo: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false 
         <div className="stat-row">
           <div className="stat">
             <div className={`value ${anyFailed ? 'bad' : ''}`}>{Math.round((moved / CLIENT_COUNT) * 100)}%</div>
-            <div className="label">of clients remapped (dots in their old color)</div>
+            <div className="label">
+              remapped — exactly the failed {failedCells.size === 1 ? "cell's" : "cells'"} keyspace
+              share (~25% per cell, ±a few points of hash variance). Nobody else moves.
+            </div>
           </div>
           <div className="stat">
             <div className={`value ${anyFailed ? 'good' : ''}`}>{100 - Math.round((moved / CLIENT_COUNT) * 100)}%</div>
-            <div className="label">kept their original cell</div>
+            <div className="label">kept their original cell — same hash, same home</div>
+          </div>
+          <div className="stat">
+            <div className={`value ${anyFailed ? 'bad' : ''}`}>
+              {anyFailed ? `${Math.round((modMoved / CLIENT_COUNT) * 100)}%` : '—'}
+            </div>
+            <div className="label">
+              would have moved under naive hash&nbsp;mod&nbsp;N — shrinking N reshuffles nearly
+              everyone
+            </div>
           </div>
           <div className="stat">
             <div className="value">{liveCells.length}/{CELL_COUNT}</div>
