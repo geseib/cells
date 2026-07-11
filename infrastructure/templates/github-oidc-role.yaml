@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  One-time bootstrap for GitHub Actions auto-deploy: the GitHub OIDC identity
+  provider plus a deploy role that pushes to main can assume. Deploy once per
+  account, put the DeployRoleArn output into the repo's AWS_DEPLOY_ROLE_ARN
+  secret, and .github/workflows/deploy-aws.yml takes it from there.
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Description: GitHub organization or user that owns the repository
+  GitHubRepo:
+    Type: String
+    Description: Repository name (without the org prefix)
+  GitHubBranch:
+    Type: String
+    Default: main
+    Description: Branch allowed to deploy
+  ProjectName:
+    Type: String
+    Default: cell-demo
+    Description: Project prefix used to scope the IAM role-management permissions
+  CreateOIDCProvider:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >
+      Set to 'false' if this account already has the GitHub OIDC provider
+      (token.actions.githubusercontent.com) - accounts may only have one.
+
+Conditions:
+  MakeProvider: !Equals [!Ref CreateOIDCProvider, 'true']
+
+Resources:
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: MakeProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      # GitHub rotates these; AWS validates against the trust chain, but the
+      # thumbprint property is still required. This is GitHub's published root.
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+
+  DeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-github-deploy'
+      MaxSessionDuration: 7200
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - MakeProvider
+                - !Ref GitHubOIDCProvider
+                - !Sub 'arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com'
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubOrg}/${GitHubRepo}:ref:refs/heads/${GitHubBranch}'
+      ManagedPolicyArns:
+        # SAM drives CloudFormation/S3/Lambda/APIGW/DynamoDB/CloudFront/Route53/ACM.
+        # PowerUser covers all of it except IAM, granted narrowly below.
+        - arn:aws:iam::aws:policy/PowerUserAccess
+      Policies:
+        - PolicyName: sam-stack-roles
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ManageProjectRoles
+                Effect: Allow
+                Action:
+                  - iam:CreateRole
+                  - iam:DeleteRole
+                  - iam:GetRole
+                  - iam:UpdateRole
+                  - iam:TagRole
+                  - iam:UntagRole
+                  - iam:PutRolePolicy
+                  - iam:DeleteRolePolicy
+                  - iam:GetRolePolicy
+                  - iam:AttachRolePolicy
+                  - iam:DetachRolePolicy
+                  - iam:ListRolePolicies
+                  - iam:ListAttachedRolePolicies
+                  - iam:PassRole
+                Resource:
+                  - !Sub 'arn:aws:iam::${AWS::AccountId}:role/${ProjectName}-*'
+
+Outputs:
+  DeployRoleArn:
+    Description: Set this as the repo's AWS_DEPLOY_ROLE_ARN Actions secret
+    Value: !GetAtt DeployRole.Arn

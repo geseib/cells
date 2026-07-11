@@ -1072,3 +1072,91 @@ a.deep-dive-btn:hover {
 .reading-list a:hover {
   text-decoration: underline;
 }
+
+/* ---- Manual theme override (ThemeToggle.tsx) ----
+   The toggle stamps data-theme on <html>; absent = follow the OS. The
+   attribute selectors outrank the media-scoped :root blocks above, so an
+   explicit choice wins in both directions. Token values are copied verbatim
+   from the :root blocks at the top of this file. */
+
+:root[data-theme='light'] {
+  --surface-1: #fcfcfb;
+  --page: #f9f9f7;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --baseline: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --accent: #2a78d6;
+
+  --cell-1: #2a78d6;
+  --cell-2: #1baf7a;
+  --cell-3: #eda100;
+  --cell-4: #4a3aa7;
+  --cell-5: #e87ba4;
+  --cell-6: #eb6834;
+  --cell-7: #008300;
+  --cell-8: #104281;
+
+  --good: #0ca30c;
+  --critical: #d03b3b;
+}
+
+:root[data-theme='dark'] {
+  --surface-1: #1a1a19;
+  --page: #0d0d0d;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --baseline: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --accent: #3987e5;
+
+  --cell-1: #3987e5;
+  --cell-2: #199e70;
+  --cell-3: #c98500;
+  --cell-4: #9085e9;
+  --cell-5: #d55181;
+  --cell-6: #d95926;
+  --cell-7: #008300;
+  --cell-8: #86b6ef;
+
+  --good: #0ca30c;
+  --critical: #e66767;
+}
+
+/* Mirror the one non-token dark rule in both directions */
+:root[data-theme='dark'] .panel {
+  box-shadow: none;
+}
+
+:root[data-theme='light'] .panel {
+  box-shadow: 0 1px 2px rgba(11, 11, 11, 0.03), 0 12px 32px -20px rgba(11, 11, 11, 0.18);
+}
+
+/* The toggle itself: quiet, borderless, sized for the top-nav */
+button.theme-toggle {
+  background: transparent;
+  border: none;
+  padding: 0.25rem 0.4rem;
+  border-radius: 7px;
+  color: var(--ink-2);
+  font-size: 0.72rem;
+  gap: 0.3rem;
+}
+
+button.theme-toggle:hover {
+  color: var(--ink);
+  border: none;
+  transform: none;
+}
+
+.theme-toggle .theme-auto {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}

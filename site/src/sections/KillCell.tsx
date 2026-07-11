@@ -1,11 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { assign, buildRing, cellColor, clientIds, countMoved, makeCells } from '../sim/simulation';
+import { assign, buildRing, cellColor, clientIds, countMoved, hashKey, makeCells } from '../sim/simulation';
 import TryLive from '../TryLive';
+import KeyHint, { useHotkeys } from '../ui/KeyHint';
 
 const CELL_COUNT = 4;
 const CLIENT_COUNT = 200;
 
-const KillCell: React.FC = () => {
+/** The kill-a-cell demo — used by the section below and the slide deck. */
+export const KillCellDemo: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const [failedCells, setFailedCells] = useState<Set<string>>(new Set());
 
   const cells = useMemo(() => makeCells(CELL_COUNT), []);
@@ -22,6 +24,20 @@ const KillCell: React.FC = () => {
   const moved = countMoved(baseline, current);
   const anyFailed = failedCells.size > 0;
 
+  // The honest contrast: with naive hash(id) mod N routing, shrinking N
+  // remaps almost EVERY client, not just the failed cell's share.
+  const modMoved = useMemo(() => {
+    if (!anyFailed) return 0;
+    let count = 0;
+    for (const id of clients) {
+      const before = cells[hashKey(id) % cells.length].cellId;
+      const after = liveCells[hashKey(id) % liveCells.length].cellId;
+      if (before !== after) count++;
+    }
+    return count;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clients, cells, anyFailed, failedCells]);
+
   const toggle = (cellId: string) => {
     setFailedCells((prev) => {
       const next = new Set(prev);
@@ -31,6 +47,16 @@ const KillCell: React.FC = () => {
     });
   };
 
+  // Presenter keys (slide deck only): 1-4 toggle each cell, R revives all
+  const cellIds = cells.map((c) => c.cellId);
+  useHotkeys(hotkeys, {
+    '1': () => toggle(cellIds[0]),
+    '2': () => toggle(cellIds[1]),
+    '3': () => toggle(cellIds[2]),
+    '4': () => toggle(cellIds[3]),
+    r: () => setFailedCells(new Set()),
+  });
+
   const byCell = useMemo(() => {
     const map = new Map<string, string[]>();
     for (const c of cells) map.set(c.cellId, []);
@@ -39,17 +65,7 @@ const KillCell: React.FC = () => {
   }, [cells, current]);
 
   return (
-    <section className="lesson" id="kill-a-cell">
-      <div className="kicker">04 · Fault isolation</div>
-      <h2>Kill a cell. Watch who moves.</h2>
-      <p>
-        This is the payoff. {CLIENT_COUNT} clients are pinned to {CELL_COUNT} cells. Click a cell to
-        fail it: its virtual nodes vanish from the ring, and <em>only its clients</em> slide
-        clockwise into the surviving cells — watch them arrive still wearing their old cell's
-        color. Everyone else keeps the exact same assignment — no global reshuffle, no stampede,
-        no cold caches for the unaffected 75%.
-      </p>
-      <div className="panel">
+    <div className="panel">
         <div className="cell-grid">
           {cells.map((cell) => {
             const isFailed = failedCells.has(cell.cellId);
@@ -66,6 +82,7 @@ const KillCell: React.FC = () => {
                 <h4>
                   <span className="swatch" style={{ background: isFailed ? 'var(--critical)' : cellColor(cell.cellId) }} />{' '}
                   {cell.cellId} {isFailed ? '· FAILED' : ''}
+                  {hotkeys && <KeyHint k={String(cells.indexOf(cell) + 1)} />}
                 </h4>
                 <div className="meta">
                   {cell.region} · {cell.availabilityZone} · {isFailed ? 0 : residents.length} clients
@@ -97,18 +114,46 @@ const KillCell: React.FC = () => {
         <div className="stat-row">
           <div className="stat">
             <div className={`value ${anyFailed ? 'bad' : ''}`}>{Math.round((moved / CLIENT_COUNT) * 100)}%</div>
-            <div className="label">of clients remapped (dots in their old color)</div>
+            <div className="label">
+              remapped — exactly the failed {failedCells.size === 1 ? "cell's" : "cells'"} keyspace
+              share (~25% per cell, ±a few points of hash variance). Nobody else moves.
+            </div>
           </div>
           <div className="stat">
             <div className={`value ${anyFailed ? 'good' : ''}`}>{100 - Math.round((moved / CLIENT_COUNT) * 100)}%</div>
-            <div className="label">kept their original cell</div>
+            <div className="label">kept their original cell — same hash, same home</div>
+          </div>
+          <div className="stat">
+            <div className={`value ${anyFailed ? 'bad' : ''}`}>
+              {anyFailed ? `${Math.round((modMoved / CLIENT_COUNT) * 100)}%` : '—'}
+            </div>
+            <div className="label">
+              would have moved under naive hash&nbsp;mod&nbsp;N — shrinking N reshuffles nearly
+              everyone
+            </div>
           </div>
           <div className="stat">
             <div className="value">{liveCells.length}/{CELL_COUNT}</div>
             <div className="label">cells healthy</div>
           </div>
         </div>
-      </div>
+    </div>
+  );
+};
+
+const KillCell: React.FC = () => {
+  return (
+    <section className="lesson" id="kill-a-cell">
+      <div className="kicker">04 · Fault isolation</div>
+      <h2>Kill a cell. Watch who moves.</h2>
+      <p>
+        This is the payoff. {CLIENT_COUNT} clients are pinned to {CELL_COUNT} cells. Click a cell to
+        fail it: its virtual nodes vanish from the ring, and <em>only its clients</em> slide
+        clockwise into the surviving cells — watch them arrive still wearing their old cell's
+        color. Everyone else keeps the exact same assignment — no global reshuffle, no stampede,
+        no cold caches for the unaffected 75%.
+      </p>
+      <KillCellDemo />
       <div className="callout">
         <strong>Compare that to naive routing:</strong> if you routed with <code>hash(id) mod N</code>{' '}
         and N dropped from 4 to 3, nearly <em>every</em> client would land in a different cell —

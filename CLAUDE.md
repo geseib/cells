@@ -18,7 +18,7 @@ workload into isolated cells with consistent-hash routing. Two deliverables:
 | `frontend/spa/` | Per-cell page (React + webpack) |
 | `frontend/admin/` | Admin dashboard (React + webpack, recharts) |
 | `frontend/router/` | Static router pages (`index.html`, `auto.html`) deployed to the admin bucket |
-| `infrastructure/templates/` | Live templates only: `global-resources.yaml`, `routing-layer.yaml`, `cell-template.yaml`, `site-hosting.yaml` (educational site on S3+CloudFront) |
+| `infrastructure/templates/` | Live templates only: `global-resources.yaml`, `routing-layer.yaml`, `cell-template.yaml`, `cell-certificate.yaml`, `github-oidc-role.yaml` (one-time bootstrap for the auto-deploy workflow) |
 | `infrastructure/scripts/` | `deploy.sh`, `deploy-frontend.sh`, `smoke-test.sh` (post-deploy verification), `cleanup.sh` |
 | `tests/` | Playwright E2E suite, parameterized by env vars (`tests/tests/config.ts`) |
 
@@ -31,8 +31,12 @@ cd frontend/spa && npm run build           # webpack; reads CELL_API_URL, ADMIN_
 cd frontend/admin && npm run build         # webpack; reads ADMIN_API_URL
 cd site && npm run build                   # webpack; fully static output in site/dist
 cd site && npm run dev                     # dev server for the educational site
-# site builds standalone (no backend install needed); root vercel.json deploys
-# only site/ for quick review — the AWS demo is never part of that deploy
+# site builds standalone (no backend install needed). Hosting is split:
+# the site auto-deploys on VERCEL from GitHub (root vercel.json builds only
+# site/; DEMO_ADMIN_URL + custom domain live in the Vercel project settings),
+# and the AWS demo auto-deploys via .github/workflows/deploy-aws.yml (OIDC
+# role from infrastructure/templates/github-oidc-role.yaml + two repo
+# secrets). deploy.sh/deploy-frontend.sh never touch the site.
 cd tests && npm test                       # Playwright; needs ADMIN_BASE_URL etc. or skips
 ```
 

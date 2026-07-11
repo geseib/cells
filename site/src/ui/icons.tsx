@@ -149,6 +149,14 @@ const GLYPHS: Record<string, React.ReactNode> = {
       <path d="M8 12h8m0 0-3-3m3 3-3 3" />
     </>
   ),
+  sun: (
+    <>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2.5v2.3M12 19.2v2.3M2.5 12h2.3M19.2 12h2.3M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6" />
+    </>
+  ),
+  moon: <path d="M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1Z" />,
+  menu: <path d="M4 7h16M4 12h16M4 17h16" />,
 };
 
 export const Icon: React.FC<{

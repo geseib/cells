@@ -306,6 +306,200 @@ body,
   margin-right: 0.4em;
 }
 
+/* Deck toolbar: exit-to-site + viewer/notes discoverability, top-left,
+   fixed outside reveal's transform. */
+.deck-toolbar {
+  position: fixed;
+  top: 0.6rem;
+  left: 0.7rem;
+  z-index: 40;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.deck-toolbar .dt-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  background: color-mix(in srgb, var(--surface-1) 80%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  text-decoration: none;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.deck-toolbar .dt-btn:hover {
+  opacity: 1;
+  color: var(--ink);
+  transform: none;
+}
+
+/* ScaleDemo's topology map is a direct child of its panel — cap it so the
+   1280-wide slide doesn't blow it up past the canvas height */
+.reveal .panel > svg {
+  max-width: 680px;
+  display: block;
+  margin: 0.5rem auto 0;
+}
+
+/* Constant work: the full-height bar chart tells the story on stage; the
+   per-tick table grid is web-only detail that overflows the slide canvas */
+.reveal .cw-grid {
+  display: none;
+}
+
+/* ShuffleMath preset hint (deck only) */
+.reveal .preset-hint {
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  margin: 0 0 0.6rem;
+}
+
+/* Fine-print slide: four compact cards */
+.fine-print {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem;
+  max-width: 1080px;
+  margin: 0 auto;
+  text-align: left;
+}
+
+.fine-print .panel {
+  padding: 0.9rem 1.1rem;
+}
+
+.fine-print h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+  margin: 0 0 0.35rem;
+}
+
+.fine-print h3 .icon {
+  color: var(--ink-2);
+}
+
+.fine-print p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--ink-2);
+}
+
+/* Closing slide */
+.closing-quote {
+  margin: 0 auto;
+  max-width: 800px;
+  font-size: 2rem;
+  text-align: left;
+}
+
+.vendor-line {
+  color: var(--ink-2);
+  font-size: 1.05rem;
+  margin: 1.2rem 0 0.4rem;
+}
+
+.vendor-line em {
+  color: var(--ink);
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* Golden-value slide: the number, then its four consumers light up */
+.golden-slide {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.golden-stone {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.5rem;
+  color: var(--ink-2);
+  margin-bottom: 1.2rem;
+  text-align: center;
+}
+
+.golden-stone strong {
+  color: var(--ink);
+  font-size: 1.15em;
+}
+
+.golden-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.9rem;
+  text-align: left;
+}
+
+.golden-card {
+  opacity: 0.18;
+  transition: opacity 0.35s ease;
+  padding: 0.9rem 1.1rem;
+}
+
+.golden-card.on {
+  opacity: 1;
+}
+
+.golden-card h3 {
+  font-size: 1rem;
+  margin: 0 0 0.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.golden-index {
+  display: inline-flex;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8em;
+  flex: none;
+}
+
+.golden-card p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--ink-2);
+}
+
+.golden-verdict {
+  color: var(--good);
+  font-weight: 700;
+  font-size: 1.05rem;
+  transition: opacity 0.4s ease;
+  margin: 1rem 0 0;
+  text-align: center;
+}
+
+/* Router-placement slide */
+.topo-slide {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.topo-caption {
+  font-size: 1.05rem;
+  color: var(--ink-2);
+  max-width: 760px;
+  margin: 0.6rem auto 0;
+}
+
 /* Touch presenter bar: fixed under the deck, never scaled by reveal.
    Hidden on fine-pointer/hover devices, so the desktop deck is unchanged. */
 .touch-bar {
@@ -373,4 +567,28 @@ body,
    asides just need to never render on stage */
 .reveal .slides aside.notes {
   display: none;
+}
+
+/* restyle the site's quiet nav toggle as a toolbar pill; same specificity
+   tier as button.theme-toggle in styles.css, and deck.css loads after it */
+.deck-toolbar button.dt-btn {
+  background: color-mix(in srgb, var(--surface-1) 86%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.32rem 0.7rem;
+  color: var(--ink-2);
+}
+
+.deck-toolbar button.dt-btn:hover {
+  color: var(--ink);
+  border: 1px solid var(--baseline);
+}
+
+/* keep clear of the touch bar's raised nav arrows on touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .deck-toolbar {
+    top: calc(0.6rem + env(safe-area-inset-top));
+  }
 }

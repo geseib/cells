@@ -1,5 +1,72 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Icon from './icons';
+
+/** Slim sticky banner: brand on the left (tinted with the cell's identity
+    color once known), a dropdown menu of demo destinations on the right.
+    Sticky (not fixed) so it pushes the welcome header down instead of
+    covering it. Closes on outside click and Escape. */
+const DemoBanner: React.FC<{ accent?: string }> = ({ accent }) => {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const adminUrl = process.env.ADMIN_URL || '';
+  const introUrl = process.env.INTRO_URL || '';
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointerDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="demo-banner">
+      <span className="banner-brand">
+        <span className="banner-dot" style={accent ? { background: accent } : undefined} aria-hidden="true" />{' '}
+        Cell Demo
+      </span>
+      <div className="banner-menu" ref={menuRef}>
+        <button
+          className="banner-menu-btn"
+          aria-haspopup="true"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <Icon name="menu" size={15} /> Menu
+        </button>
+        {open && (
+          <div className="banner-dropdown" role="menu">
+            {introUrl && (
+              <a role="menuitem" href={introUrl} target="_blank" rel="noopener noreferrer">
+                Interactive guide
+              </a>
+            )}
+            {introUrl && (
+              <a role="menuitem" href={`${introUrl}/primer.html`} target="_blank" rel="noopener noreferrer">
+                Primer
+              </a>
+            )}
+            {introUrl && (
+              <a role="menuitem" href={`${introUrl}/slides.html`} target="_blank" rel="noopener noreferrer">
+                Slides
+              </a>
+            )}
+            {adminUrl && <a role="menuitem" href={adminUrl}>Admin dashboard</a>}
+            {adminUrl && <a role="menuitem" href={`${adminUrl}/router.html`}>Router page</a>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 interface CellInfo {
   cellId: string;
@@ -204,19 +271,25 @@ const App: React.FC = () => {
   };
 
   if (loading) return (
-    <div className="loading-container">
-      <div className="spinner"></div>
-      <div>Loading cell information...</div>
-    </div>
+    <>
+      <DemoBanner />
+      <div className="loading-container">
+        <div className="spinner"></div>
+        <div>Loading cell information...</div>
+      </div>
+    </>
   );
-  
+
   if (error) return (
-    <div className="error-container">
-      <div className="error-icon"><Icon name="x-circle" size={44} /></div>
-      <div>{error}</div>
-    </div>
+    <>
+      <DemoBanner />
+      <div className="error-container">
+        <div className="error-icon"><Icon name="x-circle" size={44} /></div>
+        <div>{error}</div>
+      </div>
+    </>
   );
-  
+
   if (!cellInfo) return null;
 
   const cellColor = getCellColor(cellInfo.cellId);
@@ -224,6 +297,8 @@ const App: React.FC = () => {
   const clientId = getOrCreateClientId();
 
   return (
+    <>
+    <DemoBanner accent={cellColor} />
     <div className={`container cell-${cellInfo.cellId}`}>
       <div className="header">
         <div className="welcome-message">
@@ -356,6 +431,7 @@ const App: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 
