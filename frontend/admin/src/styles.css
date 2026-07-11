@@ -715,3 +715,85 @@ table.data td {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Demo banner ---------- */
+
+.demo-banner {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 1.5rem;
+  background: color-mix(in srgb, var(--surface-1) 92%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+
+.demo-banner .banner-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.demo-banner .banner-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.banner-menu {
+  position: relative;
+}
+
+.banner-menu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  padding: 0.26rem 0.7rem;
+  border-radius: 999px;
+}
+
+.banner-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px -16px rgba(11, 11, 11, 0.35);
+  z-index: 30;
+}
+
+.banner-dropdown a {
+  padding: 0.42rem 0.75rem;
+  border-radius: 7px;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.banner-dropdown a:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* the sticky admin header now docks just below the banner */
+.admin-header {
+  top: 42px;
+}

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import RoadToCells from './RoadToCells';
 import { arcPath, buildRing, cellColor, makeCells, ownershipArcs } from '../sim/simulation';
 import Icon from '../ui/icons';
+import ThemeToggle from '../ui/ThemeToggle';
 
 /**
  * The primer: the problem from first principles, in nobody's cloud accent.
@@ -557,6 +558,7 @@ const PrimerApp: React.FC = () => (
       <a href="#same-thing">Same thing?</a>
       <a href="#patterns">Patterns</a>
       <a href="#reading">Reading</a>
+      <ThemeToggle />
       <span style={{ flex: 1 }} />
       <a href="./index.html" style={{ fontWeight: 600 }}>Deep dive ↗</a>
     </nav>

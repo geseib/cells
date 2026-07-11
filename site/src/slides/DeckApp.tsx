@@ -4,6 +4,7 @@ import Notes from 'reveal.js/plugin/notes';
 import RingMark from '../ui/RingMark';
 import Icon from '../ui/icons';
 import KeyHint, { useHotkeys } from '../ui/KeyHint';
+import ThemeToggle from '../ui/ThemeToggle';
 import RoadToCells from '../primer/RoadToCells';
 import { BlastRadiusDemo, PagerTest } from '../sections/WhyCells';
 import { KillCellDemo } from '../sections/KillCell';
@@ -220,6 +221,7 @@ const DeckToolbar: React.FC<{ onOverview: () => void; onNotes: () => void }> = (
     <button className="dt-btn" onClick={onNotes} title="Speaker view: notes, timer, next slide (S)">
       <Icon name="book-open" size={13} /> Notes
     </button>
+    <ThemeToggle className="dt-btn" />
   </div>
 );
 
