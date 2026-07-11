@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { hashKey, CELL_COLOR_VARS, FAILED_COLOR } from '../sim/simulation';
 import Icon from '../ui/icons';
+import KeyHint, { useHotkeys } from '../ui/KeyHint';
 
 /** True when the user asked the OS for reduced motion — gates the SMIL/JS animation. */
 function usePrefersReducedMotion(): boolean {
@@ -72,7 +73,7 @@ function shardImpact(pairs: Pair[], poison: number | null) {
   return { deadWorkers, states };
 }
 
-const ShuffleSharding: React.FC = () => {
+export const ShuffleSharding: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const reduced = usePrefersReducedMotion();
   const [poison, setPoison] = useState<number | null>(null);
   const [auto, setAuto] = useState(false);
@@ -106,6 +107,13 @@ const ShuffleSharding: React.FC = () => {
       return next;
     });
   };
+
+  // Presenter keys (slide deck only): A auto-demo, X poison next, C cure
+  useHotkeys(hotkeys, {
+    a: () => setAuto((v) => !v),
+    x: poisonNext,
+    c: () => pickManually(null),
+  });
 
   const plain = useMemo(() => shardImpact(PLAIN_PAIRS, poison), [poison]);
   const shuffle = useMemo(() => shardImpact(SHUFFLE_PAIRS, poison), [poison]);
@@ -263,11 +271,11 @@ const ShuffleSharding: React.FC = () => {
     <div className="panel">
       <div className="controls">
         <button className={auto ? 'selected' : ''} onClick={() => (auto ? setAuto(false) : setAuto(true))}>
-          <Icon name={auto ? 'pause' : 'play'} />{auto ? 'Stop the demo' : 'Auto-demo'}
+          <Icon name={auto ? 'pause' : 'play'} />{auto ? 'Stop the demo' : 'Auto-demo'}{hotkeys && <KeyHint k="A" />}
         </button>
-        <button onClick={poisonNext}><Icon name="skull" />Poison a random customer</button>
+        <button onClick={poisonNext}><Icon name="skull" />Poison a random customer{hotkeys && <KeyHint k="X" />}</button>
         <span style={{ flex: 1 }} />
-        {poison !== null && <button onClick={() => pickManually(null)}>Cure the poison</button>}
+        {poison !== null && <button onClick={() => pickManually(null)}>Cure the poison{hotkeys && <KeyHint k="C" />}</button>}
       </div>
       <p className="panel-hint">
         {auto
@@ -371,10 +379,17 @@ const fmtPct = (x: number): string => {
 
 const MAX_WORKERS = 200;
 
-const ShuffleMath: React.FC = () => {
+export const ShuffleMath: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const [workers, setWorkers] = useState(100);
   const [shardSize, setShardSize] = useState(5);
   const [clientExp, setClientExp] = useState(6); // clients = 10^clientExp
+
+  // Presenter keys (slide deck only): preset scenarios
+  useHotkeys(hotkeys, {
+    '1': () => { setWorkers(100); setShardSize(5); setClientExp(6); }, // Route 53 scale
+    '2': () => { setWorkers(8); setShardSize(2); setClientExp(4); },   // small fleet
+    '3': () => { setWorkers(200); setShardSize(7); setClientExp(7); }, // mega
+  });
 
   const s = Math.min(shardSize, Math.floor(workers / 2));
   const clients = Math.round(10 ** clientExp);
@@ -436,6 +451,11 @@ const ShuffleMath: React.FC = () => {
         {slider('shard size (S)', shardSize, String(s), 2, 8, 1, setShardSize, 'Workers per shard')}
         {slider('clients', clientExp, fmtBig(clients), 2, 7, 0.5, setClientExp, 'Number of clients (log scale)')}
       </div>
+      {hotkeys && (
+        <p className="preset-hint">
+          <KeyHint k="1" /> Route 53 scale · <KeyHint k="2" /> small fleet · <KeyHint k="3" /> mega fleet
+        </p>
+      )}
       <div className="formula">
         C(N,S) = N! / (S!·(N−S)!) &nbsp;→&nbsp; C({workers},{s}) = <strong>{fmtBig(combos)}</strong> shards
         &nbsp;·&nbsp; plain N/S = <strong>{fmtBig(plainShards)}</strong>
@@ -510,9 +530,16 @@ const STABLE_PER_AZ = 45; // 3 × 45 = 135: any TWO AZs sum to 90
 const METER_MAX = 150; // meter scale, in servers
 const USER_DOTS = 30;
 
-const StaticStability: React.FC = () => {
+export const StaticStability: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const [strategy, setStrategy] = useState<'hot' | 'static'>('hot');
   const [lost, setLost] = useState(false);
+
+  // Presenter keys (slide deck only): 1/2 pick the strategy, T drops the AZ
+  useHotkeys(hotkeys, {
+    '1': () => setStrategy('hot'),
+    '2': () => setStrategy('static'),
+    t: () => setLost((v) => !v),
+  });
 
   const perAz = strategy === 'hot' ? HOT_PER_AZ : STABLE_PER_AZ;
   const liveAzs = lost ? AZ_NAMES.length - 1 : AZ_NAMES.length;
@@ -529,19 +556,19 @@ const StaticStability: React.FC = () => {
           className={strategy === 'hot' ? 'selected' : ''}
           onClick={() => setStrategy('hot')}
         >
-          Just enough — {HOT_PER_AZ} servers per AZ ({HOT_PER_AZ * 3} total)
+          Just enough — {HOT_PER_AZ} servers per AZ ({HOT_PER_AZ * 3} total){hotkeys && <KeyHint k="1" />}
         </button>
         <button
           className={strategy === 'static' ? 'selected' : ''}
           onClick={() => setStrategy('static')}
         >
-          Statically stable — {STABLE_PER_AZ} per AZ ({STABLE_PER_AZ * 3} total)
+          Statically stable — {STABLE_PER_AZ} per AZ ({STABLE_PER_AZ * 3} total){hotkeys && <KeyHint k="2" />}
         </button>
         <span style={{ flex: 1 }} />
         {!lost ? (
-          <button className="danger" onClick={() => setLost(true)}><Icon name="bolt" />Lose an AZ</button>
+          <button className="danger" onClick={() => setLost(true)}><Icon name="bolt" />Lose an AZ{hotkeys && <KeyHint k="T" />}</button>
         ) : (
-          <button onClick={() => setLost(false)}>Recover the AZ</button>
+          <button onClick={() => setLost(false)}>Recover the AZ{hotkeys && <KeyHint k="T" />}</button>
         )}
       </div>
       <p className="panel-hint">
@@ -670,11 +697,18 @@ const quietChanges = (t: number) => 1 + (hashKey(`beyond-tick-${t}`) % 3);
 
 const GRID_INDICES = Array.from({ length: TABLE_SIZE }, (_, i) => i);
 
-const ConstantWork: React.FC = () => {
+export const ConstantWork: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const reduced = usePrefersReducedMotion();
   const [storm, setStorm] = useState(true);
   const [intensity, setIntensity] = useState(36);
   const [running, setRunning] = useState(() => !reduced);
+
+  // Presenter keys (slide deck only): 1 quiet, 2 storm, G play/pause
+  useHotkeys(hotkeys, {
+    '1': () => setStorm(false),
+    '2': () => setStorm(true),
+    g: () => setRunning((r) => !r),
+  });
   const [tick, setTick] = useState(WINDOW + WAVE); // start with a full window
 
   useEffect(() => {
@@ -735,13 +769,13 @@ const ConstantWork: React.FC = () => {
     <div className="panel">
       <div className="controls">
         <button className={!storm ? 'selected' : ''} onClick={() => setStorm(false)}>
-          Quiet day
+          Quiet day{hotkeys && <KeyHint k="1" />}
         </button>
         <button className={storm ? 'selected' : ''} onClick={() => setStorm(true)}>
-          <Icon name="cloud-bolt" />Storm waves
+          <Icon name="cloud-bolt" />Storm waves{hotkeys && <KeyHint k="2" />}
         </button>
         <button onClick={() => setRunning((r) => !r)}>
-          <Icon name={running ? 'pause' : 'play'} />{running ? 'Pause' : 'Play'}
+          <Icon name={running ? 'pause' : 'play'} />{running ? 'Pause' : 'Play'}{hotkeys && <KeyHint k="G" />}
         </button>
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 220px' }}>
           <span style={{ fontSize: '0.85rem', color: 'var(--ink-2)' }}>storm size</span>

@@ -2,9 +2,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Reveal from 'reveal.js';
 import Notes from 'reveal.js/plugin/notes';
 import RingMark from '../ui/RingMark';
+import Icon from '../ui/icons';
 import KeyHint, { useHotkeys } from '../ui/KeyHint';
 import RoadToCells from '../primer/RoadToCells';
 import { BlastRadiusDemo, PagerTest } from '../sections/WhyCells';
+import { KillCellDemo } from '../sections/KillCell';
+import { ScaleDemo } from '../sections/Scale';
+import { ShuffleSharding, ShuffleMath, StaticStability, ConstantWork } from '../sections/BeyondCells';
 import {
   arcPath,
   buildRing,
@@ -139,6 +143,39 @@ const SLIDE_ACTIONS: { key: string; label: string }[][] = [
     { key: '3', label: 'Route admin789' },
     { key: '4', label: 'Route alice@example.com' },
   ],
+  [
+    { key: '1', label: 'Toggle cell 1' },
+    { key: '2', label: 'Toggle cell 2' },
+    { key: '3', label: 'Toggle cell 3' },
+    { key: '4', label: 'Toggle cell 4' },
+    { key: 'r', label: 'Revive all cells' },
+  ],
+  [
+    { key: 'a', label: 'Add a cell' },
+    { key: 'x', label: 'Remove a cell' },
+  ],
+  [
+    { key: 'a', label: 'Auto-demo on/off' },
+    { key: 'x', label: 'Poison a random customer' },
+    { key: 'c', label: 'Cure the poison' },
+  ],
+  [
+    { key: '1', label: 'Route 53 scale preset' },
+    { key: '2', label: 'Small fleet preset' },
+    { key: '3', label: 'Mega fleet preset' },
+  ],
+  [
+    { key: '1', label: 'Just enough capacity' },
+    { key: '2', label: 'Statically stable' },
+    { key: 't', label: 'Lose / recover the AZ' },
+  ],
+  [
+    { key: '1', label: 'Quiet day' },
+    { key: '2', label: 'Storm waves' },
+    { key: 'g', label: 'Play / pause' },
+  ],
+  [], // fine print
+  [], // closing
 ];
 
 const pressKey = (key: string) =>
@@ -166,9 +203,36 @@ const TouchBar: React.FC<{ slide: number; onPrev: () => void; onNext: () => void
 /* The deck                                                            */
 /* ------------------------------------------------------------------ */
 
+/* Always-available escape hatch + the discoverability layer for reveal's
+   built-in viewer (overview grid) and speaker view (notes + timer). Fixed
+   outside .reveal so it never scales. */
+const DeckToolbar: React.FC<{ onOverview: () => void; onNotes: () => void }> = ({
+  onOverview,
+  onNotes,
+}) => (
+  <div className="deck-toolbar">
+    <a className="dt-btn" href="./index.html" title="Back to the interactive guide">
+      <RingMark size={15} band={4} vnodes={8} /> Site
+    </a>
+    <button className="dt-btn" onClick={onOverview} title="All slides at a glance (O or Esc)">
+      <Icon name="maximize" size={13} /> Overview
+    </button>
+    <button className="dt-btn" onClick={onNotes} title="Speaker view: notes, timer, next slide (S)">
+      <Icon name="book-open" size={13} /> Notes
+    </button>
+  </div>
+);
+
+interface RevealHandle {
+  prev: () => void;
+  next: () => void;
+  toggleOverview: () => void;
+  getPlugin: (name: string) => unknown;
+}
+
 const DeckApp: React.FC = () => {
   const deckRef = useRef<HTMLDivElement>(null);
-  const revealRef = useRef<{ prev: () => void; next: () => void } | null>(null);
+  const revealRef = useRef<RevealHandle | null>(null);
   const [slide, setSlide] = useState(0);
 
   useEffect(() => {
@@ -191,7 +255,7 @@ const DeckApp: React.FC = () => {
       // per-slide demos need real slide semantics on iPhone-width screens
       scrollActivationWidth: 0,
     });
-    revealRef.current = deck;
+    revealRef.current = deck as unknown as RevealHandle;
     deck.initialize().then(() => setSlide(deck.getIndices().h));
     deck.on('slidechanged', (event: unknown) => {
       setSlide((event as { indexh: number }).indexh);
@@ -290,8 +354,153 @@ const DeckApp: React.FC = () => {
             </ul>
           </aside>
         </section>
+
+        {/* 6 · Kill a cell */}
+        <section>
+          <h2>Kill a cell. Watch who moves.</h2>
+          <KillCellDemo hotkeys={slide === 5} />
+          <aside className="notes">
+            <p>200 clients pinned to 4 cells. Kill cell 2 (key 2): only ITS clients slide clockwise into the survivors — and they arrive still wearing their old cell's color.</p>
+            <ul>
+              <li>~25% remapped, 75% untouched: no global reshuffle, no stampede, no cold caches for the unaffected.</li>
+              <li>Kill a second cell: still proportional. The demo won't let you kill the last one.</li>
+              <li>Revive (R): everyone returns home — assignments are a pure function of the ring.</li>
+              <li>Contrast with hash-mod-N: dropping N from 4 to 3 remaps nearly EVERYONE. One failure, 100% reshuffle.</li>
+            </ul>
+          </aside>
+        </section>
+
+        {/* 7 · Add a cell */}
+        <section>
+          <h2>Scale out by adding cells</h2>
+          <ScaleDemo hotkeys={slide === 6} />
+          <aside className="notes">
+            <p>Growth is the same story as failure, in reverse. Add a cell (A): it claims ~1/(N+1) of the keyspace, a thin slice from every existing cell.</p>
+            <ul>
+              <li>Watch the two percentages as cells are added: consistent hashing moves ~the ideal minimum; hash-mod-N moves nearly everything, every time.</li>
+              <li>Capacity planning is cookie-cutter: prove one cell's ceiling, stamp out more.</li>
+              <li>The topology map: cells spread across regions and AZs — a whole-AZ event takes out only the cells inside it. The router is the only global piece.</li>
+            </ul>
+          </aside>
+        </section>
+
+        {/* 8 · Shuffle sharding */}
+        <section>
+          <h2>Shuffle sharding: everyone gets their own combination</h2>
+          <ShuffleSharding hotkeys={slide === 7} />
+          <aside className="notes">
+            <p>Route 53's trick for surviving DDoS on a single domain. Same 8 workers, two ways to slice.</p>
+            <ul>
+              <li>Start auto-demo (A): the poison marches customer to customer. Left counter swings to 4-of-16 every time; right stays at 1.</li>
+              <li>Plain shards: the poison kills both shard workers, taking 3 innocent neighbors along.</li>
+              <li>Shuffle: no two customers share BOTH workers, so the poison's blast radius is themselves. Degraded customers retry onto their surviving worker.</li>
+              <li>4 shards vs C(8,2)=28 combinations — from the same hardware.</li>
+            </ul>
+          </aside>
+        </section>
+
+        {/* 9 · The math */}
+        <section>
+          <h2>The math: combinations beat divisions</h2>
+          <ShuffleMath hotkeys={slide === 8} />
+          <aside className="notes">
+            <p>Three presets: 1 = Route 53 scale (100 workers, shard 5, 1M clients), 2 = small fleet (8/2/10k), 3 = mega (200/7/10M).</p>
+            <ul>
+              <li>Preset 1: 20 plain shards become 75 MILLION combinations. Poison blast radius: 5% plain vs about one client — a 1.3% chance even one other client shares the combo.</li>
+              <li>Preset 2 is the honest one: with only 70 combos and 10k clients, shuffle's edge shrinks. The pattern needs a real fleet to shine.</li>
+              <li>One worker dying degrades M·S/N clients but fully downs ZERO — retries land on the other shard members.</li>
+            </ul>
+          </aside>
+        </section>
+
+        {/* 10 · Static stability */}
+        <section>
+          <h2>Static stability: pay for the failure in advance</h2>
+          <StaticStability hotkeys={slide === 9} />
+          <aside className="notes">
+            <p>Demand needs 90 servers. Two ways to spread them over 3 AZs.</p>
+            <ul>
+              <li>Strategy 1 "just enough": 30 per AZ, 90 total, nothing spare. Lose the AZ (T): 60 of 90, a third of users shed, and you're calling the EC2 control plane at the worst possible moment — in line behind everyone else hit by the same event.</li>
+              <li>Strategy 2 "statically stable": 45 per AZ, 135 total — any TWO AZs cover the full 90. Lose the AZ: zero actions, zero shed.</li>
+              <li>The bigger per-AZ number IS the strategy, not waste. Rule: the data plane must not depend on the control plane during recovery.</li>
+              <li>Honest cost: 50% more compute every normal day.</li>
+            </ul>
+          </aside>
+        </section>
+
+        {/* 11 · Constant work */}
+        <section>
+          <h2>Constant work: the busy path is the only path</h2>
+          <ConstantWork hotkeys={slide === 10} />
+          <aside className="notes">
+            <p>Route 53's health-check aggregators push the ENTIRE table every few seconds, changed or not.</p>
+            <ul>
+              <li>Left: a reactive autoscaler chasing storm waves — lags 4 ticks, ramps 3/tick, and the red area is work done late, during the exact storm it exists to report. The queue counter is the pager going off.</li>
+              <li>Right: same load. Every bar is already full height — the whole 48-row table, every tick. A storm just recolors the inside of the bar green. Nothing to scale, nothing to queue.</li>
+              <li>Toggle quiet (1) vs storm (2): the right chart's silhouette never changes. The busy path IS the quiet path — rehearsed every few seconds of every calm day.</li>
+            </ul>
+          </aside>
+        </section>
+
+        {/* 12 · The fine print */}
+        <section>
+          <h2>The fine print</h2>
+          <div className="fine-print">
+            <div className="panel"><h3><Icon name="database" size={16} /> Data partitions too</h3>
+              <p>Each cell owns its clients' data — that's what makes containment real. Cross-client features need an aggregation path outside the cells.</p></div>
+            <div className="panel"><h3><Icon name="compass" size={16} /> The router is sacred</h3>
+              <p>Every request touches it, so keep it thin — or notice the ring is a pure function and push routing into the cells or the client.</p></div>
+            <div className="panel"><h3><Icon name="shuffle" size={16} /> Migration is real work</h3>
+              <p>Adding a cell moves ~1/N of clients AND their data. Plan gradual drains, or pin clients with a mapping table.</p></div>
+            <div className="panel"><h3><Icon name="waves" size={16} /> Share nothing, or else</h3>
+              <p>One hidden shared dependency quietly reconnects every failure domain you paid to separate.</p></div>
+          </div>
+          <aside className="notes">
+            <p>Cells are not free — say this plainly, it buys credibility.</p>
+            <ul>
+              <li>Data partitioning is the hard part in practice: search, analytics, leaderboards all need an out-of-cell aggregation story.</li>
+              <li>Cell sizing: pick a max you can load-test, never let a cell grow past it.</li>
+              <li>Ops overhead: N of everything — dashboards, deploys, quotas. Per-cell observability with the cell ID on every metric.</li>
+              <li>And the failover demo caveat: real failover is health checks + DNS, not a button.</li>
+            </ul>
+          </aside>
+        </section>
+
+        {/* 13 · Closing */}
+        <section className="slide-title">
+          <blockquote className="quote closing-quote">
+            "Everything fails, all the time."
+            <footer>— Werner Vogels, CTO, Amazon.com</footer>
+          </blockquote>
+          <p className="subtitle">
+            Cells decide in advance how big "everything" gets to be.
+          </p>
+          <p className="vendor-line">
+            AWS <em>cells</em> · Azure <em>deployment stamps</em> · Google <em>cells</em> ·
+            Netflix <em>cells</em> · Shopify <em>pods</em> · Slack <em>cells</em>
+          </p>
+          <p className="subtitle">
+            Everything you just saw runs in your browser — <a href="./index.html">the interactive guide</a> ·{' '}
+            <a href="./primer.html">the vendor-neutral primer</a>
+          </p>
+          <aside className="notes">
+            <p>Wrap-up: one decision — partition the workload and pin every client to exactly one partition — bought a size limit on failures, recovery without diagnosis, and scaling by multiplication.</p>
+            <ul>
+              <li>The pattern is industry-wide; AWS just documented it best. Same idea, different names.</li>
+              <li>Point the audience at the site — every demo tonight is live there, plus the primer, the whitepaper links, and the deployable AWS implementation.</li>
+              <li>Q&A prompts to expect: cross-cell features, cell sizing, migration tooling, and "isn't this just sharding?" (answer: sharding partitions data; cells partition the ENTIRE stack, including its failures).</li>
+            </ul>
+          </aside>
+        </section>
       </div>
     </div>
+    <DeckToolbar
+      onOverview={() => revealRef.current?.toggleOverview()}
+      onNotes={() => {
+        const notes = revealRef.current?.getPlugin('notes') as { open?: () => void } | undefined;
+        notes?.open?.();
+      }}
+    />
     <TouchBar
       slide={slide}
       onPrev={() => revealRef.current?.prev()}

@@ -1,13 +1,21 @@
 import React, { useMemo, useState } from 'react';
 import { assign, buildRing, cellColor, clientIds, countMoved, hashKey, makeCells, CELL_NAMES } from '../sim/simulation';
 import TryLive from '../TryLive';
+import KeyHint, { useHotkeys } from '../ui/KeyHint';
 
 const CLIENT_COUNT = 400;
 const MIN_CELLS = 2;
 const MAX_CELLS = 8;
 
-const Scale: React.FC = () => {
+/** The add-a-cell movement demo — used by the section below and the slide deck. */
+export const ScaleDemo: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const [cellCount, setCellCount] = useState(3);
+
+  // Presenter keys (slide deck only): A adds a cell, X removes one
+  useHotkeys(hotkeys, {
+    a: () => setCellCount((n) => Math.min(MAX_CELLS - 1, n + 1)),
+    x: () => setCellCount((n) => Math.max(MIN_CELLS, n - 1)),
+  });
   const clients = useMemo(() => clientIds(CLIENT_COUNT), []);
 
   // % of clients that move when growing from (n) to (n+1) cells, both strategies
@@ -43,19 +51,11 @@ const Scale: React.FC = () => {
   }, [cellsAfter]);
 
   return (
-    <section className="lesson" id="scale">
-      <div className="kicker">05 · Elasticity</div>
-      <h2>Scale out by adding cells</h2>
-      <p>
-        Capacity management becomes cookie-cutter: need more headroom, stamp out another cell. When
-        cell {cellCount + 1} joins the ring it claims ~1/{cellCount + 1} of the keyspace, taking a
-        thin slice from every existing cell. Compare how much traffic moves under consistent
-        hashing versus the naive <code>hash mod N</code> approach:
-      </p>
-      <div className="panel">
+    <div className="panel">
         <div className="controls">
           <label>
             Growing from <strong>{cellCount}</strong> to <strong>{cellCount + 1}</strong> cells
+            {hotkeys && <> <KeyHint k="A" />+<KeyHint k="X" />−</>}
           </label>
           <input
             type="range"
@@ -115,7 +115,22 @@ const Scale: React.FC = () => {
             );
           })}
         </svg>
-      </div>
+    </div>
+  );
+};
+
+const Scale: React.FC = () => {
+  return (
+    <section className="lesson" id="scale">
+      <div className="kicker">05 · Elasticity</div>
+      <h2>Scale out by adding cells</h2>
+      <p>
+        Capacity management becomes cookie-cutter: need more headroom, stamp out another cell.
+        When a new cell joins the ring it claims a proportional slice of the keyspace, taking a
+        thin sliver from every existing cell. Compare how much traffic moves under consistent
+        hashing versus the naive <code>hash mod N</code> approach:
+      </p>
+      <ScaleDemo />
       <div className="callout">
         <strong>Cells also cap other risks:</strong> deployments roll cell-by-cell (a bad release
         hits one cell, not the fleet), load tests validate one cell's known capacity, and a
