@@ -13,11 +13,12 @@ This repository teaches that pattern two ways:
    and scaling with zero AWS setup. Build it with `npm run build:site` or open
    the dev server with `cd site && npm run dev`.
 
-   **Deploy it for review** (no AWS involved): import this repo at
-   [vercel.com/new](https://vercel.com/new) — the root `vercel.json` builds and
-   serves only `site/` — or run `npx vercel` from the repo root. Merging to
-   `main` also publishes it to GitHub Pages via
-   `.github/workflows/pages.yml`.
+   **Hosting** (no AWS involved): the site auto-deploys on Vercel from GitHub —
+   the root `vercel.json` builds and serves only `site/`, and every push to
+   `main` ships it. Point your `siteDomainName` (e.g. `cellintro.example.com`)
+   at the Vercel project, and set the project's `DEMO_ADMIN_URL` env var to
+   your deployed admin URL so the site's "Live demo" links render. Merging to
+   `main` also publishes to GitHub Pages via `.github/workflows/pages.yml`.
 2. **🛠️ Deploy it for real** — a full serverless implementation on AWS (Lambda,
    DynamoDB, API Gateway, CloudFront, Route 53) that you can stand up in your
    own account. See [QUICKSTART.md](QUICKSTART.md).

@@ -1,0 +1,96 @@
+# Auto-deploys the AWS demo (backend, routing, cells, admin/spa/router
+# frontends) on every push to main that touches it. The educational site in
+# site/ is deliberately NOT deployed here - Vercel auto-deploys it from GitHub.
+#
+# One-time setup:
+#   1. Deploy infrastructure/templates/github-oidc-role.yaml once
+#      (parameters: your GitHub org + repo). Copy the DeployRoleArn output.
+#   2. Repo Settings -> Secrets and variables -> Actions:
+#        AWS_DEPLOY_ROLE_ARN  = the role ARN from step 1
+#        CELLS_CONFIG_JSON    = the full contents of your config.json
+# Until both secrets exist, this workflow exits early and stays green.
+
+name: Deploy AWS demo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - 'infrastructure/**'
+      - '.github/workflows/deploy-aws.yml'
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: aws-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+    steps:
+      - name: Check deploy secrets
+        id: guard
+        env:
+          ROLE_ARN: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          CONFIG_JSON: ${{ secrets.CELLS_CONFIG_JSON }}
+        run: |
+          if [ -z "$ROLE_ARN" ] || [ -z "$CONFIG_JSON" ]; then
+            echo "::notice::AWS_DEPLOY_ROLE_ARN / CELLS_CONFIG_JSON secrets not configured - skipping AWS deploy."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.guard.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        if: steps.guard.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install AWS SAM CLI
+        if: steps.guard.outputs.enabled == 'true'
+        run: pip install --quiet aws-sam-cli
+
+      - name: Write config.json
+        if: steps.guard.outputs.enabled == 'true'
+        env:
+          CONFIG_JSON: ${{ secrets.CELLS_CONFIG_JSON }}
+        run: |
+          printf '%s' "$CONFIG_JSON" > config.json
+          # never let the CI runner pick up a local profile from the config
+          jq '.deployment.awsProfile = ""' config.json > config.tmp && mv config.tmp config.json
+          jq -r '"project: " + .projectName + " · regions: " + (.regions | join(","))' config.json
+
+      - name: Configure AWS credentials (OIDC)
+        if: steps.guard.outputs.enabled == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy infrastructure (global, routing, cells)
+        if: steps.guard.outputs.enabled == 'true'
+        working-directory: infrastructure/scripts
+        run: ./deploy.sh
+
+      - name: Deploy frontends (admin, per-cell SPA, router pages)
+        if: steps.guard.outputs.enabled == 'true'
+        working-directory: infrastructure/scripts
+        run: ./deploy-frontend.sh
+
+      - name: Smoke test
+        if: steps.guard.outputs.enabled == 'true'
+        working-directory: infrastructure/scripts
+        run: ./smoke-test.sh

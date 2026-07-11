@@ -81,7 +81,9 @@ Set `domainName` (e.g. `cells.example.com`), optionally `siteDomainName`
 (e.g. `cellintro.example.com`), and `hostedZoneId` in `config.json`, then
 re-run `./setup.sh`. You get:
 
-- Educational site: `https://{siteDomainName}` (own S3+CloudFront stack)
+- Educational site: `https://{siteDomainName}` — hosted on **Vercel**, not AWS:
+  add the domain to your Vercel project and point the Route 53 record at
+  Vercel per its instructions (the AWS stacks never touch the site)
 - Admin dashboard + router pages: `https://admin.{domain}`
 - Routing API: `https://api.{domain}`
 - Every cell: `https://{cell-id}.{domain}`
@@ -126,3 +128,27 @@ global stacks.
   runtime deps into `backend/dist/`).
 - **Custom domain not resolving** — DNS + certificate validation can take
   10–15 minutes; check the certificate status in ACM (us-east-1).
+
+## Auto-deploy (GitHub Actions)
+
+Pushes to `main` deploy automatically:
+
+- **Educational site** → Vercel builds `site/` on every push (root `vercel.json`).
+  One-time: import the repo in Vercel, set env `DEMO_ADMIN_URL`, add your
+  `siteDomainName` as the project domain.
+- **AWS demo** → `.github/workflows/deploy-aws.yml` runs deploy.sh,
+  deploy-frontend.sh, and smoke-test.sh on any push touching `backend/`,
+  `frontend/`, or `infrastructure/`. One-time bootstrap:
+
+  ```bash
+  cd infrastructure/scripts
+  sam deploy --template-file ../templates/github-oidc-role.yaml \
+    --stack-name my-cell-demo-github-deploy --region us-east-1 \
+    --capabilities CAPABILITY_NAMED_IAM \
+    --parameter-overrides GitHubOrg=YOUR_ORG GitHubRepo=YOUR_REPO ProjectName=my-cell-demo
+  ```
+
+  Then add two repo secrets (Settings → Secrets and variables → Actions):
+  `AWS_DEPLOY_ROLE_ARN` (the stack's `DeployRoleArn` output) and
+  `CELLS_CONFIG_JSON` (the full contents of your `config.json`). Until the
+  secrets exist the workflow skips itself and stays green.

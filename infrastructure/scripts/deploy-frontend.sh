@@ -57,14 +57,11 @@ if [ -z "$ROUTING_API" ] || [ "$ROUTING_API" == "None" ]; then
     exit 1
 fi
 
-# Educational-site URL (if its hosting stack is deployed) - injected into the
-# demo frontends so they can link back to the guide.
-INTRO_URL=$(aws cloudformation describe-stacks \
-    --stack-name ${PROJECT_NAME}-site \
-    --region us-east-1 \
-    --query 'Stacks[0].Outputs[?OutputKey==`SiteUrl`].OutputValue' \
-    --output text 2>/dev/null || true)
-if [ "$INTRO_URL" == "None" ]; then INTRO_URL=""; fi
+# Educational-site URL - the site is hosted on Vercel (auto-deployed from
+# GitHub), so the link target comes straight from config.json's siteDomainName.
+SITE_DOMAIN_NAME="${SITE_DOMAIN_NAME:-$(jq -r '.siteDomainName // empty' $CONFIG_FILE 2>/dev/null)}"
+INTRO_URL=""
+if [ ! -z "$SITE_DOMAIN_NAME" ]; then INTRO_URL="https://${SITE_DOMAIN_NAME}"; fi
 
 # Build admin tool with the routing API injected (webpack DefinePlugin)
 echo -e "\n${YELLOW}Building admin tool...${NC}"
@@ -139,24 +136,6 @@ for region in "${REGION_ARRAY[@]}"; do
     done
 done
 
-# Deploy the educational site if its hosting stack exists
-SITE_BUCKET=$(aws cloudformation describe-stacks \
-    --stack-name ${PROJECT_NAME}-site \
-    --region us-east-1 \
-    --query 'Stacks[0].Outputs[?OutputKey==`SiteBucket`].OutputValue' \
-    --output text 2>/dev/null || true)
-
-if [ ! -z "$SITE_BUCKET" ] && [ "$SITE_BUCKET" != "None" ]; then
-    echo -e "\n${YELLOW}Building and deploying the educational site...${NC}"
-    (cd ../site && npm install && DEMO_ADMIN_URL="$ADMIN_URL" npm run build)
-    aws s3 sync ../site/dist/ s3://${SITE_BUCKET}/ --delete
-    SITE_URL=$(aws cloudformation describe-stacks \
-        --stack-name ${PROJECT_NAME}-site \
-        --region us-east-1 \
-        --query 'Stacks[0].Outputs[?OutputKey==`SiteUrl`].OutputValue' \
-        --output text)
-    echo -e "${GREEN}Educational site:${NC} ${SITE_URL}"
-fi
 
 # Get URLs
 echo -e "\n${GREEN}Frontend deployment completed!${NC}"
