@@ -4,7 +4,7 @@ import Icon from '../ui/icons';
 import KeyHint, { useHotkeys } from '../ui/KeyHint';
 
 /** True when the user asked the OS for reduced motion — gates the SMIL/JS animation. */
-function usePrefersReducedMotion(): boolean {
+export function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   );

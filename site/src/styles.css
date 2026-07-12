@@ -811,6 +811,56 @@ section#beyond-cells h3 + p {
   color: var(--good);
 }
 
+.pager-steps .step-time {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The side-by-side incident clocks: 2:20 resolved vs 3:13 still impacted */
+.pager-clock {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+  color: var(--muted);
+}
+
+.pager-clock .time {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+  animation: time-bump 0.45s ease;
+}
+
+.pager-clock.impacted .time,
+.pager-clock.impacted .icon {
+  color: var(--critical);
+}
+
+.pager-clock.resolved .time,
+.pager-clock.resolved .icon {
+  color: var(--good);
+}
+
+.pager-clock .note {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  max-width: 300px;
+}
+
+@keyframes time-bump {
+  30% {
+    transform: translateY(-2px);
+  }
+}
+
 .chip-grid {
   display: flex;
   flex-wrap: wrap;
@@ -818,24 +868,35 @@ section#beyond-cells h3 + p {
   margin: 0 0 0.8rem;
 }
 
+/* Suspect chips are inert status tiles — the Investigate button drives them */
 .chip-btn {
+  display: inline-flex;
+  align-items: center;
   font-size: 0.75rem;
   font-weight: 600;
   padding: 0.28rem 0.6rem;
   border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--ink-2);
+  transition: border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chip-btn.probing {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+  animation: chip-pulse 0.75s ease-in-out infinite;
 }
 
 .chip-btn.cleared {
   opacity: 0.55;
   border-style: dashed;
-  cursor: default;
 }
 
 .chip-btn.culprit {
   border-color: var(--critical);
   color: var(--critical);
-  opacity: 1;
-  cursor: default;
 }
 
 .pager-status {
