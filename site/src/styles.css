@@ -868,18 +868,15 @@ section#beyond-cells h3 + p {
   margin: 0 0 0.8rem;
 }
 
-/* Suspect chips are inert status tiles — the Investigate button drives them */
+/* Suspect chips: clickable — pick your own suspect, or let Investigate guess */
 .chip-btn {
-  display: inline-flex;
-  align-items: center;
   font-size: 0.75rem;
   font-weight: 600;
   padding: 0.28rem 0.6rem;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
   color: var(--ink-2);
-  transition: border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease,
+    box-shadow 0.2s ease, transform 0.15s ease;
 }
 
 .chip-btn.probing {
@@ -892,11 +889,14 @@ section#beyond-cells h3 + p {
 .chip-btn.cleared {
   opacity: 0.55;
   border-style: dashed;
+  cursor: default;
 }
 
 .chip-btn.culprit {
   border-color: var(--critical);
   color: var(--critical);
+  opacity: 1;
+  cursor: default;
 }
 
 .pager-status {
@@ -1079,6 +1079,103 @@ section.lesson a.deep-dive-btn {
 
 a.deep-dive-btn:hover {
   transform: translateY(-1px);
+}
+
+/* Isolation stepper (primer §03): what each concept isolates vs leaves coupled */
+.iso-stepper:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.iso-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1.1rem;
+  margin-top: 0.35rem;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.iso-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.iso-legend .swatch {
+  display: inline-block;
+  width: 22px;
+  height: 11px;
+  border-radius: 3px;
+}
+
+.iso-legend .swatch.solid {
+  border: 1.6px solid var(--cell-1);
+}
+
+.iso-legend .swatch.dashed {
+  border: 1.4px dashed var(--critical);
+}
+
+.iso-key-hint {
+  margin-left: auto;
+  font-size: 0.72rem;
+}
+
+.iso-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0.65rem;
+}
+
+@media (max-width: 640px) {
+  .iso-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .iso-key-hint {
+    display: none; /* no keyboard on touch */
+  }
+}
+
+.iso-fact {
+  border: 1px solid var(--grid);
+  border-radius: 9px;
+  padding: 0.55rem 0.75rem;
+  background: var(--surface-1);
+}
+
+.iso-fact-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 0.25rem;
+}
+
+.iso-fact.isolates .iso-fact-label {
+  color: var(--good);
+}
+
+.iso-fact.coupled .iso-fact-label {
+  color: var(--critical);
+}
+
+.iso-fact.payoff .iso-fact-label {
+  color: var(--accent);
+}
+
+.iso-fact p {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.45;
 }
 
 /* Wide primer tables scroll inside the panel, never the page */

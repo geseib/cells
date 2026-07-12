@@ -760,8 +760,8 @@ const DeckApp: React.FC = () => {
             <p>The percentage is the visible win. The deeper one: what does the on-call human have to FIGURE OUT before they can act? Both pagers fire at 2:13 AM — watch the two clocks.</p>
             <ul>
               <li>First right-arrow drains cell-2: the alarm already named the failure domain, so recovery is one routing decision. 2:20 AM — your customers are working again. Seven minutes, zero diagnosis.</li>
-              <li>Each next right-arrow investigates one RANDOM suspect in the monolith: a suspense beat while the dashboards load… "metrics look normal"… and the clock jumps 15 minutes. Let the audience feel every dead end.</li>
-              <li>The root cause is always found last — in a monolith nothing points anywhere, so you only reach it by eliminating everything else. 3:13 AM: root cause found after 4 dead ends, customers STILL impacted — and the fix hasn't even started.</li>
+              <li>Each next right-arrow investigates one RANDOM suspect in the monolith: a suspense beat while the dashboards load… "metrics look normal"… and the clock jumps 15 minutes. Let the audience feel every dead end — or let them drive: every suspect chip is clickable, so check whatever they call out. The clock counts whichever path is taken.</li>
+              <li>The scripted walk saves the root cause for the fifth press — in a monolith nothing points anywhere, so you reach it by eliminating everything else. 3:13 AM: root cause found after 4 dead ends, customers STILL impacted — and the fix hasn't even started. (A lucky audience click on Replica-B ends the walk early and the clock rewards it — also the point: luck is not a runbook.)</li>
               <li>Punchline: 2:20 vs 3:13. Cells make the failure domain and the recovery action the same object; root-causing becomes a daytime problem.</li>
             </ul>
           </aside>

@@ -235,82 +235,89 @@ const TopologyContrast: React.FC = () => {
 /* The 2am pager test: recovery without diagnosis                      */
 /* ------------------------------------------------------------------ */
 
-const SUSPECTS = ['LB-1', 'App-2', 'Cache', 'DB-primary', 'Replica-B'];
+const SUSPECTS = [
+  'LB-1', 'LB-2', 'App-1', 'App-2', 'App-3', 'Cache',
+  'Queue', 'DB-primary', 'Replica-A', 'Replica-B', 'DNS', 'Config-svc',
+];
 const CULPRIT = 'Replica-B';
 const DEAD_END_VERDICTS = ['metrics look normal', 'inconclusive', 'logs are noisy'];
 const PAGE_MINUTES = 2 * 60 + 13; // both pagers fire at 2:13 AM
 const COST_PER_CHECK = 15;        // every ruled-out suspect costs 15 minutes
 const PROBE_MS = 650;             // the suspense beat while a suspect is under the lens
+const AUTO_DEAD_ENDS = 4;         // the auto-walk's scripted misery: 4 dead ends, then the culprit
 
 const fmtTime = (mins: number) => `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, '0')} AM`;
 
-/**
- * A fresh random investigation order for each run — but the culprit is always
- * found LAST. That is the point of the demo: in a monolith nothing tells you
- * where to look, so you only reach the root cause by eliminating everything else.
- */
-const shuffledOrder = () => {
-  const rest = SUSPECTS.filter((c) => c !== CULPRIT);
-  for (let i = rest.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [rest[i], rest[j]] = [rest[j], rest[i]];
-  }
-  return [...rest, CULPRIT];
-};
-
 export const PagerTest: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const [drained, setDrained] = useState(false);
-  const [order, setOrder] = useState<string[]>(shuffledOrder);
-  const [checkedCount, setCheckedCount] = useState(0);      // committed checks, in `order` order
-  const [probeAt, setProbeAt] = useState<number | null>(null); // index currently under the lens
+  const [checked, setChecked] = useState<string[]>([]);        // committed checks, in click order
+  const [probing, setProbing] = useState<string | null>(null); // suspect currently under the lens
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const reduced = usePrefersReducedMotion();
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const found = checkedCount >= order.length;
-  const deadEnds = Math.min(checkedCount, order.length - 1);
+  const found = checked.includes(CULPRIT);
+  const deadEnds = checked.filter((c) => c !== CULPRIT).length;
   const monoMinutes = PAGE_MINUTES + COST_PER_CHECK * deadEnds;
 
-  /** One investigation step: random suspect → brief highlight → checked off. */
-  const investigate = () => {
-    if (found) return;
-    let base = checkedCount;
-    if (probeAt !== null) {
-      // impatient press mid-beat: bank the in-flight check, move straight on
-      clearTimeout(timer.current);
-      base = Math.max(base, probeAt + 1);
-      setCheckedCount(base);
-      setProbeAt(null);
-      if (base >= order.length) return;
-    }
-    const idx = base;
+  /** Bank any in-flight check immediately; returns the up-to-date checked list. */
+  const bankProbe = (): string[] => {
+    if (probing === null) return checked;
+    clearTimeout(timer.current);
+    const cur = checked.includes(probing) ? checked : [...checked, probing];
+    setChecked(cur);
+    setProbing(null);
+    return cur;
+  };
+
+  /** The suspense beat: highlight `c` briefly, then check it off. */
+  const startBeat = (c: string, cur: string[]) => {
     if (reduced) {
-      setCheckedCount(idx + 1); // no suspense beat under reduced motion
+      setChecked([...cur, c]); // no suspense beat under reduced motion
       return;
     }
-    setProbeAt(idx);
+    setProbing(c);
     timer.current = setTimeout(() => {
-      setCheckedCount((n) => Math.max(n, idx + 1));
-      setProbeAt((p) => (p === idx ? null : p));
+      setChecked((prev) => (prev.includes(c) ? prev : [...prev, c]));
+      setProbing((p) => (p === c ? null : p));
     }, PROBE_MS);
   };
 
-  /** Undo one step (deck left-arrow): cancel the probe, else roll back a check. */
+  /** Manual pick: the user (or audience) names the suspect. Luck counts —
+   *  hit Replica-B early and the clock rewards you. */
+  const check = (c: string) => {
+    const cur = bankProbe();
+    if (cur.includes(CULPRIT) || cur.includes(c)) return;
+    startBeat(c, cur);
+  };
+
+  /** Auto-pick (deck right-arrow, Investigate button): a random unchecked
+   *  dead end until the scripted quota is spent, then the culprit — in a
+   *  monolith nothing points anywhere, so the walk earns its 3:13 AM. */
+  const investigate = () => {
+    const cur = bankProbe();
+    if (cur.includes(CULPRIT)) return;
+    const pool = SUSPECTS.filter((c) => c !== CULPRIT && !cur.includes(c));
+    const spent = cur.filter((c) => c !== CULPRIT).length >= AUTO_DEAD_ENDS;
+    const next = spent || pool.length === 0 ? CULPRIT : pool[Math.floor(Math.random() * pool.length)];
+    startBeat(next, cur);
+  };
+
+  /** Undo one step (deck left-arrow): cancel the probe, else roll back the latest check. */
   const undo = () => {
     clearTimeout(timer.current);
-    if (probeAt !== null) {
-      setProbeAt(null);
+    if (probing !== null) {
+      setProbing(null);
       return;
     }
-    setCheckedCount((n) => Math.max(0, n - 1));
+    setChecked((prev) => prev.slice(0, -1));
   };
 
   const resetWalk = () => {
     clearTimeout(timer.current);
-    setProbeAt(null);
-    setCheckedCount(0);
-    setOrder(shuffledOrder()); // reshuffle so every replay feels alive
+    setProbing(null);
+    setChecked([]);
   };
 
   // Presenter keys (slide deck only)
@@ -377,27 +384,28 @@ export const PagerTest: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) 
             <span className="time" key={monoMinutes}>{fmtTime(monoMinutes)}</span>
             <span className="note">
               {found
-                ? `root cause found after ${deadEnds} dead ends — your customers are still impacted`
+                ? `root cause found ${deadEnds ? `after ${deadEnds} dead end${deadEnds === 1 ? '' : 's'}` : 'immediately (a lucky guess)'} — your customers are still impacted`
                 : 'customers impacted — and nothing says where'}
             </span>
           </div>
           <p className="pager-hint">
-            Something shared is sick and nothing points anywhere. Check suspects one at a time —
-            every dead end costs {COST_PER_CHECK} minutes:
+            Something shared is sick and nothing points anywhere. Pick a suspect yourself — or let
+            the runbook guess — every dead end costs {COST_PER_CHECK} minutes:
           </p>
           <div className="chip-grid">
             {SUSPECTS.map((c) => {
-              const idx = order.indexOf(c);
-              const done = idx < checkedCount;
-              const probing = probeAt === idx && !done;
+              const done = checked.includes(c);
+              const isProbing = probing === c && !done;
               return (
-                <span
+                <button
                   key={c}
-                  className={`chip-btn${done ? (c === CULPRIT ? ' culprit' : ' cleared') : probing ? ' probing' : ''}`}
+                  className={`chip-btn${done ? (c === CULPRIT ? ' culprit' : ' cleared') : isProbing ? ' probing' : ''}`}
+                  onClick={() => check(c)}
+                  disabled={done || found}
                 >
                   {c}
-                  {probing ? ' · checking…' : done ? ` · ${verdict(c)}${c === CULPRIT ? '' : ' · +15 min'}` : ''}
-                </span>
+                  {isProbing ? ' · checking…' : done ? ` · ${verdict(c)}${c === CULPRIT ? '' : ' · +15 min'}` : ''}
+                </button>
               );
             })}
           </div>
@@ -410,13 +418,13 @@ export const PagerTest: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) 
             <span className={`pager-status${found ? ' found' : ''}`}>
               {found
                 ? `now design a safe fix and ship it — at ${fmtTime(monoMinutes)}, on no sleep`
-                : probeAt !== null
-                  ? `pulling dashboards for ${order[probeAt]}…`
-                  : checkedCount
+                : probing !== null
+                  ? `pulling dashboards for ${probing}…`
+                  : checked.length
                     ? `${deadEnds} ruled out · error rate still 42%`
                     : 'the alarm names clients, not a component — start guessing'}
             </span>
-            {(checkedCount > 0 || probeAt !== null) && (
+            {(checked.length > 0 || probing !== null) && (
               <button onClick={resetWalk}>Reset{hotkeys && <KeyHint k="R" />}</button>
             )}
           </div>
