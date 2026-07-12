@@ -406,12 +406,12 @@ const SLIDE_SCRIPTS: SlideScript[] = [
   },
   // 3 · 2am pager: drain the cell side (2:20 — resolved), then walk the
   //     monolith one random dead end at a time until the root cause at 3:13.
-  //     Five 'i' phases = 4 dead ends + the culprit; 'u' undoes one check.
+  //     Four 'i' phases = 3 dead ends + the culprit (every check costs 15,
+  //     the right one included); 'u' undoes one check.
   {
     enter: ['r'],
     phases: [
       { fwd: ['d'], back: ['r'] },
-      { fwd: ['i'], back: ['u'] },
       { fwd: ['i'], back: ['u'] },
       { fwd: ['i'], back: ['u'] },
       { fwd: ['i'], back: ['u'] },
@@ -761,7 +761,7 @@ const DeckApp: React.FC = () => {
             <ul>
               <li>First right-arrow drains cell-2: the alarm already named the failure domain, so recovery is one routing decision. 2:20 AM — your customers are working again. Seven minutes, zero diagnosis.</li>
               <li>Each next right-arrow investigates one RANDOM suspect in the monolith: a suspense beat while the dashboards load… "metrics look normal"… and the clock jumps 15 minutes. Let the audience feel every dead end — or let them drive: every suspect chip is clickable, so check whatever they call out. The clock counts whichever path is taken.</li>
-              <li>The scripted walk saves the root cause for the fifth press — in a monolith nothing points anywhere, so you reach it by eliminating everything else. 3:13 AM: root cause found after 4 dead ends, customers STILL impacted — and the fix hasn't even started. (A lucky audience click on Replica-B ends the walk early and the clock rewards it — also the point: luck is not a runbook.)</li>
+              <li>The scripted walk saves the root cause for the fourth press — in a monolith nothing points anywhere, so you reach it by eliminating everything else. Every check costs 15 minutes, INCLUDING confirming the real culprit: 3 dead ends + the root-cause check = 3:13 AM, customers STILL impacted — and the fix hasn't even started. (A lucky audience click on Replica-B ends the walk early and the clock is kinder — also the point: luck is not a runbook.)</li>
               <li>Punchline: 2:20 vs 3:13. Cells make the failure domain and the recovery action the same object; root-causing becomes a daytime problem.</li>
             </ul>
           </aside>
