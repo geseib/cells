@@ -344,6 +344,9 @@ const SLIDE_ACTIONS: { key: string; label: string }[][] = [
     { key: 'c', label: 'Cure the poison' },
   ],
   [
+    { key: 'h', label: 'Pick a hand — count the damage' },
+    { key: 'c', label: 'Clear the hand' },
+    { key: '4', label: 'Flip: count it / scale it' },
     { key: '1', label: 'Route 53 scale preset' },
     { key: '2', label: 'Small fleet preset' },
     { key: '3', label: 'Mega fleet preset' },
@@ -472,12 +475,17 @@ const SLIDE_SCRIPTS: SlideScript[] = [
     enter: ['c'],
     phases: [{ fwd: ['a'], back: ['a'] }],
   },
-  // 8 · The math: Route 53 preset → small fleet → mega
+  // 11 · The math: count-it hand grid first (pick the hand → 1/12/15),
+  //      then flip to the scale-it calculator and walk the presets.
+  //      Enter: '1' resets the sliders to the Route 53 preset, then 'c'
+  //      flips back to the count view with no hand picked.
   {
-    enter: ['1'],
+    enter: ['1', 'c'],
     phases: [
-      { fwd: ['2'], back: ['1'] },
-      { fwd: ['3'], back: ['2'] },
+      { fwd: ['h'], back: ['c'] }, // pick your hand → count 1 / 12 / 15
+      { fwd: ['4'], back: ['4'] }, // flip to the formula (Route 53 preset showing)
+      { fwd: ['2'], back: ['1'] }, // small fleet
+      { fwd: ['3'], back: ['2'] }, // mega fleet
     ],
   },
   // 9 · Static stability: lose AZ → recover → statically stable → lose again
@@ -872,14 +880,16 @@ const DeckApp: React.FC = () => {
 
         {/* 12 · The math */}
         <section>
-          <h2>The math: combinations beat divisions</h2>
+          <h2>The math: count it by hand, then scale it</h2>
           <ShuffleMath hotkeys={slide === 11} />
           <aside className="notes">
-            <p>Three presets: 1 = Route 53 scale (100 workers, shard 5, 1M clients), 2 = small fleet (8/2/10k), 3 = mega (200/7/10M).</p>
+            <p>Step 1 is literally countable: all 28 possible 2-worker hands from 8 workers, on screen. First arrow (H) picks your hand — W3+W6.</p>
             <ul>
-              <li>Preset 1: 20 plain shards become 75 MILLION combinations. Poison blast radius: 5% plain vs about one client — a 1.3% chance even one other client shares the combo.</li>
-              <li>Preset 2 is the honest one: with only 70 combos and 10k clients, shuffle's edge shrinks. The pattern needs a real fleet to shine.</li>
-              <li>One worker dying degrades M·S/N clients but fully downs ZERO — retries land on the other shard members.</li>
+              <li>Narrate the counting: to hurt you, another customer must match your WHOLE hand. Count the grid — one exact match (yours, the only hand fully down), twelve half-overlaps (degraded; a retry lands on their live worker), fifteen untouched. 1 + 12 + 15 = 28. The audience can verify every number by looking.</li>
+              <li>Plain sharding only ever deals 4 of these 28 hands, so 4 customers pile onto each — and go down together.</li>
+              <li>Flip (4): the formula is the same counting at fleet size — C(N,S) is just "how many hands exist". Preset 1 / Route 53 scale: 20 plain shards become 75 MILLION hands; poison blast radius about one client — a 1.3% chance even one other client matches.</li>
+              <li>Preset 2 is the honest one: with only 28 hands and 10k clients, shuffle's edge shrinks. The pattern needs a real fleet to shine. Preset 3: 200 workers, hands of 7 — trillions of hands.</li>
+              <li>One worker dying degrades M·S/N clients but fully downs ZERO — retries land on the rest of the hand.</li>
             </ul>
           </aside>
         </section>

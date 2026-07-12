@@ -379,17 +379,46 @@ const fmtPct = (x: number): string => {
 
 const MAX_WORKERS = 200;
 
+/**
+ * "Pick my hand" default for the deck script: W3+W6, chosen once and fixed so
+ * replays are deterministic (same reason the layouts above are hashKey-seeded).
+ */
+const DEFAULT_HAND = ALL_PAIRS.findIndex(([a, b]) => a === 2 && b === 5);
+
+type HandState = 'down' | 'degraded' | 'untouched';
+
 export const ShuffleMath: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
+  // Step 1 — count it: which of the 28 hands is "yours" (null = none picked)
+  const [hand, setHand] = useState<number | null>(null);
+  // Deck-only: which half is on stage. The guide page always shows both;
+  // deck.css uses [data-view] to swap the halves so neither overflows 1280×800.
+  const [view, setView] = useState<'count' | 'scale'>('count');
+  // Step 2 — scale it
   const [workers, setWorkers] = useState(100);
   const [shardSize, setShardSize] = useState(5);
   const [clientExp, setClientExp] = useState(6); // clients = 10^clientExp
 
-  // Presenter keys (slide deck only): preset scenarios
+  // Presenter keys (slide deck only): H pick the hand, C clear it, 4 flip
+  // halves, 1/2/3 preset scenarios (presets also flip to the scale half)
   useHotkeys(hotkeys, {
-    '1': () => { setWorkers(100); setShardSize(5); setClientExp(6); }, // Route 53 scale
-    '2': () => { setWorkers(8); setShardSize(2); setClientExp(4); },   // small fleet
-    '3': () => { setWorkers(200); setShardSize(7); setClientExp(7); }, // mega
+    h: () => { setView('count'); setHand(DEFAULT_HAND); },
+    c: () => { setView('count'); setHand(null); },
+    '4': () => setView((v) => (v === 'count' ? 'scale' : 'count')),
+    '1': () => { setView('scale'); setWorkers(100); setShardSize(5); setClientExp(6); }, // Route 53 scale
+    '2': () => { setView('scale'); setWorkers(8); setShardSize(2); setClientExp(4); },   // small fleet
+    '3': () => { setView('scale'); setWorkers(200); setShardSize(7); setClientExp(7); }, // mega
   });
+
+  // The poison kills both of YOUR workers. Any other hand: covered entirely
+  // by the dead pair → down (only the exact match — i.e. nobody else, since
+  // all 28 hands here are distinct); shares one worker → degraded; else fine.
+  const yours = hand === null ? null : ALL_PAIRS[hand];
+  const handStates: (HandState | null)[] = ALL_PAIRS.map((p) => {
+    if (!yours) return null;
+    const overlap = p.filter((w) => yours.includes(w)).length;
+    return overlap === p.length ? 'down' : overlap > 0 ? 'degraded' : 'untouched';
+  });
+  const countOf = (s: HandState) => handStates.filter((x) => x === s).length;
 
   const s = Math.min(shardSize, Math.floor(workers / 2));
   const clients = Math.round(10 ** clientExp);
@@ -445,73 +474,178 @@ export const ShuffleMath: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }
   );
 
   return (
-    <div className="panel">
-      <div className="controls">
-        {slider('workers (N)', workers, String(workers), 4, MAX_WORKERS, 1, setWorkers, 'Number of workers')}
-        {slider('shard size (S)', shardSize, String(s), 2, 8, 1, setShardSize, 'Workers per shard')}
-        {slider('clients', clientExp, fmtBig(clients), 2, 7, 0.5, setClientExp, 'Number of clients (log scale)')}
-      </div>
-      {hotkeys && (
-        <p className="preset-hint">
-          <KeyHint k="1" /> Route 53 scale · <KeyHint k="2" /> small fleet · <KeyHint k="3" /> mega fleet
+    <div className="panel sm-panel" data-view={view}>
+      {/* ------------------------------------------------------------ */}
+      {/* Step 1 — count it by hand                                     */}
+      {/* ------------------------------------------------------------ */}
+      <div className="sm-step sm-count">
+        <div className="mini-title">Count it — 8 workers, hands of 2</div>
+        <p className="sm-lede">
+          Every possible hand of 2 workers dealt from the same 8 — all {ALL_PAIRS.length} of
+          them, small enough to count. Click one to make it yours: the poison request kills
+          both of <em>your</em> workers, everywhere they appear.
         </p>
-      )}
-      <div className="formula">
-        C(N,S) = N! / (S!·(N−S)!) &nbsp;→&nbsp; C({workers},{s}) = <strong>{fmtBig(combos)}</strong> shards
-        &nbsp;·&nbsp; plain N/S = <strong>{fmtBig(plainShards)}</strong>
+        {hotkeys && (
+          <p className="preset-hint">
+            <KeyHint k="H" /> pick a hand · <KeyHint k="C" /> clear it · <KeyHint k="4" /> flip to the formula
+          </p>
+        )}
+        <div
+          className="hand-grid"
+          role="group"
+          aria-label={`All ${ALL_PAIRS.length} possible two-worker hands from ${WORKER_COUNT} workers`}
+        >
+          {ALL_PAIRS.map((p, i) => {
+            const state = handStates[i];
+            const isYou = hand === i;
+            const cls = ['hand', state ?? '', isYou ? 'you' : ''].filter(Boolean).join(' ');
+            const handName = `W${p[0] + 1}+W${p[1] + 1}`;
+            return (
+              <button
+                key={i}
+                type="button"
+                className={cls}
+                onClick={() => setHand(isYou ? null : i)}
+                aria-pressed={isYou}
+                aria-label={
+                  `hand ${handName}` +
+                  (state === null
+                    ? ' — click to make it yours'
+                    : isYou
+                      ? ' — yours, fully down'
+                      : ` — ${state === 'degraded' ? 'degraded, one worker lost' : state}`)
+                }
+                title={
+                  handName +
+                  (state === null
+                    ? ' (click to make it yours)'
+                    : isYou
+                      ? ' — yours: both workers dead'
+                      : state === 'down'
+                        ? ' — fully down'
+                        : state === 'degraded'
+                          ? ' — lost one worker; a retry lands on the live one'
+                          : ' — untouched')
+                }
+              >
+                {isYou && <span className="you-tag">you</span>}
+                {p.map((w) => {
+                  const dead = yours !== null && yours.includes(w);
+                  return (
+                    <span
+                      key={w}
+                      className={`wchip${dead ? ' dead' : ''}`}
+                      style={{ background: dead ? FAILED_COLOR : CELL_COLOR_VARS[w] }}
+                    >
+                      W{w + 1}
+                    </span>
+                  );
+                })}
+              </button>
+            );
+          })}
+        </div>
+        <div className="hand-counts" aria-live="polite">
+          {yours === null ? (
+            <span>
+              <strong>{ALL_PAIRS.length}</strong> possible hands — every way to pick 2 workers
+              out of {WORKER_COUNT}. Pick yours and count who gets hurt.
+            </span>
+          ) : (
+            <>
+              <span><strong>{ALL_PAIRS.length}</strong> possible hands</span>
+              <span className="hc-down"><strong>{countOf('down')}</strong> fully down — yours, the only exact match</span>
+              <span className="hc-degraded"><strong>{countOf('degraded')}</strong> share one worker — degraded; a retry lands on their live worker</span>
+              <span className="hc-fine"><strong>{countOf('untouched')}</strong> untouched</span>
+            </>
+          )}
+        </div>
+        <p className="sm-contrast">
+          Plain sharding never uses this variety: it only ever deals <strong>4</strong> of
+          these {ALL_PAIRS.length} hands (W1+W2 · W3+W4 · W5+W6 · W7+W8), so 4 customers pile
+          onto each one — and go down together.
+        </p>
+        <p className="panel-hint">
+          To take you down, another customer must match your <strong>entire</strong> hand —
+          sharing one worker only degrades them. With 8 workers and hands of 2 there are
+          just {ALL_PAIRS.length} hands to match. Add workers or deal bigger hands and an
+          exact match becomes astronomically unlikely — stop counting and let the formula
+          count for you:
+        </p>
       </div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: W }} role="img"
-        aria-label={`Combinations C(N,${s}) grow to ${fmtBig(choose(MAX_WORKERS, s))} at ${MAX_WORKERS} workers while plain shards stay near ${Math.floor(MAX_WORKERS / s)}`}>
-        {decades.map((d) => (
-          <g key={d}>
-            <line x1={52} y1={yOf(10 ** d)} x2={W} y2={yOf(10 ** d)} stroke="var(--grid)" />
-            <text x={48} y={yOf(10 ** d) + 3} textAnchor="end" fontSize={9} fill="var(--muted)">10{sup(d)}</text>
-          </g>
-        ))}
-        <polyline points={line((n) => Math.max(1, Math.floor(n / s)))} fill="none" stroke="var(--baseline)" strokeWidth={1.75} strokeDasharray="5 4" />
-        <polyline points={line((n) => choose(n, s))} fill="none" stroke="var(--good)" strokeWidth={2} />
-        <circle cx={xOf(Math.max(nMin, workers))} cy={yOf(combos)} r={4} fill="var(--good)" />
-        <text x={Math.min(xOf(Math.max(nMin, workers)) + 7, W - 110)} y={Math.max(yOf(combos) - 7, 10)} fontSize={9.5} fontWeight={700} fill="var(--good)">
-          C({workers},{s}) = {fmtBig(combos)}
-        </text>
-        <text x={W - 4} y={yOf(Math.floor(MAX_WORKERS / s)) - 5} textAnchor="end" fontSize={9} fill="var(--muted)">
-          plain shards (N/S)
-        </text>
-        <line x1={52} y1={H - PAD_B} x2={W} y2={H - PAD_B} stroke="var(--grid)" />
-        <text x={W - 4} y={H - 6} textAnchor="end" fontSize={9} fill="var(--muted)">workers →</text>
-      </svg>
-      <div className="stat-row">
-        <div className="stat">
-          <div className="value">{fmtBig(plainShards)} → {fmtBig(combos)}</div>
-          <div className="label">possible shards, plain vs shuffle — the same {workers} workers, just recombined</div>
+
+      {/* ------------------------------------------------------------ */}
+      {/* Step 2 — now scale it                                         */}
+      {/* ------------------------------------------------------------ */}
+      <div className="sm-step sm-scale">
+        <div className="mini-title">Scale it — the same counting at fleet size</div>
+        <div className="controls">
+          {slider('workers (N)', workers, String(workers), 4, MAX_WORKERS, 1, setWorkers, 'Number of workers')}
+          {slider('hand size (S)', shardSize, String(s), 2, 8, 1, setShardSize, 'Workers per hand')}
+          {slider('clients', clientExp, fmtBig(clients), 2, 7, 0.5, setClientExp, 'Number of clients (log scale)')}
         </div>
-        <div className="stat">
-          <div className="value">1 in {fmtBig(combos)}</div>
-          <div className="label">chance a given other client holds your exact {s}-worker combination</div>
+        {hotkeys && (
+          <p className="preset-hint">
+            <KeyHint k="1" /> Route 53 scale · <KeyHint k="2" /> small fleet · <KeyHint k="3" /> mega fleet · <KeyHint k="4" /> back to counting
+          </p>
+        )}
+        <div className="formula">
+          ways to deal a hand of {s} from {workers} workers: C({workers},{s}) = <strong>{fmtBig(combos)}</strong>
+          &nbsp;·&nbsp; plain sharding: only N/S = <strong>{fmtBig(plainShards)}</strong> fixed hands
         </div>
-        <div className="stat">
-          <div className="value">{othersOnMyCombo < 0.001 ? '≈ 0' : fmtCount(othersOnMyCombo).replace('≈ ', '')}</div>
-          <div className="label">expected other clients (of {fmtBig(clients)}) sharing your full shard</div>
-        </div>
-      </div>
-      <div className="stat-row">
-        <div className="stat">
-          <div className="value bad">{fmtCount(poisonPlain)} · {fmtPct(poisonPlain / clients)}</div>
-          <div className="label">poison customer, plain sharding: their whole fixed shard of clients goes down</div>
-        </div>
-        <div className="stat">
-          <div className="value good">{fmtCount(poisonShuffle)} · {fmtPct(poisonShuffle / clients)}</div>
-          <div className="label">
-            poison customer, shuffle sharding: {chanceAnyOther < 0.5
-              ? `only a ${fmtPct(chanceAnyOther)} chance even one other client goes down with them`
-              : 'their combo-mates only — everyone else keeps at least one live worker'}
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: W }} role="img"
+          aria-label={`Possible hands C(N,${s}) grow to ${fmtBig(choose(MAX_WORKERS, s))} at ${MAX_WORKERS} workers while plain shards stay near ${Math.floor(MAX_WORKERS / s)}`}>
+          {decades.map((d) => (
+            <g key={d}>
+              <line x1={52} y1={yOf(10 ** d)} x2={W} y2={yOf(10 ** d)} stroke="var(--grid)" />
+              <text x={48} y={yOf(10 ** d) + 3} textAnchor="end" fontSize={9} fill="var(--muted)">10{sup(d)}</text>
+            </g>
+          ))}
+          <polyline points={line((n) => Math.max(1, Math.floor(n / s)))} fill="none" stroke="var(--baseline)" strokeWidth={1.75} strokeDasharray="5 4" />
+          <polyline points={line((n) => choose(n, s))} fill="none" stroke="var(--good)" strokeWidth={2} />
+          <circle cx={xOf(Math.max(nMin, workers))} cy={yOf(combos)} r={4} fill="var(--good)" />
+          <text x={Math.min(xOf(Math.max(nMin, workers)) + 7, W - 110)} y={Math.max(yOf(combos) - 7, 10)} fontSize={9.5} fontWeight={700} fill="var(--good)">
+            C({workers},{s}) = {fmtBig(combos)}
+          </text>
+          <text x={W - 4} y={yOf(Math.floor(MAX_WORKERS / s)) - 5} textAnchor="end" fontSize={9} fill="var(--muted)">
+            plain shards (N/S)
+          </text>
+          <line x1={52} y1={H - PAD_B} x2={W} y2={H - PAD_B} stroke="var(--grid)" />
+          <text x={W - 4} y={H - 6} textAnchor="end" fontSize={9} fill="var(--muted)">workers →</text>
+        </svg>
+        <div className="stat-row">
+          <div className="stat">
+            <div className="value">{fmtBig(plainShards)} → {fmtBig(combos)}</div>
+            <div className="label">possible hands from the same {workers} workers — plain sharding deals N/S fixed hands; shuffle can deal any of the C(N,S)</div>
+          </div>
+          <div className="stat">
+            <div className="value">1 in {fmtBig(combos)}</div>
+            <div className="label">odds another client's hand matches yours exactly — still the only way they go down with you</div>
+          </div>
+          <div className="stat">
+            <div className="value">{othersOnMyCombo < 0.001 ? '≈ 0' : fmtCount(othersOnMyCombo).replace('≈ ', '')}</div>
+            <div className="label">expected clients (of {fmtBig(clients)}) actually dealt your exact hand</div>
           </div>
         </div>
-        <div className="stat">
-          <div className="value">{fmtCount(nodeTouched)} · {fmtPct(Math.min(1, nodeTouched / clients))}</div>
-          <div className="label">
-            one worker dies: clients briefly degraded (they lose 1 of {s}; a retry lands on the
-            other {s - 1}) — <strong>0 fully down</strong>
+        <div className="stat-row">
+          <div className="stat">
+            <div className="value bad">{fmtCount(poisonPlain)} · {fmtPct(poisonPlain / clients)}</div>
+            <div className="label">go down with one poison customer under plain sharding — everyone dealt the same fixed hand shares their fate</div>
+          </div>
+          <div className="stat">
+            <div className="value good">{fmtCount(poisonShuffle)} · {fmtPct(poisonShuffle / clients)}</div>
+            <div className="label">
+              go down under shuffle sharding — {chanceAnyOther < 0.5
+                ? `just a ${fmtPct(chanceAnyOther)} chance even one other client matches their hand`
+                : 'their exact-hand matches only; everyone else keeps a live worker'}
+            </div>
+          </div>
+          <div className="stat">
+            <div className="value">{fmtCount(nodeTouched)} · {fmtPct(Math.min(1, nodeTouched / clients))}</div>
+            <div className="label">
+              briefly degraded when one worker dies — they lose 1 of {s} and a retry lands on
+              the other {s - 1} — <strong>0 fully down</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -953,13 +1087,14 @@ const BeyondCells: React.FC = () => (
     <ShuffleSharding />
 
     <p>
-      Why does this get <em>better</em> as you grow? Because combinations multiply where shards
-      only divide. Plain sharding gives you N/S shards; shuffle sharding gives you
-      C(N,S)&nbsp;=&nbsp;N!/(S!(N−S)!) possible combinations of the <em>same workers</em> — and
-      that number explodes: at shard size 5, going from 20 workers to 100 takes you from
-      ~15&nbsp;thousand combinations to ~75&nbsp;million. The blast radius of a poison customer
-      shrinks just as fast, because taking a second customer down requires them to share
-      your <em>entire</em> combination. Run the numbers yourself:
+      Why does the poison hurt almost nobody? Count it. Think of each customer's workers as
+      a <em>hand of cards</em> dealt from the same deck: to take another customer fully down,
+      the failure must cover their <em>entire</em> hand — sharing just one worker only
+      degrades them, because a retry lands on their surviving worker. The panel below first
+      deals every possible hand so you can count the damage yourself, then hands the counting
+      to the formula: C(N,S) is nothing more than "how many different hands of S you can deal
+      from N workers", and it explodes as you grow — at hand size 5, going from 20 workers
+      to 100 takes you from ~15&nbsp;thousand possible hands to ~75&nbsp;million.
     </p>
     <ShuffleMath />
 

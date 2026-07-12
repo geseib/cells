@@ -957,6 +957,130 @@ section#beyond-cells h3 + p {
   color: var(--ink);
 }
 
+/* Beyond cells: shuffle-math "count it, then scale it" two-step panel */
+.sm-step + .sm-step {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.sm-lede {
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  margin: 0 0 0.4rem;
+  max-width: 680px;
+}
+
+.hand-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 7px;
+  max-width: 600px;
+  margin-top: 0.6rem;
+}
+
+@media (max-width: 560px) {
+  .hand-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.hand {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.3rem;
+  border: 1.5px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-1);
+  cursor: pointer;
+  font: inherit;
+  transition: border-color 0.15s ease, opacity 0.3s ease;
+}
+
+.hand:hover {
+  border-color: var(--baseline);
+}
+
+.hand.you {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+.hand.degraded {
+  border-style: dashed;
+  border-color: var(--critical);
+}
+
+.hand.untouched {
+  opacity: 0.6;
+}
+
+.hand .wchip {
+  flex: 1 1 0;
+  max-width: 2.7em;
+  padding: 3px 0;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.hand .wchip.dead {
+  text-decoration: line-through;
+}
+
+.hand .you-tag {
+  position: absolute;
+  top: -0.6em;
+  right: -0.3em;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.55rem;
+  font-weight: 700;
+  line-height: 1.5;
+  padding: 0 0.5em;
+  border-radius: 999px;
+  letter-spacing: 0.03em;
+}
+
+.hand-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.2rem;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+}
+
+.hand-counts strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.hand-counts .hc-down {
+  color: var(--critical);
+}
+
+.hand-counts .hc-degraded {
+  color: var(--ink);
+}
+
+.hand-counts .hc-fine {
+  color: var(--good);
+}
+
+.sm-contrast {
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  margin: 0.75rem 0 0;
+  max-width: 680px;
+}
+
 /* Beyond cells: the constant-work health-check table */
 .cw-grid {
   display: grid;

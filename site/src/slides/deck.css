@@ -390,6 +390,73 @@ body,
   margin: 0 0 0.6rem;
 }
 
+/* Shuffle-math slide: the guide page stacks "count it" and "scale it", but
+   both together overflow the 1280×800 canvas — on stage the halves swap via
+   the 4 key (data-view is the component's deck-view state) */
+.reveal .sm-panel[data-view='count'] .sm-scale,
+.reveal .sm-panel[data-view='scale'] .sm-count {
+  display: none;
+}
+
+.reveal .sm-step + .sm-step {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.reveal .sm-panel .sm-lede,
+.reveal .sm-panel .mini-title {
+  display: none; /* speaker material — the h2 and notes carry it */
+}
+
+/* six stats + chart must fit under the h2 on the 800px canvas */
+.reveal .sm-panel .stat .value {
+  font-size: 1.55rem;
+}
+
+.reveal .sm-panel .stat .label {
+  font-size: 0.72rem;
+}
+
+.reveal .sm-panel .stat-row {
+  margin-top: 0.6rem;
+  gap: 0.75rem;
+}
+
+.reveal .sm-panel .stat {
+  padding: 0.45rem 0.8rem;
+}
+
+.reveal .sm-scale .controls {
+  margin-bottom: 0.5rem;
+}
+
+.reveal .sm-scale .formula {
+  margin-bottom: 0.5rem;
+  padding: 0.45rem 0.9rem;
+}
+
+.reveal .sm-scale > svg {
+  display: block;
+  margin: 0 auto;
+}
+
+.reveal .hand-grid {
+  max-width: 680px;
+  margin: 0.5rem auto 0;
+}
+
+.reveal .hand-counts {
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.reveal .sm-contrast {
+  max-width: none;
+  text-align: center;
+  font-size: 0.95rem;
+}
+
 /* Fine-print slide: four compact cards */
 .fine-print {
   display: grid;
