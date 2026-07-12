@@ -242,9 +242,9 @@ const SUSPECTS = [
 const CULPRIT = 'Replica-B';
 const DEAD_END_VERDICTS = ['metrics look normal', 'inconclusive', 'logs are noisy'];
 const PAGE_MINUTES = 2 * 60 + 13; // both pagers fire at 2:13 AM
-const COST_PER_CHECK = 15;        // every ruled-out suspect costs 15 minutes
+const COST_PER_CHECK = 15;        // every check costs 15 minutes — including the right one
 const PROBE_MS = 650;             // the suspense beat while a suspect is under the lens
-const AUTO_DEAD_ENDS = 4;         // the auto-walk's scripted misery: 4 dead ends, then the culprit
+const AUTO_DEAD_ENDS = 3;         // the auto-walk's scripted misery: 3 dead ends + the culprit = 4 paid checks
 
 const fmtTime = (mins: number) => `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, '0')} AM`;
 
@@ -259,7 +259,8 @@ export const PagerTest: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) 
 
   const found = checked.includes(CULPRIT);
   const deadEnds = checked.filter((c) => c !== CULPRIT).length;
-  const monoMinutes = PAGE_MINUTES + COST_PER_CHECK * deadEnds;
+  // Every investigation costs time — confirming the root cause is a check too.
+  const monoMinutes = PAGE_MINUTES + COST_PER_CHECK * checked.length;
 
   /** Bank any in-flight check immediately; returns the up-to-date checked list. */
   const bankProbe = (): string[] => {
@@ -384,13 +385,13 @@ export const PagerTest: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) 
             <span className="time" key={monoMinutes}>{fmtTime(monoMinutes)}</span>
             <span className="note">
               {found
-                ? `root cause found ${deadEnds ? `after ${deadEnds} dead end${deadEnds === 1 ? '' : 's'}` : 'immediately (a lucky guess)'} — your customers are still impacted`
+                ? `root cause found ${deadEnds ? `after ${deadEnds} dead end${deadEnds === 1 ? '' : 's'}` : 'on the first check (a lucky guess — it still cost 15 minutes)'} — your customers are still impacted`
                 : 'customers impacted — and nothing says where'}
             </span>
           </div>
           <p className="pager-hint">
             Something shared is sick and nothing points anywhere. Pick a suspect yourself — or let
-            the runbook guess — every dead end costs {COST_PER_CHECK} minutes:
+            the runbook guess — every check costs {COST_PER_CHECK} minutes, the right one included:
           </p>
           <div className="chip-grid">
             {SUSPECTS.map((c) => {
@@ -404,7 +405,7 @@ export const PagerTest: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) 
                   disabled={done || found}
                 >
                   {c}
-                  {isProbing ? ' · checking…' : done ? ` · ${verdict(c)}${c === CULPRIT ? '' : ' · +15 min'}` : ''}
+                  {isProbing ? ' · checking…' : done ? ` · ${verdict(c)} · +15 min` : ''}
                 </button>
               );
             })}
