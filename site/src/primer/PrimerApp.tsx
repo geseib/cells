@@ -3,6 +3,7 @@ import RoadToCells from './RoadToCells';
 import { arcPath, buildRing, cellColor, makeCells, ownershipArcs } from '../sim/simulation';
 import Icon from '../ui/icons';
 import ThemeToggle from '../ui/ThemeToggle';
+import { demoAdminUrl, hasLiveDemo } from '../TryLive';
 
 /**
  * The primer: the problem from first principles, in nobody's cloud accent.
@@ -558,9 +559,15 @@ const PrimerApp: React.FC = () => (
       <a href="#same-thing">Same thing?</a>
       <a href="#patterns">Patterns</a>
       <a href="#reading">Reading</a>
-      <ThemeToggle />
       <span style={{ flex: 1 }} />
-      <a href="./index.html" style={{ fontWeight: 600 }}>Deep dive ↗</a>
+      <a href="./index.html" style={{ fontWeight: 600 }}>Guide</a>
+      <a href="./slides.html" style={{ fontWeight: 600 }}>Slides</a>
+      {hasLiveDemo && (
+        <a href={demoAdminUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>
+          Live demo ↗
+        </a>
+      )}
+      <ThemeToggle />
     </nav>
     <header className="hero">
       <h1>Before cells: why big systems fail big</h1>

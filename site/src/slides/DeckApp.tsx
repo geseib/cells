@@ -6,6 +6,7 @@ import Icon from '../ui/icons';
 import KeyHint, { useHotkeys } from '../ui/KeyHint';
 import ThemeToggle from '../ui/ThemeToggle';
 import RoadToCells from '../primer/RoadToCells';
+import { demoAdminUrl, hasLiveDemo } from '../TryLive';
 import { BlastRadiusDemo, PagerTest } from '../sections/WhyCells';
 import { KillCellDemo } from '../sections/KillCell';
 import { ScaleDemo } from '../sections/Scale';
@@ -529,8 +530,16 @@ const DeckToolbar: React.FC<{ onOverview: () => void; onNotes: () => void }> = (
 }) => (
   <div className="deck-toolbar">
     <a className="dt-btn" href="./index.html" title="Back to the interactive guide">
-      <RingMark size={15} band={4} vnodes={8} /> Site
+      <RingMark size={15} band={4} vnodes={8} /> Guide
     </a>
+    <a className="dt-btn" href="./primer.html" title="The vendor-neutral primer">
+      <Icon name="book-open" size={13} /> Primer
+    </a>
+    {hasLiveDemo && (
+      <a className="dt-btn" href={demoAdminUrl} target="_blank" rel="noopener noreferrer" title="The deployed AWS demo">
+        <Icon name="globe" size={13} /> Live demo
+      </a>
+    )}
     <button className="dt-btn" onClick={onOverview} title="All slides at a glance (O or Esc)">
       <Icon name="maximize" size={13} /> Overview
     </button>
