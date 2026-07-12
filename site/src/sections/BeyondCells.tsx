@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { hashKey, CELL_COLOR_VARS, FAILED_COLOR } from '../sim/simulation';
+import { hashKey, CELL_COLOR_VARS, FAILED_COLOR, DEGRADED_COLOR } from '../sim/simulation';
 import Icon from '../ui/icons';
 import KeyHint, { useHotkeys } from '../ui/KeyHint';
 
@@ -250,8 +250,8 @@ export const ShuffleSharding: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = fal
                   cy={CUST_Y}
                   r={10.5}
                   fill="none"
-                  stroke={FAILED_COLOR}
-                  strokeWidth={1.5}
+                  stroke={DEGRADED_COLOR}
+                  strokeWidth={1.6}
                   strokeDasharray="3 3"
                 />
               )}
@@ -320,7 +320,7 @@ export const ShuffleSharding: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = fal
       </div>
       <div className="legend">
         <span><span className="swatch" style={{ background: FAILED_COLOR }} />poison / fully down</span>
-        <span><span className="swatch" style={{ background: 'transparent', border: `1.5px dashed ${FAILED_COLOR}`, borderRadius: '50%' }} />degraded (1 of 2 workers lost)</span>
+        <span><span className="swatch" style={{ background: 'transparent', border: `1.5px dashed ${DEGRADED_COLOR}`, borderRadius: '50%' }} />degraded (1 of 2 workers lost — amber, not dead)</span>
         <span><span className="swatch" style={{ background: 'var(--ink-2)' }} />unaffected</span>
       </div>
       <div className="stat-row">
@@ -408,8 +408,11 @@ const DEFAULT_HAND = ALL_PAIRS.findIndex(([a, b]) => a === 3 && b === 5);
 type HandState = 'down' | 'degraded' | 'untouched';
 
 export const ShuffleMath: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
-  // Step 1 — count it: which of the 28 hands is "yours" (null = none picked)
+  // Step 1 — count it. ONE scenario at a time so the counters always tell
+  // one story: either a poison client (their hand = yours, BOTH workers die)
+  // or a single dead worker (the redundancy beat — nobody's whole hand dies).
   const [hand, setHand] = useState<number | null>(null);
+  const [deadWorker, setDeadWorker] = useState<number | null>(null);
   // Deck-only: which half is on stage. The guide page always shows both;
   // deck.css uses [data-view] to swap the halves so neither overflows 1280×800.
   const [view, setView] = useState<'count' | 'scale'>('count');
@@ -418,30 +421,46 @@ export const ShuffleMath: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }
   const [shardSize, setShardSize] = useState(5);
   const [clientExp, setClientExp] = useState(6); // clients = 10^clientExp
 
-  // Presenter keys (slide deck only): H pick the hand, C clear it, 4 flip
+  const pickHand = (i: number | null) => {
+    setDeadWorker(null);
+    setHand(i);
+  };
+  const killWorker = (w: number | null) => {
+    setHand(null);
+    setDeadWorker((cur) => (cur === w ? null : w));
+  };
+
+  // Presenter keys (slide deck only): W kill one worker (W1 — deterministic
+  // for the arrow script), H pick the hand, C clear everything, 4 flip
   // halves, 1/2/3 preset scenarios (presets also flip to the scale half)
   useHotkeys(hotkeys, {
-    h: () => { setView('count'); setHand(DEFAULT_HAND); },
-    c: () => { setView('count'); setHand(null); },
+    w: () => { setView('count'); setHand(null); setDeadWorker(0); },
+    h: () => { setView('count'); setDeadWorker(null); setHand(DEFAULT_HAND); },
+    c: () => { setView('count'); setHand(null); setDeadWorker(null); },
     '4': () => setView((v) => (v === 'count' ? 'scale' : 'count')),
     '1': () => { setView('scale'); setWorkers(100); setShardSize(5); setClientExp(6); }, // Route 53 scale
     '2': () => { setView('scale'); setWorkers(8); setShardSize(2); setClientExp(4); },   // small fleet
     '3': () => { setView('scale'); setWorkers(200); setShardSize(7); setClientExp(7); }, // mega
   });
 
-  // The poison kills both of YOUR workers. Any other hand: covered entirely
-  // by the dead pair → down (only the exact match); shares one worker →
-  // degraded; else fine. But damage is counted in CLIENTS, not hands — only
-  // the 16 dealt hands have anyone standing on them, and since 28 possible
-  // hands ≥ 16 clients the deal never repeats a hand, so "down" = you alone.
+  // The dead set: a poison client kills BOTH of its workers; a worker-kill is
+  // exactly one. A hand is down only if the dead set covers it ENTIRELY —
+  // sharing one worker just degrades it (the retry lands on the survivor).
+  // Damage is counted in CLIENTS, not hands: only the 16 dealt hands have
+  // anyone standing on them, and since 28 possible hands ≥ 16 clients the
+  // deal never repeats a hand, so poison "down" = the poison client alone.
   const yours = hand === null ? null : ALL_PAIRS[hand];
+  const deadWorkers: number[] =
+    yours !== null ? [...yours] : deadWorker !== null ? [deadWorker] : [];
   const handStates: (HandState | null)[] = ALL_PAIRS.map((p) => {
-    if (!yours) return null;
-    const overlap = p.filter((w) => yours.includes(w)).length;
+    if (deadWorkers.length === 0) return null;
+    const overlap = p.filter((w) => deadWorkers.includes(w)).length;
     return overlap === p.length ? 'down' : overlap > 0 ? 'degraded' : 'untouched';
   });
   const clientsIn = (s: HandState) =>
     handStates.filter((x, i) => x === s && HAND_CLIENT[i] !== null).length;
+  const scenario: 'none' | 'poison' | 'worker' =
+    hand !== null ? 'poison' : deadWorker !== null ? 'worker' : 'none';
 
   const s = Math.min(shardSize, Math.floor(workers / 2));
   const clients = Math.round(10 ** clientExp);
@@ -507,14 +526,67 @@ export const ShuffleMath: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }
           All {ALL_PAIRS.length} possible hands of 2 from the same {WORKER_COUNT} workers —
           but only the <strong>{DEALT_HANDS}</strong> the demo above actually dealt (one per
           client) have anyone standing on them; the dimmed {EMPTY_HANDS} exist and belong
-          to <em>nobody</em>. Click a dealt hand to make it yours: the poison kills both
-          of <em>your</em> workers, everywhere they appear.
+          to <em>nobody</em>. Two things can break — try both: kill
+          a <strong>worker</strong> (click it in the row below) and nobody drowns, or
+          poison a <strong>client</strong> (click a dealt hand) and both of that hand's
+          workers die.
         </p>
         {hotkeys && (
           <p className="preset-hint">
-            <KeyHint k="H" /> pick a hand · <KeyHint k="C" /> clear it · <KeyHint k="4" /> flip to the formula
+            <KeyHint k="W" /> kill one worker · <KeyHint k="H" /> pick a hand · <KeyHint k="C" /> cure everything · <KeyHint k="4" /> flip to the formula
           </p>
         )}
+        <div
+          className="worker-row"
+          role="group"
+          aria-label={`The ${WORKER_COUNT} workers — click one to kill just that worker`}
+        >
+          <span className="worker-row-label">the {WORKER_COUNT} workers:</span>
+          {Array.from({ length: WORKER_COUNT }, (_, w) => {
+            const dead = deadWorkers.includes(w);
+            return (
+              <button
+                key={w}
+                type="button"
+                className={`worker-chip${dead ? ' dead' : ''}`}
+                style={{ background: dead ? FAILED_COLOR : CELL_COLOR_VARS[w] }}
+                aria-pressed={deadWorker === w}
+                aria-label={
+                  dead
+                    ? `W${w + 1} is dead${scenario === 'poison' ? ' (killed by the poison client)' : ' — click to revive'}`
+                    : `kill only worker W${w + 1}`
+                }
+                title={
+                  dead
+                    ? scenario === 'poison'
+                      ? `W${w + 1} — dead (the poison client took it down)`
+                      : `W${w + 1} — dead; click to revive`
+                    : `kill only W${w + 1} — see who merely degrades`
+                }
+                onClick={() => killWorker(w)}
+              >
+                W{w + 1}{dead ? ' ✗' : ''}
+              </button>
+            );
+          })}
+        </div>
+        <p className="scenario-line" aria-live="polite">
+          {scenario === 'poison' && yours !== null ? (
+            <>
+              <strong className="sc-bad">client {HAND_CLIENT[hand as number]! + 1} is poison</strong> → both of its
+              workers die: <strong className="sc-bad">W{yours[0] + 1} ✗ W{yours[1] + 1} ✗</strong> — now read
+              the grid: every hand touching either worker reacts.
+            </>
+          ) : scenario === 'worker' ? (
+            <>
+              <strong className="sc-bad">W{(deadWorker as number) + 1} died</strong> —
+              just one worker, no poison client: <strong className="sc-warn">{clientsIn('degraded')} of {CUSTOMER_COUNT} clients
+              degraded</strong> (each still has their other worker) · <strong className="sc-good">0 down</strong>.
+            </>
+          ) : (
+            <>Nothing is broken yet — kill a worker above, or poison a client by clicking a dealt hand below.</>
+          )}
+        </p>
         <div
           className="hand-grid"
           role="group"
@@ -530,32 +602,33 @@ export const ShuffleMath: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }
               .join(' ');
             const handName = `W${p[0] + 1}+W${p[1] + 1}`;
             const holder = dealt ? `client ${client + 1}'s hand` : 'possible but empty — dealt to nobody';
+            const isDown = dealt && state === 'down';
             return (
               <button
                 key={i}
                 type="button"
                 className={cls}
                 disabled={!dealt}
-                onClick={() => dealt && setHand(isYou ? null : i)}
+                onClick={() => dealt && pickHand(isYou ? null : i)}
                 aria-pressed={isYou}
                 aria-label={
                   `hand ${handName} — ${holder}` +
                   (!dealt || state === null
                     ? dealt
-                      ? ', click to make it yours'
+                      ? ', click to poison this client'
                       : ''
                     : isYou
-                      ? ', yours, fully down'
+                      ? ', the poison client, fully down'
                       : `, ${state === 'degraded' ? 'degraded, one worker lost' : state}`)
                 }
                 title={
                   `${handName} — ${holder}` +
                   (!dealt || state === null
                     ? dealt
-                      ? ' (click to make it yours)'
+                      ? ' (click to poison this client)'
                       : ''
                     : isYou
-                      ? ' — yours: both workers dead'
+                      ? ' — the poison client: both workers dead'
                       : state === 'down'
                         ? ' — fully down'
                         : state === 'degraded'
@@ -565,12 +638,18 @@ export const ShuffleMath: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }
               >
                 {isYou && <span className="you-tag">you</span>}
                 {p.map((w) => {
-                  const dead = yours !== null && yours.includes(w);
+                  const dead = deadWorkers.includes(w);
                   return (
                     <span
                       key={w}
                       className={`wchip${dead ? ' dead' : ''}`}
-                      style={{ background: dead ? FAILED_COLOR : CELL_COLOR_VARS[w] }}
+                      style={{
+                        background: isDown
+                          ? 'rgba(255,255,255,0.28)'
+                          : dead
+                            ? FAILED_COLOR
+                            : CELL_COLOR_VARS[w],
+                      }}
                     >
                       W{w + 1}
                     </span>
@@ -580,18 +659,35 @@ export const ShuffleMath: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }
             );
           })}
         </div>
+        <div className="legend hand-legend">
+          <span><span className="swatch" style={{ background: FAILED_COLOR }} />fully down (whole hand dead)</span>
+          <span><span className="swatch" style={{ background: DEGRADED_COLOR }} />degraded (1 of 2 lost — retry survives)</span>
+          <span><span className="swatch" style={{ background: 'transparent', border: '1.5px solid var(--border)' }} />untouched</span>
+          <span><span className="swatch" style={{ background: 'transparent', border: '1.5px dashed var(--baseline)', opacity: 0.7 }} />possible, dealt to nobody</span>
+        </div>
         <div className="hand-counts" aria-live="polite">
-          {yours === null ? (
+          {scenario === 'none' ? (
             <span>
               <strong>{ALL_PAIRS.length}</strong> possible hands · <strong>{DEALT_HANDS}</strong>{' '}
-              dealt, one per client · <strong>{EMPTY_HANDS}</strong> empty — pick your hand
+              dealt, one per client · <strong>{EMPTY_HANDS}</strong> empty — break something
               and count the damage in <em>clients</em>.
             </span>
+          ) : scenario === 'worker' ? (
+            <>
+              <span><strong>{CUSTOMER_COUNT}</strong> clients</span>
+              <span className="hc-down">
+                <strong>0</strong> fully down — no client's <em>whole</em> hand died
+              </span>
+              <span className="hc-degraded">
+                <strong>{clientsIn('degraded')}</strong> degraded — their retry lands on their other worker
+              </span>
+              <span className="hc-fine"><strong>{CUSTOMER_COUNT - clientsIn('degraded')}</strong> untouched</span>
+            </>
           ) : (
             <>
               <span><strong>{CUSTOMER_COUNT}</strong> clients</span>
               <span className="hc-down">
-                <strong>{clientsIn('down')}</strong> fully down — you; nobody else holds your hand
+                <strong>{clientsIn('down')}</strong> fully down — the poison client; nobody else holds that exact hand
               </span>
               <span className="hc-degraded">
                 <strong>{clientsIn('degraded')}</strong> degraded — share one dead worker; their retry lands on the live one
@@ -601,9 +697,19 @@ export const ShuffleMath: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }
           )}
         </div>
         <div className="formula">
-          C({WORKER_COUNT},{SHARD_SIZE}) = {ALL_PAIRS.length} possible hands ≥ {CUSTOMER_COUNT} clients
-          &nbsp;→&nbsp; every client's hand is unique &nbsp;→&nbsp; blast radius <strong>1 of {CUSTOMER_COUNT}</strong> (6.25%)
-          vs plain sharding's <strong>4 of {CUSTOMER_COUNT}</strong> (25%)
+          {scenario === 'worker' ? (
+            <>
+              1 of {WORKER_COUNT} workers died &nbsp;→&nbsp; <strong>0 of {CUSTOMER_COUNT}</strong> clients
+              down — every hand holds S&nbsp;=&nbsp;{SHARD_SIZE} workers, so each affected client
+              retries onto the survivor. That's the redundancy.
+            </>
+          ) : (
+            <>
+              C({WORKER_COUNT},{SHARD_SIZE}) = {ALL_PAIRS.length} possible hands ≥ {CUSTOMER_COUNT} clients
+              &nbsp;→&nbsp; every client's hand is unique &nbsp;→&nbsp; blast radius <strong>1 of {CUSTOMER_COUNT}</strong> (6.25%)
+              vs plain sharding's <strong>4 of {CUSTOMER_COUNT}</strong> (25%)
+            </>
+          )}
         </div>
         <p className="sm-contrast">
           Plain sharding never uses this variety: it deals only <strong>4</strong> of
@@ -1142,8 +1248,10 @@ const BeyondCells: React.FC = () => (
       cover their <em>entire</em> hand — sharing one worker only degrades them, because a
       retry lands on the survivor. There are C(8,2)&nbsp;=&nbsp;28 possible hands and only
       16 clients to deal them to, so every client gets a unique hand — and 12 hands sit
-      empty. The panel below lays out all 28, marks the 16 actually dealt, and lets you
-      count the damage client by client before the formula takes over at fleet size:
+      empty. The panel below lays out all 28 and marks the 16 actually dealt. Break it both
+      ways: kill a <em>single worker</em> and nobody drowns (that's the redundancy); poison
+      a <em>client</em> and both of their workers die — count the damage client by client
+      before the formula takes over at fleet size:
     </p>
     <ShuffleMath />
 

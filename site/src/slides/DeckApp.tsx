@@ -344,8 +344,9 @@ const SLIDE_ACTIONS: { key: string; label: string }[][] = [
     { key: 'c', label: 'Cure the poison' },
   ],
   [
-    { key: 'h', label: 'Pick a hand — count the damage' },
-    { key: 'c', label: 'Clear the hand' },
+    { key: 'w', label: 'Kill one worker (W1) — 0 down' },
+    { key: 'h', label: 'Poison a client — count the damage' },
+    { key: 'c', label: 'Cure everything' },
     { key: '4', label: 'Flip: count it / scale it' },
     { key: '1', label: 'Route 53 scale preset' },
     { key: '2', label: 'Small fleet preset' },
@@ -475,15 +476,17 @@ const SLIDE_SCRIPTS: SlideScript[] = [
     enter: ['c'],
     phases: [{ fwd: ['a'], back: ['a'] }],
   },
-  // 11 · The math: count-it hand grid first (pick your hand → clients
-  //      1 down / 6 degraded / 9 untouched), then flip to the scale-it
-  //      calculator and walk the presets. Enter: '1' resets the sliders
-  //      to the Route 53 preset, then 'c' flips back to the count view
-  //      with no hand picked.
+  // 11 · The math: both count-it beats first — kill ONE worker (W: 0 down,
+  //      5 degraded — the redundancy) then poison a client (H replaces the
+  //      worker-kill: 1 down / 6 degraded / 9 untouched — the exact match) —
+  //      then flip to the scale-it calculator and walk the presets.
+  //      Enter: '1' resets the sliders to the Route 53 preset, then 'c'
+  //      flips back to the count view with nothing broken.
   {
     enter: ['1', 'c'],
     phases: [
-      { fwd: ['h'], back: ['c'] }, // pick your hand → clients 1 / 6 / 9
+      { fwd: ['w'], back: ['c'] }, // kill W1 → 0 down, 5 degraded
+      { fwd: ['h'], back: ['w'] }, // poison client 9 → clients 1 / 6 / 9
       { fwd: ['4'], back: ['4'] }, // flip to the formula (Route 53 preset showing)
       { fwd: ['2'], back: ['1'] }, // small fleet
       { fwd: ['3'], back: ['2'] }, // mega fleet
@@ -884,14 +887,13 @@ const DeckApp: React.FC = () => {
           <h2>The math: count it by hand, then scale it</h2>
           <ShuffleMath hotkeys={slide === 11} />
           <aside className="notes">
-            <p>Same fixed scenario: 8 workers, hands of 2, 16 clients. All 28 possible hands on screen — but only the 16 the last slide actually dealt are lit; the 12 dimmed ones belong to NOBODY. First arrow (H) picks your hand — W4+W6, client 9's.</p>
+            <p>Same fixed scenario: 8 workers, hands of 2, 16 clients. All 28 possible hands on screen — but only the 16 the last slide actually dealt are lit; the 12 dimmed ones belong to NOBODY. Two beats, in order: kill a worker, then poison a client.</p>
             <ul>
-              <li>The chain to narrate: plain 25% → shuffle 6.25% → because C(8,2) = 28 possible hands ≥ 16 clients, every client's hand is unique → the only client fully down is you.</li>
-              <li>Count CLIENTS, not hands: 1 fully down (you — nobody else holds your hand), 6 degraded (share one dead worker; their retry lands on the live one), 9 untouched. 1 + 6 + 9 = 16. The audience can verify by looking.</li>
-              <li>Plain sharding deals only 4 of these 28 hands, so 4 clients pile onto each — and go down together. General form: expected hand-mates = (clients − 1)/C(N,S) = 15/28 ≈ 0.5 here.</li>
-              <li>Flip (4): same counting, fleet-sized numbers. Preset 1 / Route 53 scale: 20 plain shards become 75 MILLION hands; poison blast radius about one client — a 1.3% chance even one other client matches.</li>
-              <li>Preset 2 is the honest one: with only 28 hands and 10k clients, shuffle's edge shrinks. The pattern needs a real fleet to shine. Preset 3: 200 workers, hands of 7 — trillions of hands.</li>
-              <li>One worker dying degrades M·S/N clients but fully downs ZERO — retries land on the rest of the hand.</li>
+              <li>Beat 1 — first arrow (W) kills ONLY worker W1: 5 of 16 clients turn amber (degraded — each keeps their other worker and retries onto it), ZERO turn red. One machine dying downs nobody. That's the redundancy everyone expects.</li>
+              <li>Beat 2 — next arrow (H) replaces the worker-kill with a poison CLIENT (client 9, hand W4+W6). Read the causality line: the client is poison, so BOTH of its workers die — that's why hands holding W4 OR W6 react. Solid red = whole hand dead; amber = half a hand.</li>
+              <li>Count CLIENTS, not hands: 1 fully down (the poison client — nobody else holds that exact hand), 6 degraded, 9 untouched. 1 + 6 + 9 = 16. The audience can verify by looking.</li>
+              <li>The chain to narrate: plain 25% → shuffle 6.25% → because C(8,2) = 28 possible hands ≥ 16 clients, every client's hand is unique → the only client fully down is the poison one. General form: expected hand-mates = (clients − 1)/C(N,S) = 15/28 ≈ 0.5 here.</li>
+              <li>Flip (4): same counting, fleet-sized numbers. Preset 1 / Route 53 scale: 20 plain shards become 75 MILLION hands; poison blast radius about one client — a 1.3% chance even one other client matches. Preset 2 is the honest one: 28 hands and 10k clients — the pattern needs a real fleet. Preset 3: 200 workers, hands of 7 — trillions.</li>
             </ul>
           </aside>
         </section>

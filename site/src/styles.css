@@ -23,6 +23,7 @@
   /* status */
   --good: #0ca30c;
   --critical: #d03b3b;
+  --degraded: #b97e07;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -48,6 +49,7 @@
 
     --good: #0ca30c;
     --critical: #e66767;
+    --degraded: #e3aa3d;
   }
 }
 
@@ -982,12 +984,73 @@ section#beyond-cells h3 + p {
   max-width: 680px;
 }
 
+/* the 8 workers, killable one at a time — the redundancy beat */
+.worker-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 0.6rem;
+}
+
+.worker-row-label {
+  font-size: 0.8rem;
+  color: var(--ink-2);
+  margin-right: 0.2rem;
+}
+
+.worker-chip {
+  border: none;
+  border-radius: 6px;
+  padding: 0.3rem 0.65rem;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: transform 0.12s ease, opacity 0.2s ease;
+}
+
+.worker-chip:hover {
+  transform: translateY(-1px);
+}
+
+.worker-chip.dead {
+  text-decoration: line-through;
+}
+
+/* one sentence of causality before any color is interpreted */
+.scenario-line {
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  margin: 0.55rem 0 0;
+  max-width: 680px;
+}
+
+.scenario-line .sc-bad {
+  color: var(--critical);
+}
+
+.scenario-line .sc-warn {
+  color: var(--degraded);
+}
+
+.scenario-line .sc-good {
+  color: var(--good);
+}
+
 .hand-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 7px;
   max-width: 600px;
   margin-top: 0.6rem;
+}
+
+.hand-legend {
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
 }
 
 @media (max-width: 560px) {
@@ -1033,9 +1096,21 @@ section#beyond-cells h3 + p {
   box-shadow: 0 0 0 1.5px var(--accent);
 }
 
-.hand.degraded {
-  border-style: dashed;
+/* fully down = the whole card floods critical; nothing dashed about death */
+.hand.down {
+  background: var(--critical);
   border-color: var(--critical);
+}
+
+.hand.down .wchip {
+  color: #fff;
+}
+
+/* degraded = amber, the same vocabulary as the watch-it demo's dashed ring:
+   wounded but alive, never red */
+.hand.degraded {
+  border-color: var(--degraded);
+  background: color-mix(in srgb, var(--degraded) 12%, transparent);
 }
 
 .hand.untouched {
@@ -1091,7 +1166,7 @@ section#beyond-cells h3 + p {
 }
 
 .hand-counts .hc-degraded {
-  color: var(--ink);
+  color: var(--degraded);
 }
 
 .hand-counts .hc-fine {
@@ -1415,6 +1490,7 @@ a.deep-dive-btn:hover {
 
   --good: #0ca30c;
   --critical: #d03b3b;
+  --degraded: #b97e07;
 }
 
 :root[data-theme='dark'] {
@@ -1439,6 +1515,7 @@ a.deep-dive-btn:hover {
 
   --good: #0ca30c;
   --critical: #e66767;
+  --degraded: #e3aa3d;
 }
 
 /* Mirror the one non-token dark rule in both directions */

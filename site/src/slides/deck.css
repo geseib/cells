@@ -468,6 +468,23 @@ body,
   margin: 0.5rem auto 0;
 }
 
+.reveal .worker-row {
+  justify-content: center;
+  margin-top: 0.35rem;
+}
+
+.reveal .scenario-line {
+  max-width: none;
+  text-align: center;
+  font-size: 0.95rem;
+  margin: 0.4rem 0 0;
+}
+
+.reveal .hand-legend {
+  justify-content: center;
+  margin-top: 0.45rem;
+}
+
 .reveal .hand-counts {
   justify-content: center;
   font-size: 1rem;
