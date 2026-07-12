@@ -957,6 +957,78 @@ section#beyond-cells h3 + p {
   color: var(--ink);
 }
 
+/* Beyond cells: the shuffle-sharding story (four-step stepper panel) */
+.shuffle-caption {
+  border-left: 3px solid var(--accent);
+  padding: 0.1rem 0 0.1rem 0.9rem;
+  margin: 0.9rem 0 0;
+  font-size: 0.93rem;
+  color: var(--ink-2);
+}
+
+.shuffle-caption strong {
+  color: var(--ink);
+}
+
+/* Step 3: all C(8,2)=28 possible hands — dealt vs spare */
+.hand-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0.3rem 0 0.6rem;
+  max-width: 640px;
+}
+
+@media (max-width: 600px) {
+  .hand-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.hand-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.42rem 0.15rem;
+  border: 1px solid var(--baseline);
+  border-radius: 7px;
+  background: var(--surface-1);
+}
+
+.hand-chip .hand-sep {
+  color: var(--muted);
+}
+
+.hand-chip.spare {
+  border-style: dashed;
+  border-color: var(--border);
+  background: transparent;
+  opacity: 0.4;
+}
+
+.hand-chip.poison {
+  border-color: var(--critical);
+  box-shadow: inset 0 0 0 1px var(--critical);
+  background: color-mix(in srgb, var(--critical) 10%, transparent);
+}
+
+.hand-chip .owner-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-2);
+  margin-right: 0.15em;
+  flex: none;
+}
+
+.hand-chip.poison .owner-dot {
+  background: var(--critical);
+}
+
 /* Beyond cells: the constant-work health-check table */
 .cw-grid {
   display: grid;

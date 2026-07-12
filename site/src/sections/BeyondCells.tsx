@@ -57,7 +57,7 @@ const PLAIN_PAIRS: Pair[] = Array.from({ length: CUSTOMER_COUNT }, (_, i) => {
 /** Shuffle sharding: 16 distinct pairs drawn (deterministically) from the 28. */
 const SHUFFLE_PAIRS: Pair[] = seededShuffle(ALL_PAIRS, 'beyond-shuffle').slice(0, CUSTOMER_COUNT);
 
-/** The order the auto-demo (and the "poison a random customer" button) walks through. */
+/** The order the "poison a random customer" button walks through. */
 const AUTO_ORDER: number[] = seededShuffle(
   Array.from({ length: CUSTOMER_COUNT }, (_, i) => i),
   'beyond-auto'
@@ -73,54 +73,115 @@ function shardImpact(pairs: Pair[], poison: number | null) {
   return { deadWorkers, states };
 }
 
-export const ShuffleSharding: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
+/* ------------------------------------------------------------------ */
+/* 1 · Shuffle sharding: one story, four steps, one set of numbers     */
+/* ------------------------------------------------------------------ */
+
+/** C(n, k) via the multiplicative formula — exact enough in doubles for n ≤ 500. */
+function choose(n: number, k: number): number {
+  if (k < 0 || k > n) return 0;
+  let r = 1;
+  for (let i = 0; i < k; i++) r = (r * (n - i)) / (i + 1);
+  return r;
+}
+
+const SUPERSCRIPTS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+const sup = (n: number) => String(n).split('').map((d) => SUPERSCRIPTS[+d]).join('');
+
+/** 75,287,520 below a trillion; 1.6 × 10¹⁴ above. */
+const fmtBig = (v: number): string => {
+  if (!isFinite(v)) return '∞';
+  if (v >= 1e12) {
+    const e = Math.floor(Math.log10(v));
+    return `${(v / 10 ** e).toFixed(1)} × 10${sup(e)}`;
+  }
+  return Math.round(v).toLocaleString('en-US');
+};
+
+const fmtCount = (v: number): string =>
+  v < 1.05 ? '≈ 1' : v < 10 ? `≈ ${v.toFixed(1)}` : `≈ ${fmtBig(v)}`;
+
+const fmtPct = (x: number): string => {
+  const p = 100 * x;
+  if (p >= 10) return `${p.toFixed(0)}%`;
+  if (p >= 1) return `${p.toFixed(1)}%`;
+  if (p >= 0.01) return `${p.toFixed(2)}%`;
+  return '< 0.01%';
+};
+
+const MAX_WORKERS = 200;
+
+const HAND_COUNT = ALL_PAIRS.length; // C(8,2) = 28
+
+/** hand → owning customer, for step 3's dealt-vs-spare grid. */
+const HAND_OWNER = new Map<string, number>(SHUFFLE_PAIRS.map((p, i) => [`${p[0]}-${p[1]}`, i]));
+
+/** The customer the story poisons on entry — deterministic, so replays match. */
+const DEFAULT_POISON = AUTO_ORDER[0];
+
+const STORY_STEPS = [
+  { pill: '1 · Plain shards' },
+  { pill: '2 · Shuffle the deal' },
+  { pill: '3 · Count the hands' },
+  { pill: '4 · Scale it' },
+];
+
+/** Step-4 presets. `exp` is log₁₀(clients); log₁₀(16) keeps the opening
+ *  preset on the story's own numbers, so step 4 starts where step 3 ended. */
+const CALC_PRESETS = [
+  { key: '7', label: 'This story (8 · 2 · 16)', workers: WORKER_COUNT, hand: SHARD_SIZE, exp: Math.log10(CUSTOMER_COUNT) },
+  { key: '8', label: 'Route 53 scale (100 · 5 · 1M)', workers: 100, hand: 5, exp: 6 },
+  { key: '9', label: 'Mega fleet (200 · 7 · 10M)', workers: 200, hand: 7, exp: 7 },
+];
+
+export const ShuffleShardingStory: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const reduced = usePrefersReducedMotion();
-  const [poison, setPoison] = useState<number | null>(null);
-  const [auto, setAuto] = useState(false);
   const [step, setStep] = useState(0);
+  const [poison, setPoison] = useState<number | null>(DEFAULT_POISON);
+  const [cursor, setCursor] = useState(0);
 
-  // Auto-demo: march the poison through every customer so the counters tell
-  // the story hands-free. Any manual click takes over.
-  useEffect(() => {
-    if (!auto) return undefined;
-    setPoison(AUTO_ORDER[step % CUSTOMER_COUNT]);
-    const id = setInterval(() => {
-      setStep((s) => {
-        const next = s + 1;
-        setPoison(AUTO_ORDER[next % CUSTOMER_COUNT]);
-        return next;
-      });
-    }, 2000);
-    return () => clearInterval(id);
-  }, [auto]);
+  // Step-4 calculator, opening on the story's own numbers (8 · 2 · 16).
+  const [workers, setWorkers] = useState(CALC_PRESETS[0].workers);
+  const [handSize, setHandSize] = useState(CALC_PRESETS[0].hand);
+  const [clientExp, setClientExp] = useState(CALC_PRESETS[0].exp);
 
-  const pickManually = (i: number | null) => {
-    setAuto(false);
-    setPoison(i);
+  const applyPreset = (i: number) => {
+    setWorkers(CALC_PRESETS[i].workers);
+    setHandSize(CALC_PRESETS[i].hand);
+    setClientExp(CALC_PRESETS[i].exp);
   };
 
-  const poisonNext = () => {
-    setAuto(false);
-    setStep((s) => {
-      const next = s + 1;
+  const poisonNext = () =>
+    setCursor((c) => {
+      const next = c + 1;
       setPoison(AUTO_ORDER[next % CUSTOMER_COUNT]);
       return next;
     });
-  };
 
-  // Presenter keys (slide deck only): A auto-demo, X poison next, C cure
+  // Presenter keys (slide deck only): 1–4 walk the steps ('1' and '4' also
+  // reset their step's state, keeping the clicker script deterministic);
+  // X poisons the next customer, C cures; 7/8/9 pick the step-4 presets.
   useHotkeys(hotkeys, {
-    a: () => setAuto((v) => !v),
+    '1': () => { setStep(0); setPoison(DEFAULT_POISON); setCursor(0); },
+    '2': () => setStep(1),
+    '3': () => setStep(2),
+    '4': () => { setStep(3); applyPreset(0); },
     x: poisonNext,
-    c: () => pickManually(null),
+    c: () => setPoison(null),
+    '7': () => applyPreset(0),
+    '8': () => applyPreset(1),
+    '9': () => applyPreset(2),
   });
 
   const plain = useMemo(() => shardImpact(PLAIN_PAIRS, poison), [poison]);
   const shuffle = useMemo(() => shardImpact(SHUFFLE_PAIRS, poison), [poison]);
-
   const fullyDown = (states: CustomerState[]) =>
-    states.filter((s) => s === 'poison' || s === 'down').length;
-  const degraded = (states: CustomerState[]) => states.filter((s) => s === 'degraded').length;
+    states.filter((st) => st === 'poison' || st === 'down').length;
+  const plainDown = fullyDown(plain.states);
+  const shuffleDown = fullyDown(shuffle.states);
+  const degradedCount = shuffle.states.filter((st) => st === 'degraded').length;
+
+  /* ---- steps 1 & 2: the worker/customer panel, one mode at a time ---- */
 
   const W = 420;
   const H = 190;
@@ -129,7 +190,7 @@ export const ShuffleSharding: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = fal
   const custCX = (i: number) => 22 + (i * (W - 44)) / (CUSTOMER_COUNT - 1);
   const CUST_Y = 156;
 
-  const panel = (mode: 'plain' | 'shuffle') => {
+  const renderPanel = (mode: 'plain' | 'shuffle') => {
     const pairs = mode === 'plain' ? PLAIN_PAIRS : SHUFFLE_PAIRS;
     const { deadWorkers, states } = mode === 'plain' ? plain : shuffle;
     const workerColor = (w: number) =>
@@ -143,12 +204,12 @@ export const ShuffleSharding: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = fal
       <svg
         width="100%"
         viewBox={`0 0 ${W} ${H}`}
-        style={{ maxWidth: W }}
+        style={{ maxWidth: 560, display: 'block', margin: '0 auto' }}
         role="img"
         aria-label={
           mode === 'plain'
             ? 'Plain sharding: four fixed shards of two workers, four customers per shard'
-            : 'Shuffle sharding: every customer gets their own two-worker combination'
+            : 'Shuffle sharding: every customer holds their own two-worker hand'
         }
       >
         {/* customer → worker links, drawn first so boxes and dots sit on top */}
@@ -218,14 +279,14 @@ export const ShuffleSharding: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = fal
           return (
             <g
               key={i}
-              onClick={() => pickManually(poison === i ? null : i)}
+              onClick={() => setPoison(poison === i ? null : i)}
               style={{ cursor: 'pointer' }}
               role="button"
               tabIndex={0}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  pickManually(poison === i ? null : i);
+                  setPoison(poison === i ? null : i);
                 }
               }}
               aria-label={`customer-${i + 1}: ${state === 'fine' ? 'click to poison' : state}`}
@@ -258,171 +319,170 @@ export const ShuffleSharding: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = fal
           );
         })}
         <text x={W / 2} y={H - 6} textAnchor="middle" fontSize={10} fill="var(--muted)">
-          {CUSTOMER_COUNT} customers — click one to poison it
+          {CUSTOMER_COUNT} customers — click any one to poison it (click again to cure)
         </text>
       </svg>
     );
   };
 
-  const plainDown = fullyDown(plain.states);
-  const shuffleDown = fullyDown(shuffle.states);
+  const poisonControls = (
+    <div className="controls" style={{ margin: '0.6rem 0 0' }}>
+      <button onClick={poisonNext}>
+        <Icon name="skull" />Poison a random customer{hotkeys && <KeyHint k="X" />}
+      </button>
+      {poison !== null && (
+        <button onClick={() => setPoison(null)}>Cure the poison{hotkeys && <KeyHint k="C" />}</button>
+      )}
+    </div>
+  );
 
-  return (
-    <div className="panel">
-      <div className="controls">
-        <button className={auto ? 'selected' : ''} onClick={() => (auto ? setAuto(false) : setAuto(true))}>
-          <Icon name={auto ? 'pause' : 'play'} />{auto ? 'Stop the demo' : 'Auto-demo'}{hotkeys && <KeyHint k="A" />}
-        </button>
-        <button onClick={poisonNext}><Icon name="skull" />Poison a random customer{hotkeys && <KeyHint k="X" />}</button>
-        <span style={{ flex: 1 }} />
-        {poison !== null && <button onClick={() => pickManually(null)}>Cure the poison{hotkeys && <KeyHint k="C" />}</button>}
+  /* ---- step 1: plain sharding ---- */
+
+  const renderPlain = () => (
+    <>
+      <div className="mini-title">
+        Plain sharding — {PLAIN_SHARDS} fixed shards of {SHARD_SIZE} workers, {CUSTOMER_COUNT / PLAIN_SHARDS} customers each
       </div>
-      <p className="panel-hint">
-        {auto
-          ? 'The demo is poisoning one customer after another — watch the left counter swing while the right one never moves.'
-          : 'The dots in flight are live requests. Poison any customer (click it) and traffic stops exactly where the failure lands — a whole shard on the left, one combination on the right.'}
+      {renderPanel('plain')}
+      {poisonControls}
+      <p className="shuffle-caption">
+        One <strong>poison customer</strong> — its requests crash whatever serves them — kills both
+        of its shard's workers. The shard is the failure domain, so its{' '}
+        {CUSTOMER_COUNT / PLAIN_SHARDS - 1} innocent shard-mates drown too. Move the poison anywhere:
+        the verdict never changes.
       </p>
-      <div className="viz-flex" style={{ alignItems: 'flex-start' }}>
-        <div style={{ flex: '1 1 300px' }}>
-          <div className="mini-title">Plain sharding — {PLAIN_SHARDS} fixed shards of {SHARD_SIZE}</div>
-          {panel('plain')}
-          <div className="stat">
-            <div className={`value ${poison !== null ? 'bad' : ''}`} style={{ fontSize: '1.1rem' }}>
-              {poison === null ? 'Waiting for trouble' : `${plainDown} of ${CUSTOMER_COUNT} customers down`}
-            </div>
-            <div className="label">
-              {poison === null
-                ? `each customer shares a 2-worker shard with 3 neighbors`
-                : 'the poison request kills both shard workers, so every shard-mate goes down with them'}
-            </div>
-          </div>
-        </div>
-        <div style={{ flex: '1 1 300px' }}>
-          <div className="mini-title">Shuffle sharding — each customer's own 2-of-8 combo</div>
-          {panel('shuffle')}
-          <div className="stat">
-            <div className={`value ${poison !== null ? 'good' : ''}`} style={{ fontSize: '1.1rem' }}>
-              {poison === null
-                ? 'Waiting for trouble'
-                : `${shuffleDown} of ${CUSTOMER_COUNT} down — just the poison one`}
-            </div>
-            <div className="label">
-              {poison === null
-                ? `16 of the ${ALL_PAIRS.length} possible combinations are in use — no two customers share both workers`
-                : `${degraded(shuffle.states)} customers lost one worker (dashed) — their traffic keeps flowing on the surviving link`}
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="legend">
-        <span><span className="swatch" style={{ background: FAILED_COLOR }} />poison / fully down</span>
-        <span><span className="swatch" style={{ background: 'transparent', border: `1.5px dashed ${FAILED_COLOR}`, borderRadius: '50%' }} />degraded (1 of 2 workers lost)</span>
-        <span><span className="swatch" style={{ background: 'var(--ink-2)' }} />unaffected</span>
-      </div>
       <div className="stat-row">
         <div className="stat">
-          <div className="value">{PLAIN_SHARDS} → {ALL_PAIRS.length}</div>
-          <div className="label">possible shards: plain vs shuffle (C(8,2) = 28); at Route 53 scale, C(100,5) ≈ 75 million</div>
+          <div className={`value ${poison !== null ? 'bad' : ''}`}>
+            {poison === null ? '—' : `${plainDown} of ${CUSTOMER_COUNT}`}
+          </div>
+          <div className="label">customers down — the poison plus every one of its shard-mates</div>
         </div>
         <div className="stat">
           <div className={`value ${poison !== null ? 'bad' : ''}`}>
             {poison === null ? '—' : `${Math.round((plainDown / CUSTOMER_COUNT) * 100)}%`}
           </div>
-          <div className="label">blast radius, plain sharding (whole shard shares the poison's fate)</div>
+          <div className="label">blast radius — every time, whichever customer turns poisonous</div>
+        </div>
+      </div>
+    </>
+  );
+
+  /* ---- step 2: shuffle the deal ---- */
+
+  const renderShuffle = () => (
+    <>
+      <div className="mini-title">
+        Shuffle sharding — the same {WORKER_COUNT} workers, but each customer is dealt its own hand of {SHARD_SIZE}
+      </div>
+      {renderPanel('shuffle')}
+      {poisonControls}
+      <p className="shuffle-caption">
+        Same poison, same two dead workers — but only the poison customer holds{' '}
+        <strong>both</strong>. Customers who share <em>one</em> dead worker (dashed ring) are
+        degraded, not down: a retry lands on their surviving worker.
+      </p>
+      <div className="stat-row">
+        <div className="stat">
+          <div className={`value ${poison !== null ? 'good' : ''}`}>
+            {poison === null ? '—' : `${shuffleDown} of ${CUSTOMER_COUNT}`}
+          </div>
+          <div className="label">customers down — just the poison one; nobody else holds both dead workers</div>
         </div>
         <div className="stat">
           <div className={`value ${poison !== null ? 'good' : ''}`}>
-            {poison === null ? '—' : `${Math.round((shuffleDown / CUSTOMER_COUNT) * 100)}%`}
+            {poison === null ? '—' : `${((shuffleDown / CUSTOMER_COUNT) * 100).toFixed(2)}%`}
           </div>
-          <div className="label">blast radius, shuffle sharding (with retries, ≈ just the poison customer)</div>
+          <div className="label">blast radius — 4× smaller than plain sharding's 25%, from the same hardware</div>
+        </div>
+        <div className="stat">
+          <div className="value">{poison === null ? '—' : degradedCount}</div>
+          <div className="label">degraded — lost 1 of their 2 workers; retries keep them up, 0 of them down</div>
         </div>
       </div>
-    </div>
+    </>
   );
-};
 
-/* ------------------------------------------------------------------ */
-/* 1b · Shuffle sharding: the math + calculator                        */
-/* ------------------------------------------------------------------ */
+  /* ---- step 3: count the hands ---- */
 
-/** C(n, k) via the multiplicative formula — exact enough in doubles for n ≤ 500. */
-function choose(n: number, k: number): number {
-  if (k < 0 || k > n) return 0;
-  let r = 1;
-  for (let i = 0; i < k; i++) r = (r * (n - i)) / (i + 1);
-  return r;
-}
+  const renderHands = () => (
+    <>
+      <div className="mini-title">
+        Every possible hand of {SHARD_SIZE} from {WORKER_COUNT} workers — dealt hands vs spares
+      </div>
+      <div className="formula">
+        C({WORKER_COUNT},{SHARD_SIZE}) = {WORKER_COUNT}! / ({SHARD_SIZE}!·{WORKER_COUNT - SHARD_SIZE}!) ={' '}
+        <strong>{HAND_COUNT} possible hands</strong> ≥ <strong>{CUSTOMER_COUNT} customers</strong>{' '}
+        → everyone gets their own
+      </div>
+      <div
+        className="hand-grid"
+        role="img"
+        aria-label={`All ${HAND_COUNT} possible hands: ${CUSTOMER_COUNT} dealt to customers, ${HAND_COUNT - CUSTOMER_COUNT} spare${poison !== null ? '; workers killed by the poison marked in red' : ''}`}
+      >
+        {ALL_PAIRS.map((p) => {
+          const key = `${p[0]}-${p[1]}`;
+          const owner = HAND_OWNER.get(key);
+          const isPoisonHand = poison !== null && owner === poison;
+          return (
+            <span
+              key={key}
+              className={`hand-chip${owner !== undefined ? ' taken' : ' spare'}${isPoisonHand ? ' poison' : ''}`}
+              title={
+                owner !== undefined
+                  ? `dealt to customer-${owner + 1}${isPoisonHand ? ' — the poison; both workers dead' : ''}`
+                  : 'spare — nobody holds this hand'
+              }
+            >
+              {owner !== undefined && <span className="owner-dot" aria-hidden="true" />}
+              {p.map((w, j) => (
+                <React.Fragment key={w}>
+                  {j > 0 && <span className="hand-sep">·</span>}
+                  <span
+                    style={{
+                      color: shuffle.deadWorkers.has(w) ? FAILED_COLOR : CELL_COLOR_VARS[w],
+                      textDecoration: shuffle.deadWorkers.has(w) ? 'line-through' : undefined,
+                    }}
+                  >
+                    W{w + 1}
+                  </span>
+                </React.Fragment>
+              ))}
+            </span>
+          );
+        })}
+      </div>
+      <div className="legend">
+        <span><span className="swatch" style={{ background: 'var(--ink-2)' }} />dealt to a customer ({CUSTOMER_COUNT})</span>
+        <span><span className="swatch" style={{ background: 'transparent', border: '1.5px dashed var(--baseline)' }} />spare — nobody's hand ({HAND_COUNT - CUSTOMER_COUNT})</span>
+        {poison !== null && (
+          <span><span className="swatch" style={{ background: FAILED_COLOR }} />worker the poison killed</span>
+        )}
+      </div>
+      <p className="shuffle-caption">
+        This is the math you just watched. Holding your <strong>exact</strong> hand is the only way
+        to drown with you — and with {HAND_COUNT} hands for {CUSTOMER_COUNT} customers, everyone got
+        their own ({HAND_COUNT - CUSTOMER_COUNT} hands belong to nobody). In general: the chance
+        another client matches your hand is 1/C(N,S); expected hand-mates = (clients − 1)/C(N,S).
+      </p>
+      <div className="stat-row">
+        <div className="stat">
+          <div className="value good">{HAND_COUNT} ≥ {CUSTOMER_COUNT}</div>
+          <div className="label">possible hands vs customers — a unique hand for everyone, {HAND_COUNT - CUSTOMER_COUNT} to spare</div>
+        </div>
+        <div className="stat">
+          <div className="value">1 in {HAND_COUNT}</div>
+          <div className="label">chance a given other customer matches your hand exactly — 1/C({WORKER_COUNT},{SHARD_SIZE})</div>
+        </div>
+        <div className="stat">
+          <div className="value">≈ {((CUSTOMER_COUNT - 1) / HAND_COUNT).toFixed(1)}</div>
+          <div className="label">expected hand-mates — ({CUSTOMER_COUNT} − 1)/{HAND_COUNT}; why step 2's "1 down" was no fluke</div>
+        </div>
+      </div>
+    </>
+  );
 
-const SUPERSCRIPTS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
-const sup = (n: number) => String(n).split('').map((d) => SUPERSCRIPTS[+d]).join('');
-
-/** 75,287,520 below a trillion; 1.6 × 10¹⁴ above. */
-const fmtBig = (v: number): string => {
-  if (!isFinite(v)) return '∞';
-  if (v >= 1e12) {
-    const e = Math.floor(Math.log10(v));
-    return `${(v / 10 ** e).toFixed(1)} × 10${sup(e)}`;
-  }
-  return Math.round(v).toLocaleString('en-US');
-};
-
-const fmtCount = (v: number): string =>
-  v < 1.05 ? '≈ 1' : v < 10 ? `≈ ${v.toFixed(1)}` : `≈ ${fmtBig(v)}`;
-
-const fmtPct = (x: number): string => {
-  const p = 100 * x;
-  if (p >= 10) return `${p.toFixed(0)}%`;
-  if (p >= 1) return `${p.toFixed(1)}%`;
-  if (p >= 0.01) return `${p.toFixed(2)}%`;
-  return '< 0.01%';
-};
-
-const MAX_WORKERS = 200;
-
-export const ShuffleMath: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
-  const [workers, setWorkers] = useState(100);
-  const [shardSize, setShardSize] = useState(5);
-  const [clientExp, setClientExp] = useState(6); // clients = 10^clientExp
-
-  // Presenter keys (slide deck only): preset scenarios
-  useHotkeys(hotkeys, {
-    '1': () => { setWorkers(100); setShardSize(5); setClientExp(6); }, // Route 53 scale
-    '2': () => { setWorkers(8); setShardSize(2); setClientExp(4); },   // small fleet
-    '3': () => { setWorkers(200); setShardSize(7); setClientExp(7); }, // mega
-  });
-
-  const s = Math.min(shardSize, Math.floor(workers / 2));
-  const clients = Math.round(10 ** clientExp);
-  const combos = choose(workers, s);
-  const plainShards = Math.max(1, Math.floor(workers / s));
-
-  // Poison customer: kills all S workers of their shard. Plain sharding takes
-  // the whole fixed shard's population with them; shuffle sharding takes only
-  // clients whose ENTIRE combination is inside the dead set — i.e. the same combo.
-  const othersOnMyCombo = (clients - 1) / combos;
-  const poisonShuffle = 1 + othersOnMyCombo;
-  const poisonPlain = clients / plainShards;
-  const chanceAnyOther = 1 - Math.exp(-othersOnMyCombo);
-
-  // Single worker dies: every client holding it loses 1 of S — degraded, not down.
-  const nodeTouched = (clients * s) / workers;
-
-  // Growth chart: C(n, s) vs plain n/s, log scale, n up to MAX_WORKERS.
-  const W = 420;
-  const H = 130;
-  const PAD_B = 18;
-  const PAD_T = 12;
-  const nMin = Math.max(4, s * 2);
-  const yMax = Math.log10(choose(MAX_WORKERS, s));
-  const xOf = (n: number) => ((n - nMin) / (MAX_WORKERS - nMin)) * (W - 60) + 52;
-  const yOf = (v: number) => H - PAD_B - (Math.max(0, Math.log10(Math.max(1, v))) / yMax) * (H - PAD_B - PAD_T);
-  const line = (f: (n: number) => number) =>
-    Array.from({ length: MAX_WORKERS - nMin + 1 }, (_, i) => {
-      const n = nMin + i;
-      return `${xOf(n)},${yOf(f(n))}`;
-    }).join(' ');
-  const decades: number[] = [];
-  for (let d = 3; d <= yMax; d += 3) decades.push(d);
+  /* ---- step 4: the same formula at fleet scale ---- */
 
   const slider = (
     label: string,
@@ -430,13 +490,13 @@ export const ShuffleMath: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }
     display: string,
     min: number,
     max: number,
-    step: number,
+    sliderStep: number,
     onChange: (v: number) => void,
     aria: string
   ) => (
     <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 200px' }}>
       <span style={{ fontSize: '0.85rem', color: 'var(--ink-2)', whiteSpace: 'nowrap' }}>{label}</span>
-      <input type="range" min={min} max={max} step={step} value={value}
+      <input type="range" min={min} max={max} step={sliderStep} value={value}
         onChange={(e) => onChange(Number(e.target.value))} style={{ flex: 1 }} aria-label={aria} />
       <span style={{ fontSize: '0.85rem', fontVariantNumeric: 'tabular-nums', color: 'var(--ink)', fontWeight: 600, whiteSpace: 'nowrap' }}>
         {display}
@@ -444,77 +504,166 @@ export const ShuffleMath: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }
     </label>
   );
 
+  const renderScale = () => {
+    const s = Math.min(handSize, Math.floor(workers / 2));
+    const clients = Math.round(10 ** clientExp);
+    const combos = choose(workers, s);
+    const plainShards = Math.max(1, Math.floor(workers / s));
+
+    // Poison customer: kills all S workers of their hand. Plain sharding takes
+    // the whole fixed shard's population with them; shuffle sharding takes only
+    // clients whose ENTIRE hand is inside the dead set — i.e. the same hand.
+    const othersOnMyHand = (clients - 1) / combos;
+    const poisonShuffle = 1 + othersOnMyHand;
+    const poisonPlain = clients / plainShards;
+    const chanceAnyOther = 1 - Math.exp(-othersOnMyHand);
+
+    // Single worker dies: every client holding it loses 1 of S — degraded, not down.
+    const nodeTouched = (clients * s) / workers;
+
+    // Growth chart: C(n, s) vs plain n/s, log scale, n up to MAX_WORKERS.
+    const GW = 420;
+    const GH = 130;
+    const PAD_B = 18;
+    const PAD_T = 12;
+    const nMin = Math.max(4, s * 2);
+    const yMax = Math.log10(choose(MAX_WORKERS, s));
+    const xOf = (n: number) => ((n - nMin) / (MAX_WORKERS - nMin)) * (GW - 60) + 52;
+    const yOf = (v: number) => GH - PAD_B - (Math.max(0, Math.log10(Math.max(1, v))) / yMax) * (GH - PAD_B - PAD_T);
+    const line = (f: (n: number) => number) =>
+      Array.from({ length: MAX_WORKERS - nMin + 1 }, (_, i) => {
+        const n = nMin + i;
+        return `${xOf(n)},${yOf(f(n))}`;
+      }).join(' ');
+    const decades: number[] = [];
+    for (let d = 3; d <= yMax; d += 3) decades.push(d);
+
+    const active = CALC_PRESETS.findIndex(
+      (p) => p.workers === workers && p.hand === handSize && p.exp === clientExp
+    );
+
+    return (
+      <>
+        <div className="controls" style={{ marginBottom: '0.6rem' }}>
+          {CALC_PRESETS.map((p, i) => (
+            <button key={p.key} className={active === i ? 'selected' : ''} onClick={() => applyPreset(i)}>
+              {p.label}{hotkeys && <KeyHint k={p.key} />}
+            </button>
+          ))}
+        </div>
+        <div className="controls">
+          {slider('workers (N)', workers, String(workers), 4, MAX_WORKERS, 1, setWorkers, 'Number of workers')}
+          {slider('hand size (S)', handSize, String(s), 2, 8, 1, setHandSize, 'Workers per hand')}
+          {slider('clients', clientExp, fmtBig(clients), 1, 7, 0.1, setClientExp, 'Number of clients (log scale)')}
+        </div>
+        <div className="formula">
+          C(N,S) = N! / (S!·(N−S)!) &nbsp;→&nbsp; C({workers},{s}) = <strong>{fmtBig(combos)}</strong> possible hands
+          &nbsp;·&nbsp; plain N/S = <strong>{fmtBig(plainShards)}</strong> shards
+        </div>
+        <svg width="100%" viewBox={`0 0 ${GW} ${GH}`} style={{ maxWidth: GW }} role="img"
+          aria-label={`Combinations C(N,${s}) grow to ${fmtBig(choose(MAX_WORKERS, s))} at ${MAX_WORKERS} workers while plain shards stay near ${Math.floor(MAX_WORKERS / s)}`}>
+          {decades.map((d) => (
+            <g key={d}>
+              <line x1={52} y1={yOf(10 ** d)} x2={GW} y2={yOf(10 ** d)} stroke="var(--grid)" />
+              <text x={48} y={yOf(10 ** d) + 3} textAnchor="end" fontSize={9} fill="var(--muted)">10{sup(d)}</text>
+            </g>
+          ))}
+          <polyline points={line((n) => Math.max(1, Math.floor(n / s)))} fill="none" stroke="var(--baseline)" strokeWidth={1.75} strokeDasharray="5 4" />
+          <polyline points={line((n) => choose(n, s))} fill="none" stroke="var(--good)" strokeWidth={2} />
+          <circle cx={xOf(Math.max(nMin, workers))} cy={yOf(combos)} r={4} fill="var(--good)" />
+          <text x={Math.min(xOf(Math.max(nMin, workers)) + 7, GW - 110)} y={Math.max(yOf(combos) - 7, 10)} fontSize={9.5} fontWeight={700} fill="var(--good)">
+            C({workers},{s}) = {fmtBig(combos)}
+          </text>
+          <text x={GW - 4} y={yOf(Math.floor(MAX_WORKERS / s)) - 5} textAnchor="end" fontSize={9} fill="var(--muted)">
+            plain shards (N/S)
+          </text>
+          <line x1={52} y1={GH - PAD_B} x2={GW} y2={GH - PAD_B} stroke="var(--grid)" />
+          <text x={GW - 4} y={GH - 6} textAnchor="end" fontSize={9} fill="var(--muted)">workers →</text>
+        </svg>
+        <div className="stat-row">
+          <div className="stat">
+            <div className="value">{fmtBig(plainShards)} → {fmtBig(combos)}</div>
+            <div className="label">possible shards, plain vs shuffle — the same {workers} workers, just re-dealt</div>
+          </div>
+          <div className="stat">
+            <div className="value">1 in {fmtBig(combos)}</div>
+            <div className="label">chance a given other client holds your exact {s}-worker hand</div>
+          </div>
+          <div className="stat">
+            <div className="value">
+              {othersOnMyHand < 0.005
+                ? '≈ 0'
+                : othersOnMyHand < 0.095
+                  ? `≈ ${othersOnMyHand.toFixed(2)}`
+                  : othersOnMyHand < 0.95
+                    ? `≈ ${othersOnMyHand.toFixed(1)}`
+                    : fmtCount(othersOnMyHand).replace('≈ ', '')}
+            </div>
+            <div className="label">expected other clients (of {fmtBig(clients)}) sharing your full hand</div>
+          </div>
+        </div>
+        <div className="stat-row">
+          <div className="stat">
+            <div className="value bad">{fmtCount(poisonPlain)} · {fmtPct(poisonPlain / clients)}</div>
+            <div className="label">poison customer, plain sharding: their whole fixed shard of clients goes down</div>
+          </div>
+          <div className="stat">
+            <div className="value good">{fmtCount(poisonShuffle)} · {fmtPct(poisonShuffle / clients)}</div>
+            <div className="label">
+              poison customer, shuffle sharding: {chanceAnyOther < 0.5
+                ? `only a ${fmtPct(chanceAnyOther)} chance even one other client goes down with them`
+                : 'their hand-mates only — everyone else keeps at least one live worker'}
+            </div>
+          </div>
+          <div className="stat">
+            <div className="value">{fmtCount(nodeTouched)} · {fmtPct(Math.min(1, nodeTouched / clients))}</div>
+            <div className="label">
+              one worker dies: clients briefly degraded (they lose 1 of {s}; a retry lands on the
+              other {s - 1}) — <strong>0 fully down</strong>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  };
+
   return (
-    <div className="panel">
+    <div className="panel shuffle-story" role="group" aria-label="Shuffle sharding: one story in four steps">
       <div className="controls">
-        {slider('workers (N)', workers, String(workers), 4, MAX_WORKERS, 1, setWorkers, 'Number of workers')}
-        {slider('shard size (S)', shardSize, String(s), 2, 8, 1, setShardSize, 'Workers per shard')}
-        {slider('clients', clientExp, fmtBig(clients), 2, 7, 0.5, setClientExp, 'Number of clients (log scale)')}
+        <button onClick={() => setStep((v) => Math.max(0, v - 1))} disabled={step === 0}>
+          ← Prev
+        </button>
+        <div className="stepper-pills">
+          {STORY_STEPS.map((st, i) => (
+            <button
+              key={st.pill}
+              className={`step-pill${i === step ? ' active' : ''}`}
+              aria-pressed={i === step}
+              onClick={() => setStep(i)}
+            >
+              {hotkeys ? (
+                <>
+                  <KeyHint k={String(i + 1)} /> {st.pill.slice(st.pill.indexOf('·') + 2)}
+                </>
+              ) : (
+                st.pill
+              )}
+            </button>
+          ))}
+        </div>
+        <span style={{ flex: 1 }} />
+        <button
+          className={step < STORY_STEPS.length - 1 ? 'primary' : ''}
+          onClick={() => setStep((v) => Math.min(STORY_STEPS.length - 1, v + 1))}
+          disabled={step === STORY_STEPS.length - 1}
+        >
+          Next →
+        </button>
       </div>
-      {hotkeys && (
-        <p className="preset-hint">
-          <KeyHint k="1" /> Route 53 scale · <KeyHint k="2" /> small fleet · <KeyHint k="3" /> mega fleet
-        </p>
-      )}
-      <div className="formula">
-        C(N,S) = N! / (S!·(N−S)!) &nbsp;→&nbsp; C({workers},{s}) = <strong>{fmtBig(combos)}</strong> shards
-        &nbsp;·&nbsp; plain N/S = <strong>{fmtBig(plainShards)}</strong>
-      </div>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ maxWidth: W }} role="img"
-        aria-label={`Combinations C(N,${s}) grow to ${fmtBig(choose(MAX_WORKERS, s))} at ${MAX_WORKERS} workers while plain shards stay near ${Math.floor(MAX_WORKERS / s)}`}>
-        {decades.map((d) => (
-          <g key={d}>
-            <line x1={52} y1={yOf(10 ** d)} x2={W} y2={yOf(10 ** d)} stroke="var(--grid)" />
-            <text x={48} y={yOf(10 ** d) + 3} textAnchor="end" fontSize={9} fill="var(--muted)">10{sup(d)}</text>
-          </g>
-        ))}
-        <polyline points={line((n) => Math.max(1, Math.floor(n / s)))} fill="none" stroke="var(--baseline)" strokeWidth={1.75} strokeDasharray="5 4" />
-        <polyline points={line((n) => choose(n, s))} fill="none" stroke="var(--good)" strokeWidth={2} />
-        <circle cx={xOf(Math.max(nMin, workers))} cy={yOf(combos)} r={4} fill="var(--good)" />
-        <text x={Math.min(xOf(Math.max(nMin, workers)) + 7, W - 110)} y={Math.max(yOf(combos) - 7, 10)} fontSize={9.5} fontWeight={700} fill="var(--good)">
-          C({workers},{s}) = {fmtBig(combos)}
-        </text>
-        <text x={W - 4} y={yOf(Math.floor(MAX_WORKERS / s)) - 5} textAnchor="end" fontSize={9} fill="var(--muted)">
-          plain shards (N/S)
-        </text>
-        <line x1={52} y1={H - PAD_B} x2={W} y2={H - PAD_B} stroke="var(--grid)" />
-        <text x={W - 4} y={H - 6} textAnchor="end" fontSize={9} fill="var(--muted)">workers →</text>
-      </svg>
-      <div className="stat-row">
-        <div className="stat">
-          <div className="value">{fmtBig(plainShards)} → {fmtBig(combos)}</div>
-          <div className="label">possible shards, plain vs shuffle — the same {workers} workers, just recombined</div>
-        </div>
-        <div className="stat">
-          <div className="value">1 in {fmtBig(combos)}</div>
-          <div className="label">chance a given other client holds your exact {s}-worker combination</div>
-        </div>
-        <div className="stat">
-          <div className="value">{othersOnMyCombo < 0.001 ? '≈ 0' : fmtCount(othersOnMyCombo).replace('≈ ', '')}</div>
-          <div className="label">expected other clients (of {fmtBig(clients)}) sharing your full shard</div>
-        </div>
-      </div>
-      <div className="stat-row">
-        <div className="stat">
-          <div className="value bad">{fmtCount(poisonPlain)} · {fmtPct(poisonPlain / clients)}</div>
-          <div className="label">poison customer, plain sharding: their whole fixed shard of clients goes down</div>
-        </div>
-        <div className="stat">
-          <div className="value good">{fmtCount(poisonShuffle)} · {fmtPct(poisonShuffle / clients)}</div>
-          <div className="label">
-            poison customer, shuffle sharding: {chanceAnyOther < 0.5
-              ? `only a ${fmtPct(chanceAnyOther)} chance even one other client goes down with them`
-              : 'their combo-mates only — everyone else keeps at least one live worker'}
-          </div>
-        </div>
-        <div className="stat">
-          <div className="value">{fmtCount(nodeTouched)} · {fmtPct(Math.min(1, nodeTouched / clients))}</div>
-          <div className="label">
-            one worker dies: clients briefly degraded (they lose 1 of {s}; a retry lands on the
-            other {s - 1}) — <strong>0 fully down</strong>
-          </div>
-        </div>
-      </div>
+      {step === 0 && renderPlain()}
+      {step === 1 && renderShuffle()}
+      {step === 2 && renderHands()}
+      {step === 3 && renderScale()}
     </div>
   );
 };
@@ -940,28 +1089,17 @@ const BeyondCells: React.FC = () => (
       Here are three more relatives, each with the same interactive treatment.
     </p>
 
-    <h3>Shuffle sharding: give everyone their own combination</h3>
+    <h3>Shuffle sharding: deal everyone their own hand</h3>
     <p>
       Cells pin each customer to one partition. Shuffle sharding — the trick Route&nbsp;53 uses to
-      survive DDoS attacks on individual domains — assigns each customer a random <em>subset</em>{' '}
-      of workers instead. With 8 workers in plain shards of 2, there are only 4 shards, so a
-      "poison" customer (one whose requests crash whatever serves them) takes their 3 shard-mates
-      down with them. But there are C(8,2)&nbsp;=&nbsp;28 possible <em>combinations</em> of 2
-      workers, so no two customers need to share both. Hit <strong>auto-demo</strong> and watch
-      the same poison land in both worlds, over and over:
+      survive DDoS attacks on individual domains — deals each customer a small random{' '}
+      <em>hand</em> of workers instead. The panel below tells the whole story with one set of
+      numbers: <strong>8 workers, hands of 2, 16 customers</strong>. Step through it: plain
+      sharding hands a poison customer 25% of your users (step 1), shuffling the deal cuts that
+      to 6.25% (step 2), counting the possible hands explains why it <em>had</em> to (step 3),
+      and the closing calculator runs the exact same formula at Route&nbsp;53 scale (step 4).
     </p>
-    <ShuffleSharding />
-
-    <p>
-      Why does this get <em>better</em> as you grow? Because combinations multiply where shards
-      only divide. Plain sharding gives you N/S shards; shuffle sharding gives you
-      C(N,S)&nbsp;=&nbsp;N!/(S!(N−S)!) possible combinations of the <em>same workers</em> — and
-      that number explodes: at shard size 5, going from 20 workers to 100 takes you from
-      ~15&nbsp;thousand combinations to ~75&nbsp;million. The blast radius of a poison customer
-      shrinks just as fast, because taking a second customer down requires them to share
-      your <em>entire</em> combination. Run the numbers yourself:
-    </p>
-    <ShuffleMath />
+    <ShuffleShardingStory />
 
     <h3>Static stability: pay for the failure before it happens</h3>
     <p>

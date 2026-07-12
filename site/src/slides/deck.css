@@ -383,11 +383,24 @@ body,
   display: none;
 }
 
-/* ShuffleMath preset hint (deck only) */
-.reveal .preset-hint {
-  font-size: 0.85rem;
-  color: var(--ink-2);
-  margin: 0 0 0.6rem;
+/* Shuffle-sharding story: keep all four steps inside the 800px canvas */
+.reveal .shuffle-story .controls {
+  margin-bottom: 0.6rem;
+}
+
+.reveal .shuffle-story .shuffle-caption {
+  margin-top: 0.5rem;
+  font-size: 0.92rem;
+}
+
+.reveal .shuffle-story .stat .value {
+  font-size: 1.5rem;
+}
+
+.reveal .hand-grid {
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Fine-print slide: four compact cards */

@@ -10,7 +10,7 @@ import { demoAdminUrl, hasLiveDemo } from '../TryLive';
 import { BlastRadiusDemo, PagerTest } from '../sections/WhyCells';
 import { KillCellDemo } from '../sections/KillCell';
 import { ScaleDemo } from '../sections/Scale';
-import { ShuffleSharding, ShuffleMath, StaticStability, ConstantWork } from '../sections/BeyondCells';
+import { ShuffleShardingStory, StaticStability, ConstantWork } from '../sections/BeyondCells';
 import { HashRingDemo } from '../sections/HashRing';
 import {
   arcPath,
@@ -339,14 +339,13 @@ const SLIDE_ACTIONS: { key: string; label: string }[][] = [
     { key: 'x', label: 'Remove a cell' },
   ],
   [
-    { key: 'a', label: 'Auto-demo on/off' },
+    { key: '1', label: 'Step 1 — Plain shards' },
+    { key: '2', label: 'Step 2 — Shuffle the deal' },
+    { key: '3', label: 'Step 3 — Count the hands' },
+    { key: '4', label: 'Step 4 — Scale it' },
     { key: 'x', label: 'Poison a random customer' },
     { key: 'c', label: 'Cure the poison' },
-  ],
-  [
-    { key: '1', label: 'Route 53 scale preset' },
-    { key: '2', label: 'Small fleet preset' },
-    { key: '3', label: 'Mega fleet preset' },
+    { key: '8', label: 'Route 53 scale preset' },
   ],
   [
     { key: '1', label: 'Just enough capacity' },
@@ -451,7 +450,7 @@ const SLIDE_SCRIPTS: SlideScript[] = [
       { fwd: ['3'], back: ['2'] },
     ],
   },
-  // 5 · Kill a cell: kill 2, then 3 (keys toggle, so back = same key)
+  // 8 · Kill a cell: kill 2, then 3 (keys toggle, so back = same key)
   {
     enter: ['r'],
     phases: [
@@ -459,28 +458,27 @@ const SLIDE_SCRIPTS: SlideScript[] = [
       { fwd: ['3'], back: ['3'] },
     ],
   },
-  // 6 · Add a cell, twice
+  // 9 · Add a cell, twice
   {
     phases: [
       { fwd: ['a'], back: ['x'] },
       { fwd: ['a'], back: ['x'] },
     ],
   },
-  // 7 · Shuffle sharding: cure = clean state (also stops any auto-demo),
-  //     then a single phase toggling the auto-demo
-  {
-    enter: ['c'],
-    phases: [{ fwd: ['a'], back: ['a'] }],
-  },
-  // 8 · The math: Route 53 preset → small fleet → mega
+  // 10 · Shuffle sharding, the whole story: '1' resets to step 1 with the
+  //      default poison already applied; arrows walk steps 2 → 3 → 4, then
+  //      jump the step-4 calculator to Route 53 numbers ('4' restores the
+  //      story's own preset on the way back).
   {
     enter: ['1'],
     phases: [
       { fwd: ['2'], back: ['1'] },
       { fwd: ['3'], back: ['2'] },
+      { fwd: ['4'], back: ['3'] },
+      { fwd: ['8'], back: ['4'] },
     ],
   },
-  // 9 · Static stability: lose AZ → recover → statically stable → lose again
+  // 11 · Static stability: lose AZ → recover → statically stable → lose again
   {
     enter: ['1'],
     phases: [
@@ -490,7 +488,7 @@ const SLIDE_SCRIPTS: SlideScript[] = [
       { fwd: ['t'], back: ['t'] },
     ],
   },
-  // 10 · Constant work: storm on entry, quiet for contrast, back to storm
+  // 12 · Constant work: storm on entry, quiet for contrast, back to storm
   {
     enter: ['2'],
     phases: [
@@ -498,9 +496,9 @@ const SLIDE_SCRIPTS: SlideScript[] = [
       { fwd: ['2'], back: ['1'] },
     ],
   },
-  // 11 · Fine print
+  // 13 · Fine print
   { phases: [] },
-  // 12 · Closing
+  // 14 · Closing
   { phases: [] },
 ];
 
@@ -855,39 +853,25 @@ const DeckApp: React.FC = () => {
           </aside>
         </section>
 
-        {/* 11 · Shuffle sharding */}
+        {/* 11 · Shuffle sharding: one story, four steps */}
         <section>
-          <h2>Shuffle sharding: everyone gets their own combination</h2>
-          <ShuffleSharding hotkeys={slide === 10} />
+          <h2>Shuffle sharding: deal everyone their own hand</h2>
+          <ShuffleShardingStory hotkeys={slide === 10} />
           <aside className="notes">
-            <p>Route 53's trick for surviving DDoS on a single domain. Same 8 workers, two ways to slice.</p>
+            <p>Route 53's trick for surviving DDoS on a single domain. One story, four steps, one set of numbers: 8 workers, hands of 2, 16 customers. Right arrow walks the steps; a customer is already poisoned on entry.</p>
             <ul>
-              <li>Start auto-demo (A): the poison marches customer to customer. Left counter swings to 4-of-16 every time; right stays at 1.</li>
-              <li>Plain shards: the poison kills both shard workers, taking 3 innocent neighbors along.</li>
-              <li>Shuffle: no two customers share BOTH workers, so the poison's blast radius is themselves. Degraded customers retry onto their surviving worker.</li>
-              <li>4 shards vs C(8,2)=28 combinations — from the same hardware.</li>
+              <li>Step 1 — plain shards: 4 fixed shards of 2 workers. The poison customer kills both of its shard's workers, so its 3 innocent shard-mates drown too: 4 of 16 down. 25%, every time, whoever the poison is (X moves it — the number never changes).</li>
+              <li>Step 2 — shuffle the deal: same customers, same workers, same poison, but every customer holds a UNIQUE hand of 2. Only the poison holds both dead workers: 1 of 16 down, 6.25% — 4× smaller from the same hardware. The ~6 customers sharing ONE dead worker retry onto their live one: degraded, not down.</li>
+              <li>Step 3 — count the hands: C(8,2) = 28 possible hands ≥ 16 customers, so everyone got their own — the grid shows all 28: 16 dealt (dotted), 12 spare (dimmed), dead workers struck red. An exact match is the ONLY way to drown together: 1/28 per other customer, ≈ 0.5 expected hand-mates.</li>
+              <li>Step 4 — same formula, real fleets. Press 8 for Route 53 scale: C(100,5) ≈ 75 MILLION hands for a million clients — poison blast radius 5% plain vs ~1 client shuffled. Combinations explode where shards only divide.</li>
             </ul>
           </aside>
         </section>
 
-        {/* 12 · The math */}
-        <section>
-          <h2>The math: combinations beat divisions</h2>
-          <ShuffleMath hotkeys={slide === 11} />
-          <aside className="notes">
-            <p>Three presets: 1 = Route 53 scale (100 workers, shard 5, 1M clients), 2 = small fleet (8/2/10k), 3 = mega (200/7/10M).</p>
-            <ul>
-              <li>Preset 1: 20 plain shards become 75 MILLION combinations. Poison blast radius: 5% plain vs about one client — a 1.3% chance even one other client shares the combo.</li>
-              <li>Preset 2 is the honest one: with only 70 combos and 10k clients, shuffle's edge shrinks. The pattern needs a real fleet to shine.</li>
-              <li>One worker dying degrades M·S/N clients but fully downs ZERO — retries land on the other shard members.</li>
-            </ul>
-          </aside>
-        </section>
-
-        {/* 13 · Static stability */}
+        {/* 12 · Static stability */}
         <section>
           <h2>Static stability: pay for the failure in advance</h2>
-          <StaticStability hotkeys={slide === 12} />
+          <StaticStability hotkeys={slide === 11} />
           <aside className="notes">
             <p>Demand needs 90 servers. Two ways to spread them over 3 AZs.</p>
             <ul>
@@ -899,10 +883,10 @@ const DeckApp: React.FC = () => {
           </aside>
         </section>
 
-        {/* 14 · Constant work */}
+        {/* 13 · Constant work */}
         <section>
           <h2>Constant work: the busy path is the only path</h2>
-          <ConstantWork hotkeys={slide === 13} />
+          <ConstantWork hotkeys={slide === 12} />
           <aside className="notes">
             <p>Route 53's health-check aggregators push the ENTIRE table every few seconds, changed or not.</p>
             <ul>
@@ -913,7 +897,7 @@ const DeckApp: React.FC = () => {
           </aside>
         </section>
 
-        {/* 15 · The fine print */}
+        {/* 14 · The fine print */}
         <section>
           <h2>The fine print</h2>
           <div className="fine-print">
@@ -937,7 +921,7 @@ const DeckApp: React.FC = () => {
           </aside>
         </section>
 
-        {/* 16 · Closing */}
+        {/* 15 · Closing */}
         <section className="slide-title">
           <blockquote className="quote closing-quote">
             "Everything fails, all the time."
