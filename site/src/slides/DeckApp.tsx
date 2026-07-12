@@ -340,7 +340,7 @@ const SLIDE_ACTIONS: { key: string; label: string }[][] = [
   ],
   [
     { key: 'a', label: 'Auto-demo on/off' },
-    { key: 'x', label: 'Poison a random customer' },
+    { key: 'x', label: 'Poison a random client' },
     { key: 'c', label: 'Cure the poison' },
   ],
   [
@@ -475,14 +475,15 @@ const SLIDE_SCRIPTS: SlideScript[] = [
     enter: ['c'],
     phases: [{ fwd: ['a'], back: ['a'] }],
   },
-  // 11 · The math: count-it hand grid first (pick the hand → 1/12/15),
-  //      then flip to the scale-it calculator and walk the presets.
-  //      Enter: '1' resets the sliders to the Route 53 preset, then 'c'
-  //      flips back to the count view with no hand picked.
+  // 11 · The math: count-it hand grid first (pick your hand → clients
+  //      1 down / 6 degraded / 9 untouched), then flip to the scale-it
+  //      calculator and walk the presets. Enter: '1' resets the sliders
+  //      to the Route 53 preset, then 'c' flips back to the count view
+  //      with no hand picked.
   {
     enter: ['1', 'c'],
     phases: [
-      { fwd: ['h'], back: ['c'] }, // pick your hand → count 1 / 12 / 15
+      { fwd: ['h'], back: ['c'] }, // pick your hand → clients 1 / 6 / 9
       { fwd: ['4'], back: ['4'] }, // flip to the formula (Route 53 preset showing)
       { fwd: ['2'], back: ['1'] }, // small fleet
       { fwd: ['3'], back: ['2'] }, // mega fleet
@@ -868,12 +869,12 @@ const DeckApp: React.FC = () => {
           <h2>Shuffle sharding: everyone gets their own combination</h2>
           <ShuffleSharding hotkeys={slide === 10} />
           <aside className="notes">
-            <p>Route 53's trick for surviving DDoS on a single domain. Same 8 workers, two ways to slice.</p>
+            <p>Route 53's trick for surviving DDoS on a single domain. ONE scenario carries this slide and the next: 8 workers, 2 per client, 16 clients.</p>
             <ul>
-              <li>Start auto-demo (A): the poison marches customer to customer. Left counter swings to 4-of-16 every time; right stays at 1.</li>
-              <li>Plain shards: the poison kills both shard workers, taking 3 innocent neighbors along.</li>
-              <li>Shuffle: no two customers share BOTH workers, so the poison's blast radius is themselves. Degraded customers retry onto their surviving worker.</li>
-              <li>4 shards vs C(8,2)=28 combinations — from the same hardware.</li>
+              <li>Start auto-demo (A): the poison marches client to client. Left counter hits 4 of 16 — 25% — every single time; right never leaves 1 of 16 — 6.25%.</li>
+              <li>Plain shards: the poison kills both shard workers, taking 3 innocent shard-mates along. 25% is the floor, not bad luck.</li>
+              <li>Shuffle: no two clients share BOTH workers, so the blast radius is the poison client alone. The ~6 dashed clients lost one worker — degraded, not down; retries land on the survivor.</li>
+              <li>4 shards vs C(8,2)=28 combinations — from the same hardware. Next slide counts exactly why.</li>
             </ul>
           </aside>
         </section>
@@ -883,11 +884,12 @@ const DeckApp: React.FC = () => {
           <h2>The math: count it by hand, then scale it</h2>
           <ShuffleMath hotkeys={slide === 11} />
           <aside className="notes">
-            <p>Step 1 is literally countable: all 28 possible 2-worker hands from 8 workers, on screen. First arrow (H) picks your hand — W3+W6.</p>
+            <p>Same fixed scenario: 8 workers, hands of 2, 16 clients. All 28 possible hands on screen — but only the 16 the last slide actually dealt are lit; the 12 dimmed ones belong to NOBODY. First arrow (H) picks your hand — W4+W6, client 9's.</p>
             <ul>
-              <li>Narrate the counting: to hurt you, another customer must match your WHOLE hand. Count the grid — one exact match (yours, the only hand fully down), twelve half-overlaps (degraded; a retry lands on their live worker), fifteen untouched. 1 + 12 + 15 = 28. The audience can verify every number by looking.</li>
-              <li>Plain sharding only ever deals 4 of these 28 hands, so 4 customers pile onto each — and go down together.</li>
-              <li>Flip (4): the formula is the same counting at fleet size — C(N,S) is just "how many hands exist". Preset 1 / Route 53 scale: 20 plain shards become 75 MILLION hands; poison blast radius about one client — a 1.3% chance even one other client matches.</li>
+              <li>The chain to narrate: plain 25% → shuffle 6.25% → because C(8,2) = 28 possible hands ≥ 16 clients, every client's hand is unique → the only client fully down is you.</li>
+              <li>Count CLIENTS, not hands: 1 fully down (you — nobody else holds your hand), 6 degraded (share one dead worker; their retry lands on the live one), 9 untouched. 1 + 6 + 9 = 16. The audience can verify by looking.</li>
+              <li>Plain sharding deals only 4 of these 28 hands, so 4 clients pile onto each — and go down together. General form: expected hand-mates = (clients − 1)/C(N,S) = 15/28 ≈ 0.5 here.</li>
+              <li>Flip (4): same counting, fleet-sized numbers. Preset 1 / Route 53 scale: 20 plain shards become 75 MILLION hands; poison blast radius about one client — a 1.3% chance even one other client matches.</li>
               <li>Preset 2 is the honest one: with only 28 hands and 10k clients, shuffle's edge shrinks. The pattern needs a real fleet to shine. Preset 3: 200 workers, hands of 7 — trillions of hands.</li>
               <li>One worker dying degrades M·S/N clients but fully downs ZERO — retries land on the rest of the hand.</li>
             </ul>

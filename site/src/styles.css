@@ -957,6 +957,17 @@ section#beyond-cells h3 + p {
   color: var(--ink);
 }
 
+/* Beyond cells: the three shuffle-sharding panels share one arc —
+   watch it → count it → scale it — announced by a role title. */
+.role-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.6rem;
+}
+
 /* Beyond cells: shuffle-math "count it, then scale it" two-step panel */
 .sm-step + .sm-step {
   margin-top: 1.5rem;
@@ -1002,6 +1013,19 @@ section#beyond-cells h3 + p {
 
 .hand:hover {
   border-color: var(--baseline);
+}
+
+/* Possible but empty: the 12 hands the deal never gave to anyone. They stay
+   dim whatever happens — nobody is standing on them to get hurt. */
+.hand.empty {
+  opacity: 0.32;
+  border-style: dashed;
+  background: transparent;
+  cursor: default;
+}
+
+.hand.empty:hover {
+  border-color: var(--border);
 }
 
 .hand.you {
@@ -1079,6 +1103,14 @@ section#beyond-cells h3 + p {
   color: var(--ink-2);
   margin: 0.75rem 0 0;
   max-width: 680px;
+}
+
+/* the count step's verdict line sits between the counters and the contrast;
+   unlike the calculator's formula it must never lose its punchline to a
+   horizontal scroll, so it wraps */
+.sm-count .formula {
+  margin: 0.8rem 0 0;
+  white-space: normal;
 }
 
 /* Beyond cells: the constant-work health-check table */

@@ -409,6 +409,28 @@ body,
   display: none; /* speaker material — the h2 and notes carry it */
 }
 
+/* the watch-it slide's h2 already names the role; the math slide flips
+   between two halves, so its role title stays as the on-stage label */
+.reveal .panel > .role-title {
+  display: none;
+}
+
+.reveal .sm-panel .role-title {
+  display: block;
+  text-align: center;
+  font-size: 0.8rem;
+}
+
+.reveal .sm-count .panel-hint {
+  display: none; /* the hand-off to the formula is speaker material */
+}
+
+.reveal .sm-count .formula {
+  margin: 0.6rem auto 0;
+  text-align: center;
+  max-width: 980px;
+}
+
 /* six stats + chart must fit under the h2 on the 800px canvas */
 .reveal .sm-panel .stat .value {
   font-size: 1.55rem;
