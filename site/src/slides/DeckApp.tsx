@@ -300,8 +300,9 @@ const SLIDE_ACTIONS: { key: string; label: string }[][] = [
     { key: 't', label: 'Trigger / recover the failure' },
   ],
   [
-    { key: 'd', label: 'Drain cell-2' },
-    { key: 'i', label: 'Investigate the next component' },
+    { key: 'd', label: 'Drain cell-2 (2:20 — resolved)' },
+    { key: 'i', label: 'Investigate the next suspect (+15 min)' },
+    { key: 'u', label: 'Undo the last check' },
     { key: 'r', label: 'Reset both pagers' },
   ],
   [
@@ -403,12 +404,18 @@ const SLIDE_SCRIPTS: SlideScript[] = [
       { fwd: ['t'], back: ['t'] },      // one cell fails → reroute
     ],
   },
-  // 3 · 2am pager: drain, then the investigation montage
+  // 3 · 2am pager: drain the cell side (2:20 — resolved), then walk the
+  //     monolith one random dead end at a time until the root cause at 3:13.
+  //     Five 'i' phases = 4 dead ends + the culprit; 'u' undoes one check.
   {
     enter: ['r'],
     phases: [
       { fwd: ['d'], back: ['r'] },
-      { fwd: ['i', 'i', 'i', 'i', 'i'], back: ['r', 'd'] },
+      { fwd: ['i'], back: ['u'] },
+      { fwd: ['i'], back: ['u'] },
+      { fwd: ['i'], back: ['u'] },
+      { fwd: ['i'], back: ['u'] },
+      { fwd: ['i'], back: ['u'] },
     ],
   },
   // 4 · Ring: route user123 twice (consistency verdict), then customer456
@@ -750,12 +757,12 @@ const DeckApp: React.FC = () => {
           <h2>The 2am test</h2>
           <PagerTest hotkeys={slide === 3} />
           <aside className="notes">
-            <p>The percentage is the visible win. The deeper one: what does the on-call human have to FIGURE OUT before they can act?</p>
+            <p>The percentage is the visible win. The deeper one: what does the on-call human have to FIGURE OUT before they can act? Both pagers fire at 2:13 AM — watch the two clocks.</p>
             <ul>
-              <li>Left pager: the alarm names the failure domain. One action — drain cell-2 — clients rehash, error rate zero, go back to sleep. Root cause is a daytime problem.</li>
-              <li>Right pager: the alarm names victims — client IDs with no pattern. Invite the audience to pick components to investigate. Metrics normal… inconclusive… logs are noisy…</li>
-              <li>When someone finally hits Replica-B: "root cause found after N investigations — now design a safe fix. It is still 2am."</li>
-              <li>Cells make the failure domain and the recovery action the same object.</li>
+              <li>First right-arrow drains cell-2: the alarm already named the failure domain, so recovery is one routing decision. 2:20 AM — your customers are working again. Seven minutes, zero diagnosis.</li>
+              <li>Each next right-arrow investigates one RANDOM suspect in the monolith: a suspense beat while the dashboards load… "metrics look normal"… and the clock jumps 15 minutes. Let the audience feel every dead end — or let them drive: every suspect chip is clickable, so check whatever they call out. The clock counts whichever path is taken.</li>
+              <li>The scripted walk saves the root cause for the fifth press — in a monolith nothing points anywhere, so you reach it by eliminating everything else. 3:13 AM: root cause found after 4 dead ends, customers STILL impacted — and the fix hasn't even started. (A lucky audience click on Replica-B ends the walk early and the clock rewards it — also the point: luck is not a runbook.)</li>
+              <li>Punchline: 2:20 vs 3:13. Cells make the failure domain and the recovery action the same object; root-causing becomes a daytime problem.</li>
             </ul>
           </aside>
         </section>

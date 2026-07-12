@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import RoadToCells from './RoadToCells';
+import IsolationStepper from './IsolationStepper';
 import { arcPath, buildRing, cellColor, makeCells, ownershipArcs } from '../sim/simulation';
 import Icon from '../ui/icons';
 import ThemeToggle from '../ui/ThemeToggle';
@@ -254,45 +255,39 @@ const Vocabulary: React.FC = () => (
 const SIBLING_ROWS: [string, string, string, string][] = [
   [
     'Availability Zone',
-    'Physical infrastructure: power, cooling, network',
-    'A datacenter burning down',
-    'The cloud provider',
+    'The provider’s physical plant',
+    'Physical failures: power, cooling, network, fire',
+    'The regional control plane — one bug hits every zone',
   ],
   [
     'Region',
-    'Geography',
-    'A metro-scale disaster',
-    'The cloud provider',
-  ],
-  [
-    'Cell',
-    'Your workload, by client or tenant',
-    'Software failures: bad deploys, poison requests, data corruption',
-    'You — your routing layer',
+    'The provider’s geography and control plane',
+    'Metro-scale disasters; regional control-plane failures',
+    'Cross-region routing and replication — yours to build',
   ],
   [
     'Microservice',
     'Your codebase, by function',
-    'One function misbehaving — until synchronous calls chain them back together',
-    'Your org chart, mostly',
-  ],
-  [
-    'Kubernetes namespace',
-    'API objects and resource quotas in one cluster',
-    'Noisy neighbors — not the cluster’s control plane',
-    'The platform team',
+    'One function’s faults, in its own process',
+    'The request path — synchronous call chains re-couple everything',
   ],
   [
     'Shard',
-    'The data',
-    'One key range’s data problems; compute is often still shared',
-    'A hash function',
+    'The data, by key range',
+    'One key range’s hot keys, growth, and corruption',
+    'Compute and control plane — and the system-level complexity',
   ],
   [
-    'Deployment stamp',
-    'Same as a cell — this is Azure’s name for it',
-    'Same as a cell',
-    'You',
+    'Kubernetes namespace',
+    'API objects and quotas in one cluster',
+    'Noisy neighbors’ resource budgets',
+    'The cluster’s control plane: one API server, one etcd',
+  ],
+  [
+    'Cell / deployment stamp',
+    'The whole system, by client or tenant',
+    'Software failures: bad deploys, poison requests, data corruption',
+    'Only the routing layer — thin by design, and you own the slice',
   ],
 ];
 
@@ -301,9 +296,24 @@ const SameThing: React.FC = () => (
     <div className="kicker">03 · Disambiguation</div>
     <h2>"Aren't these all the same thing?"</h2>
     <p>
-      No — and the differences are exactly where architectures go wrong. Each of these carves a
-      system into pieces, but they partition <em>different things</em>, contain{' '}
-      <em>different failures</em>, and answer to <em>different owners</em>:
+      No — and the difference is best read on two axes: <strong>what dependency class each one
+      isolates</strong>, and <strong>what it leaves coupled</strong>. Zones wall off the physics
+      but usually share a control plane; regions split the control plane but leave the bridge
+      between them to you; microservices isolate one function's faults while synchronous calls
+      re-couple the system; shards isolate the data while compute stays shared. Each concept
+      builds one wall and leaves the system-level coupling standing. Step through them — solid
+      means isolated, dashed means still shared — and watch what's left dashed on each step:
+    </p>
+    <IsolationStepper />
+    <p style={{ marginTop: '1.5rem' }}>
+      The arc of those six steps is the point: <strong>cells and deployment stamps aren't
+      another wall — they're the composition</strong>. A cell takes the isolation and scaling
+      units the other concepts provide (zones for physics, services for code, shards for data)
+      and groups them into replicas of the entire system, each serving a slice of clients that
+      your routing layer decides. That's why the failures cells contain are the ones that make
+      the news: bad deploys, poison requests, data corruption — mistakes, which replicate
+      through anything shared and stop only at a system-level wall. The same map, in table
+      form:
     </p>
     <div className="panel">
       <div className="table-scroll">
@@ -312,17 +322,17 @@ const SameThing: React.FC = () => (
             <tr>
               <th>Concept</th>
               <th>What it partitions</th>
-              <th>What failure it contains</th>
-              <th>Who decides membership</th>
+              <th>What it isolates</th>
+              <th>What stays coupled</th>
             </tr>
           </thead>
           <tbody>
-            {SIBLING_ROWS.map(([name, partitions, contains, decides]) => (
+            {SIBLING_ROWS.map(([name, partitions, isolates, coupled]) => (
               <tr key={name}>
                 <td style={{ fontWeight: 600 }}>{name}</td>
                 <td>{partitions}</td>
-                <td>{contains}</td>
-                <td>{decides}</td>
+                <td>{isolates}</td>
+                <td>{coupled}</td>
               </tr>
             ))}
           </tbody>

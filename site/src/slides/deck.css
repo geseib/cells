@@ -262,6 +262,10 @@ body,
   font-size: 0.85rem;
 }
 
+.reveal .pager-clock .time {
+  font-size: 1.7rem;
+}
+
 /* ring slide */
 .stage-ring {
   display: flex;

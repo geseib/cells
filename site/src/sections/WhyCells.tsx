@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { assign, buildRing, cellColor, clientIds, hashKey, makeCells, CELL_COLOR_VARS, FAILED_COLOR } from '../sim/simulation';
 import Icon from '../ui/icons';
 import KeyHint, { useHotkeys } from '../ui/KeyHint';
+import { usePrefersReducedMotion } from './BeyondCells';
 
 const CLIENT_COUNT = 100;
 const CELL_COUNT = 4;
@@ -234,43 +235,105 @@ const TopologyContrast: React.FC = () => {
 /* The 2am pager test: recovery without diagnosis                      */
 /* ------------------------------------------------------------------ */
 
-const SHARED_COMPONENTS = [
+const SUSPECTS = [
   'LB-1', 'LB-2', 'App-1', 'App-2', 'App-3', 'Cache',
   'Queue', 'DB-primary', 'Replica-A', 'Replica-B', 'DNS', 'Config-svc',
 ];
 const CULPRIT = 'Replica-B';
-const DEAD_END_VERDICTS = [
-  'metrics look normal',
-  'inconclusive — logs are noisy',
-  'slightly elevated… could be downstream',
-];
+const DEAD_END_VERDICTS = ['metrics look normal', 'inconclusive', 'logs are noisy'];
+const PAGE_MINUTES = 2 * 60 + 13; // both pagers fire at 2:13 AM
+const COST_PER_CHECK = 15;        // every ruled-out suspect costs 15 minutes
+const PROBE_MS = 650;             // the suspense beat while a suspect is under the lens
+const AUTO_DEAD_ENDS = 4;         // the auto-walk's scripted misery: 4 dead ends, then the culprit
 
-/** The order the presenter's I key investigates components — culprit last. */
-const INVESTIGATE_ORDER = ['Cache', 'App-2', 'DB-primary', 'LB-1', CULPRIT];
+const fmtTime = (mins: number) => `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, '0')} AM`;
 
 export const PagerTest: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
   const [drained, setDrained] = useState(false);
-  const [checked, setChecked] = useState<string[]>([]);
+  const [checked, setChecked] = useState<string[]>([]);        // committed checks, in click order
+  const [probing, setProbing] = useState<string | null>(null); // suspect currently under the lens
+  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const reduced = usePrefersReducedMotion();
+
+  useEffect(() => () => clearTimeout(timer.current), []);
+
   const found = checked.includes(CULPRIT);
+  const deadEnds = checked.filter((c) => c !== CULPRIT).length;
+  const monoMinutes = PAGE_MINUTES + COST_PER_CHECK * deadEnds;
+
+  /** Bank any in-flight check immediately; returns the up-to-date checked list. */
+  const bankProbe = (): string[] => {
+    if (probing === null) return checked;
+    clearTimeout(timer.current);
+    const cur = checked.includes(probing) ? checked : [...checked, probing];
+    setChecked(cur);
+    setProbing(null);
+    return cur;
+  };
+
+  /** The suspense beat: highlight `c` briefly, then check it off. */
+  const startBeat = (c: string, cur: string[]) => {
+    if (reduced) {
+      setChecked([...cur, c]); // no suspense beat under reduced motion
+      return;
+    }
+    setProbing(c);
+    timer.current = setTimeout(() => {
+      setChecked((prev) => (prev.includes(c) ? prev : [...prev, c]));
+      setProbing((p) => (p === c ? null : p));
+    }, PROBE_MS);
+  };
+
+  /** Manual pick: the user (or audience) names the suspect. Luck counts —
+   *  hit Replica-B early and the clock rewards you. */
+  const check = (c: string) => {
+    const cur = bankProbe();
+    if (cur.includes(CULPRIT) || cur.includes(c)) return;
+    startBeat(c, cur);
+  };
+
+  /** Auto-pick (deck right-arrow, Investigate button): a random unchecked
+   *  dead end until the scripted quota is spent, then the culprit — in a
+   *  monolith nothing points anywhere, so the walk earns its 3:13 AM. */
+  const investigate = () => {
+    const cur = bankProbe();
+    if (cur.includes(CULPRIT)) return;
+    const pool = SUSPECTS.filter((c) => c !== CULPRIT && !cur.includes(c));
+    const spent = cur.filter((c) => c !== CULPRIT).length >= AUTO_DEAD_ENDS;
+    const next = spent || pool.length === 0 ? CULPRIT : pool[Math.floor(Math.random() * pool.length)];
+    startBeat(next, cur);
+  };
+
+  /** Undo one step (deck left-arrow): cancel the probe, else roll back the latest check. */
+  const undo = () => {
+    clearTimeout(timer.current);
+    if (probing !== null) {
+      setProbing(null);
+      return;
+    }
+    setChecked((prev) => prev.slice(0, -1));
+  };
+
+  const resetWalk = () => {
+    clearTimeout(timer.current);
+    setProbing(null);
+    setChecked([]);
+  };
 
   // Presenter keys (slide deck only)
   useHotkeys(hotkeys, {
     d: () => setDrained(true),
-    i: () =>
-      setChecked((prev) => {
-        if (prev.includes(CULPRIT)) return prev;
-        const next = INVESTIGATE_ORDER.find((c) => !prev.includes(c));
-        return next ? [...prev, next] : prev;
-      }),
+    i: investigate,
+    u: undo,
     r: () => {
+      resetWalk();
       setDrained(false);
-      setChecked([]);
     },
   });
 
   const verdict = (c: string) =>
     c === CULPRIT
-      ? 'memory pressure — this is it'
+      ? 'memory pressure — the root cause'
       : DEAD_END_VERDICTS[hashKey(`pager-${c}`) % DEAD_END_VERDICTS.length];
 
   return (
@@ -281,6 +344,15 @@ export const PagerTest: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) 
           <div className="pager-alert">
             02:13 ALARM · cell-2 error rate 42% · every affected client is in cell-2
           </div>
+          <div className={`pager-clock ${drained ? 'resolved' : 'impacted'}`}>
+            <Icon name="clock" size={17} />
+            <span className="time" key={drained ? 'after' : 'before'}>{drained ? '2:20 AM' : '2:13 AM'}</span>
+            <span className="note">
+              {drained
+                ? 'your customers are working again'
+                : 'customers impacted — but the alarm already told you where'}
+            </span>
+          </div>
           {!drained ? (
             <button className="danger" onClick={() => setDrained(true)} style={{ marginTop: '0.8rem' }}>
               <Icon name="bolt" />Drain cell-2 and move its clients{hotkeys && <KeyHint k="D" />}
@@ -288,14 +360,14 @@ export const PagerTest: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) 
           ) : (
             <>
               <ul className="pager-steps">
-                <li><Icon name="check" size={13} strokeWidth={2.4} />cell-2 fenced off at the routing layer</li>
-                <li><Icon name="check" size={13} strokeWidth={2.4} />its clients rehashed onto cells 1, 3, 4</li>
-                <li><Icon name="check" size={13} strokeWidth={2.4} />error rate back to 0%</li>
+                <li><Icon name="check" size={13} strokeWidth={2.4} /><span className="step-time">02:14</span>cell-2 fenced off at the routing layer</li>
+                <li><Icon name="check" size={13} strokeWidth={2.4} /><span className="step-time">02:16</span>its clients rehashed onto cells 1, 3, 4</li>
+                <li><Icon name="check" size={13} strokeWidth={2.4} /><span className="step-time">02:20</span>error rate back to 0%</li>
               </ul>
               <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
                 <span className="pulse-chip calm">
-                  <Icon name="check" size={13} strokeWidth={2.4} /> recovered in 1 action — root cause is
-                  now a daytime problem
+                  <Icon name="check" size={13} strokeWidth={2.4} /> resolved in 7 minutes — one routing
+                  decision, zero diagnosis
                 </span>
                 <button onClick={() => setDrained(false)}>Reset{hotkeys && <KeyHint k="R" />}</button>
               </div>
@@ -307,35 +379,54 @@ export const PagerTest: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) 
           <div className="pager-alert">
             02:13 ALARM · elevated errors for clients 123, 879, 432, 345, 776, 091… (no pattern)
           </div>
+          <div className="pager-clock impacted">
+            <Icon name="clock" size={17} />
+            <span className="time" key={monoMinutes}>{fmtTime(monoMinutes)}</span>
+            <span className="note">
+              {found
+                ? `root cause found ${deadEnds ? `after ${deadEnds} dead end${deadEnds === 1 ? '' : 's'}` : 'immediately (a lucky guess)'} — your customers are still impacted`
+                : 'customers impacted — and nothing says where'}
+            </span>
+          </div>
           <p className="pager-hint">
-            Something shared is sick. Which component do you restart? Investigate one at a
-            time{hotkeys && <>{' '}<KeyHint k="I" /></>}:
+            Something shared is sick and nothing points anywhere. Pick a suspect yourself — or let
+            the runbook guess — every dead end costs {COST_PER_CHECK} minutes:
           </p>
           <div className="chip-grid">
-            {SHARED_COMPONENTS.map((c) => {
+            {SUSPECTS.map((c) => {
               const done = checked.includes(c);
+              const isProbing = probing === c && !done;
               return (
                 <button
                   key={c}
-                  className={`chip-btn${done ? (c === CULPRIT ? ' culprit' : ' cleared') : ''}`}
-                  onClick={() => setChecked((p) => (p.includes(c) || found ? p : [...p, c]))}
+                  className={`chip-btn${done ? (c === CULPRIT ? ' culprit' : ' cleared') : isProbing ? ' probing' : ''}`}
+                  onClick={() => check(c)}
                   disabled={done || found}
                 >
                   {c}
-                  {done ? ` · ${verdict(c)}` : ''}
+                  {isProbing ? ' · checking…' : done ? ` · ${verdict(c)}${c === CULPRIT ? '' : ' · +15 min'}` : ''}
                 </button>
               );
             })}
           </div>
           <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            {!found && (
+              <button onClick={investigate}>
+                <Icon name="eye" />Investigate next suspect{hotkeys && <KeyHint k="I" />}
+              </button>
+            )}
             <span className={`pager-status${found ? ' found' : ''}`}>
               {found
-                ? `root cause found after ${checked.length} investigation${checked.length === 1 ? '' : 's'} — now design a safe fix. It is still 2am.`
-                : checked.length
-                  ? `${checked.length} investigated · error rate still 42% · still correlating…`
-                  : 'the alarm names clients, not a component — start guessing'}
+                ? `now design a safe fix and ship it — at ${fmtTime(monoMinutes)}, on no sleep`
+                : probing !== null
+                  ? `pulling dashboards for ${probing}…`
+                  : checked.length
+                    ? `${deadEnds} ruled out · error rate still 42%`
+                    : 'the alarm names clients, not a component — start guessing'}
             </span>
-            {checked.length > 0 && <button onClick={() => setChecked([])}>Reset{hotkeys && <KeyHint k="R" />}</button>}
+            {(checked.length > 0 || probing !== null) && (
+              <button onClick={resetWalk}>Reset{hotkeys && <KeyHint k="R" />}</button>
+            )}
           </div>
         </div>
       </div>
@@ -505,7 +596,8 @@ const WhyCells: React.FC = () => {
         drain cell&nbsp;2, move its clients, go back to sleep. In a shared system the alarm hands
         you a list of victims — clients 123, 879, 432, 345… — and the question "which of our forty
         shared components do we restart?" has to be answered <em>before</em> anyone is helped.
-        You get to be the on-call for both:
+        Watch the clock while you answer it: both pagers go off at 2:13&nbsp;AM, and every suspect
+        you rule out costs fifteen minutes of customer pain. You get to be the on-call for both:
       </p>
       <PagerTest />
 
