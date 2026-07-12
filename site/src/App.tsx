@@ -14,8 +14,6 @@ const App: React.FC = () => (
   <>
     <nav className="top-nav" aria-label="Sections">
       <span className="brand"><RingMark size={18} band={5} vnodes={4} /> Cells</span>
-      <a href="./primer.html">Primer</a>
-      <a href="./slides.html">Slides</a>
       <a href="#why-cells">Why cells</a>
       <a href="#hash-ring">The ring</a>
       <a href="#route-a-client">Routing</a>
@@ -23,15 +21,15 @@ const App: React.FC = () => (
       <a href="#scale">Scaling</a>
       <a href="#beyond-cells">Beyond cells</a>
       <a href="#trade-offs">Trade-offs</a>
-      <ThemeToggle />
+      <span style={{ flex: 1 }} />
+      <a href="./primer.html" style={{ fontWeight: 600 }}>Primer</a>
+      <a href="./slides.html" style={{ fontWeight: 600 }}>Slides</a>
       {hasLiveDemo && (
-        <>
-          <span style={{ flex: 1 }} />
-          <a href={demoAdminUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>
-            Live demo ↗
-          </a>
-        </>
+        <a href={demoAdminUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>
+          Live demo ↗
+        </a>
       )}
+      <ThemeToggle />
     </nav>
     <header className="hero">
       <h1>Cell-Based Architecture</h1>

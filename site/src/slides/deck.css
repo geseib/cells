@@ -155,6 +155,21 @@ body,
   cursor: not-allowed;
 }
 
+/* the generic button reset above outranks the site's pill styles (deck.css
+   loads last) — restore the stepper pills, especially the active highlight */
+.reveal .slides .controls button.step-pill {
+  font-size: 0.76rem;
+  padding: 0.26rem 0.65rem;
+  border-radius: 999px;
+  color: var(--ink-2);
+}
+
+.reveal .slides .controls button.step-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
 /* Embedded site components: keep panels airy, drop web-page niceties */
 .reveal .panel {
   margin-top: 0;

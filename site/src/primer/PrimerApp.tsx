@@ -558,9 +558,10 @@ const PrimerApp: React.FC = () => (
       <a href="#same-thing">Same thing?</a>
       <a href="#patterns">Patterns</a>
       <a href="#reading">Reading</a>
-      <ThemeToggle />
       <span style={{ flex: 1 }} />
-      <a href="./index.html" style={{ fontWeight: 600 }}>Deep dive ↗</a>
+      <a href="./index.html" style={{ fontWeight: 600 }}>Guide</a>
+      <a href="./slides.html" style={{ fontWeight: 600 }}>Slides</a>
+      <ThemeToggle />
     </nav>
     <header className="hero">
       <h1>Before cells: why big systems fail big</h1>

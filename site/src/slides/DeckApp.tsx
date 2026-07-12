@@ -529,7 +529,10 @@ const DeckToolbar: React.FC<{ onOverview: () => void; onNotes: () => void }> = (
 }) => (
   <div className="deck-toolbar">
     <a className="dt-btn" href="./index.html" title="Back to the interactive guide">
-      <RingMark size={15} band={4} vnodes={8} /> Site
+      <RingMark size={15} band={4} vnodes={8} /> Guide
+    </a>
+    <a className="dt-btn" href="./primer.html" title="The vendor-neutral primer">
+      <Icon name="book-open" size={13} /> Primer
     </a>
     <button className="dt-btn" onClick={onOverview} title="All slides at a glance (O or Esc)">
       <Icon name="maximize" size={13} /> Overview
