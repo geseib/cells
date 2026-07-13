@@ -14,6 +14,8 @@ if [ -f "$CONFIG_FILE" ] && command -v jq >/dev/null 2>&1; then
     PROJECT_NAME="${PROJECT_NAME:-$(jq -r '.projectName // "cell-demo"' $CONFIG_FILE)}"
     REGIONS="${REGIONS:-$(jq -r '.regions | join(",") // "us-east-1,us-west-2"' $CONFIG_FILE)}"
     DOMAIN_NAME="${DOMAIN_NAME:-$(jq -r '.domainName // empty' $CONFIG_FILE)}"
+    # Optional single-hostname edge mode (see demo-edge.yaml); empty = off
+    EDGE_DOMAIN="${EDGE_DOMAIN:-$(jq -r '.edgeDomain // empty' $CONFIG_FILE)}"
     AWS_PROFILE_CONFIG=$(jq -r '.deployment.awsProfile // empty' $CONFIG_FILE)
     
     # Set AWS profile if specified
@@ -26,6 +28,18 @@ else
     PROJECT_NAME="${PROJECT_NAME:-cell-demo}"
     REGIONS="${REGIONS:-us-east-1,us-west-2}"
     DOMAIN_NAME="${DOMAIN_NAME:-}"
+    EDGE_DOMAIN="${EDGE_DOMAIN:-}"
+fi
+
+# Edge mode: audience traffic flows through one CloudFront hostname. The
+# router pages call the routing API at the relative /api base and redirect to
+# /{cellId}/ paths; the admin QR card encodes the edge hostname.
+EDGE_MODE="false"
+ROUTER_URL=""
+if [ ! -z "$EDGE_DOMAIN" ] && [ ! -z "$DOMAIN_NAME" ]; then
+    EDGE_MODE="true"
+    ROUTER_URL="https://${EDGE_DOMAIN}.${DOMAIN_NAME}"
+    echo -e "${GREEN}Edge mode enabled: ${ROUTER_URL}${NC}"
 fi
 
 echo -e "${GREEN}AWS Cell Architecture Demo - Frontend Deployment${NC}"
@@ -63,11 +77,13 @@ SITE_DOMAIN_NAME="${SITE_DOMAIN_NAME:-$(jq -r '.siteDomainName // empty' $CONFIG
 INTRO_URL=""
 if [ ! -z "$SITE_DOMAIN_NAME" ]; then INTRO_URL="https://${SITE_DOMAIN_NAME}"; fi
 
-# Build admin tool with the routing API injected (webpack DefinePlugin)
+# Build admin tool with the routing API injected (webpack DefinePlugin).
+# ROUTER_URL (edge mode only) points the "Scan to join" QR card at the single
+# edge hostname; when empty the card falls back to this host's /router.html.
 echo -e "\n${YELLOW}Building admin tool...${NC}"
 cd admin
 npm install
-ADMIN_API_URL="$ROUTING_API" INTRO_URL="$INTRO_URL" npm run build
+ADMIN_API_URL="$ROUTING_API" INTRO_URL="$INTRO_URL" ROUTER_URL="$ROUTER_URL" npm run build
 cd ..
 
 # Get admin bucket from CloudFormation
@@ -90,10 +106,12 @@ aws s3 cp admin/demo-script.html s3://${ADMIN_BUCKET}/demo-script.html
 aws s3 cp admin/demo-panel-embed.js s3://${ADMIN_BUCKET}/demo-panel-embed.js
 
 # Router pages live in the admin bucket; substitute the routing API endpoint
-# for the %%ROUTING_API_URL%% placeholder at deploy time.
+# for the %%ROUTING_API_URL%% placeholder at deploy time. %%EDGE_MODE%% (true/
+# false) switches the pages to relative /api calls and /{cellId}/ redirects
+# when everything is served from the single edge hostname.
 TMP_ROUTER_DIR=$(mktemp -d)
 for page in index.html auto.html; do
-    sed "s|%%ROUTING_API_URL%%|${ROUTING_API}|g; s|%%INTRO_URL%%|${INTRO_URL}|g" router/${page} > ${TMP_ROUTER_DIR}/${page}
+    sed "s|%%ROUTING_API_URL%%|${ROUTING_API}|g; s|%%INTRO_URL%%|${INTRO_URL}|g; s|%%EDGE_MODE%%|${EDGE_MODE}|g" router/${page} > ${TMP_ROUTER_DIR}/${page}
 done
 aws s3 cp ${TMP_ROUTER_DIR}/index.html s3://${ADMIN_BUCKET}/router.html
 aws s3 cp ${TMP_ROUTER_DIR}/auto.html s3://${ADMIN_BUCKET}/auto.html
@@ -127,8 +145,12 @@ for region in "${REGION_ARRAY[@]}"; do
             --output text)
 
         if [ ! -z "$CONTENT_BUCKET" ]; then
+            # CELL_ID lets the SPA detect edge mode at runtime: when served
+            # under /{cellId}/ it swaps its API base to the relative
+            # /{cellId}/api instead of the baked absolute endpoint.
+            CELL_ID="${stack#${PROJECT_NAME}-cell-}"
             echo -e "${GREEN}Building SPA for ${stack} (API: ${CELL_API})${NC}"
-            (cd spa && npm install && CELL_API_URL="$CELL_API" ADMIN_URL="$ADMIN_URL" INTRO_URL="$INTRO_URL" npm run build)
+            (cd spa && npm install && CELL_API_URL="$CELL_API" CELL_ID="$CELL_ID" ADMIN_URL="$ADMIN_URL" INTRO_URL="$INTRO_URL" npm run build)
             echo -e "${GREEN}Deploying to ${CONTENT_BUCKET}${NC}"
             aws s3 sync spa/dist/ s3://${CONTENT_BUCKET}/ --delete --region ${region}
             aws s3 cp admin/demo-panel-embed.js s3://${CONTENT_BUCKET}/demo-panel-embed.js --region ${region}

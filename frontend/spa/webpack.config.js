@@ -32,6 +32,10 @@ module.exports = {
     }),
     new webpack.DefinePlugin({
       'process.env.CELL_API_URL': JSON.stringify(process.env.CELL_API_URL || ''),
+      // This cell's own id (already known per-cell at build time). Used to
+      // detect edge mode at runtime: served under /{cellId}/ the SPA calls
+      // the relative /{cellId}/api instead of the absolute CELL_API_URL.
+      'process.env.CELL_ID': JSON.stringify(process.env.CELL_ID || ''),
       'process.env.ADMIN_URL': JSON.stringify(process.env.ADMIN_URL || ''),
       'process.env.INTRO_URL': JSON.stringify(process.env.INTRO_URL || '')
     })

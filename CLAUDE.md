@@ -18,7 +18,7 @@ workload into isolated cells with consistent-hash routing. Two deliverables:
 | `frontend/spa/` | Per-cell page (React + webpack) |
 | `frontend/admin/` | Admin dashboard (React + webpack, recharts) |
 | `frontend/router/` | Static router pages (`index.html`, `auto.html`) deployed to the admin bucket |
-| `infrastructure/templates/` | Live templates only: `global-resources.yaml`, `routing-layer.yaml`, `cell-template.yaml`, `cell-certificate.yaml`, `github-oidc-role.yaml` (one-time bootstrap for the auto-deploy workflow) |
+| `infrastructure/templates/` | Live templates only: `global-resources.yaml`, `routing-layer.yaml`, `cell-template.yaml`, `cell-certificate.yaml`, `demo-edge.yaml` (optional single-hostname edge mode, enabled via `edgeDomain` in config), `github-oidc-role.yaml` (one-time bootstrap for the auto-deploy workflow) |
 | `infrastructure/scripts/` | `deploy.sh`, `deploy-frontend.sh`, `smoke-test.sh` (post-deploy verification), `cleanup.sh` |
 | `tests/` | Playwright E2E suite, parameterized by env vars (`tests/tests/config.ts`) |
 

@@ -1,0 +1,603 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Optional "edge mode" for the cell demo: ONE CloudFront distribution that
+  fronts every audience-facing endpoint under a single hostname
+  ({EdgeSubdomain}.{DomainName}) so proxy-restricted audiences only need one
+  DNS name allowlisted. LIMIT: up to 8 cells (CellId1..CellId8 parameter
+  slots, empty = unused). Deploy in us-east-1 only (the ACM certificate is
+  created in-stack and CloudFront certificates must live in us-east-1).
+
+# Path map (a viewer-request CloudFront Function strips the routing prefix):
+#   /               -> admin bucket (router.html is the default root object;
+#                      /auto.html and the admin dashboard /index.html too)
+#   /api/*          -> the routing API custom domain (api.{DomainName})
+#   /{cellId}/*     -> that cell's CloudFront distribution
+#   /{cellId}/api/* -> that cell's execute-api endpoint (rewritten to /prod/*)
+#
+# Deliberate trade-off (documented in README): this distribution is a shared
+# dependency for client traffic - exactly the "central router" topology the
+# demo's trade-offs discussion warns about - chosen for demo convenience.
+# The cells themselves stay isolated from each other behind it.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: cell-demo
+  DomainName:
+    Type: String
+    Description: Base domain of the demo (e.g., cells.example.com)
+  EdgeSubdomain:
+    Type: String
+    Default: go
+    Description: Subdomain for the single edge hostname (e.g., "go")
+  HostedZoneId:
+    Type: String
+    Description: Route53 hosted zone ID for the domain (cert DNS validation + alias records)
+  AdminBucketRegionalDomainName:
+    Type: String
+    Description: >
+      Regional domain name of the admin UI bucket from the routing stack
+      (e.g., {project}-admin-ui-{account}.s3.us-east-1.amazonaws.com).
+  AdminOriginAccessIdentity:
+    Type: String
+    Description: >
+      The routing stack's CloudFront Origin Access Identity ID (AdminOAI
+      output). Reused here so the admin bucket policy already grants this
+      distribution read access.
+  CellId1:
+    Type: String
+    Default: ''
+    Description: Cell 1 id (e.g., us-east-1-az1); empty = slot unused
+  CellPageOrigin1:
+    Type: String
+    Default: ''
+    Description: Cell 1 CloudFront domain (e.g., d123.cloudfront.net)
+  CellApiOrigin1:
+    Type: String
+    Default: ''
+    Description: Cell 1 execute-api host (e.g., abc123.execute-api.us-west-2.amazonaws.com)
+  CellId2:
+    Type: String
+    Default: ''
+    Description: Cell 2 id (e.g., us-east-1-az1); empty = slot unused
+  CellPageOrigin2:
+    Type: String
+    Default: ''
+    Description: Cell 2 CloudFront domain (e.g., d123.cloudfront.net)
+  CellApiOrigin2:
+    Type: String
+    Default: ''
+    Description: Cell 2 execute-api host (e.g., abc123.execute-api.us-west-2.amazonaws.com)
+  CellId3:
+    Type: String
+    Default: ''
+    Description: Cell 3 id (e.g., us-east-1-az1); empty = slot unused
+  CellPageOrigin3:
+    Type: String
+    Default: ''
+    Description: Cell 3 CloudFront domain (e.g., d123.cloudfront.net)
+  CellApiOrigin3:
+    Type: String
+    Default: ''
+    Description: Cell 3 execute-api host (e.g., abc123.execute-api.us-west-2.amazonaws.com)
+  CellId4:
+    Type: String
+    Default: ''
+    Description: Cell 4 id (e.g., us-east-1-az1); empty = slot unused
+  CellPageOrigin4:
+    Type: String
+    Default: ''
+    Description: Cell 4 CloudFront domain (e.g., d123.cloudfront.net)
+  CellApiOrigin4:
+    Type: String
+    Default: ''
+    Description: Cell 4 execute-api host (e.g., abc123.execute-api.us-west-2.amazonaws.com)
+  CellId5:
+    Type: String
+    Default: ''
+    Description: Cell 5 id (e.g., us-east-1-az1); empty = slot unused
+  CellPageOrigin5:
+    Type: String
+    Default: ''
+    Description: Cell 5 CloudFront domain (e.g., d123.cloudfront.net)
+  CellApiOrigin5:
+    Type: String
+    Default: ''
+    Description: Cell 5 execute-api host (e.g., abc123.execute-api.us-west-2.amazonaws.com)
+  CellId6:
+    Type: String
+    Default: ''
+    Description: Cell 6 id (e.g., us-east-1-az1); empty = slot unused
+  CellPageOrigin6:
+    Type: String
+    Default: ''
+    Description: Cell 6 CloudFront domain (e.g., d123.cloudfront.net)
+  CellApiOrigin6:
+    Type: String
+    Default: ''
+    Description: Cell 6 execute-api host (e.g., abc123.execute-api.us-west-2.amazonaws.com)
+  CellId7:
+    Type: String
+    Default: ''
+    Description: Cell 7 id (e.g., us-east-1-az1); empty = slot unused
+  CellPageOrigin7:
+    Type: String
+    Default: ''
+    Description: Cell 7 CloudFront domain (e.g., d123.cloudfront.net)
+  CellApiOrigin7:
+    Type: String
+    Default: ''
+    Description: Cell 7 execute-api host (e.g., abc123.execute-api.us-west-2.amazonaws.com)
+  CellId8:
+    Type: String
+    Default: ''
+    Description: Cell 8 id (e.g., us-east-1-az1); empty = slot unused
+  CellPageOrigin8:
+    Type: String
+    Default: ''
+    Description: Cell 8 CloudFront domain (e.g., d123.cloudfront.net)
+  CellApiOrigin8:
+    Type: String
+    Default: ''
+    Description: Cell 8 execute-api host (e.g., abc123.execute-api.us-west-2.amazonaws.com)
+
+Conditions:
+  HasCell1: !Not [!Equals [!Ref CellId1, '']]
+  HasCell2: !Not [!Equals [!Ref CellId2, '']]
+  HasCell3: !Not [!Equals [!Ref CellId3, '']]
+  HasCell4: !Not [!Equals [!Ref CellId4, '']]
+  HasCell5: !Not [!Equals [!Ref CellId5, '']]
+  HasCell6: !Not [!Equals [!Ref CellId6, '']]
+  HasCell7: !Not [!Equals [!Ref CellId7, '']]
+  HasCell8: !Not [!Equals [!Ref CellId8, '']]
+
+Resources:
+  # Certificate for the edge hostname - created in-stack because this stack
+  # is only ever deployed to us-east-1 (CloudFront requirement), same pattern
+  # as cell-certificate.yaml.
+  EdgeCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub '${EdgeSubdomain}.${DomainName}'
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - DomainName: !Sub '${EdgeSubdomain}.${DomainName}'
+          HostedZoneId: !Ref HostedZoneId
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # Viewer-request function: strips the routing prefix before the request is
+  # forwarded to the origin. Associated with every behavior EXCEPT the
+  # default (admin bucket paths pass through unchanged):
+  #   /api/<x>           -> /<x>        (routing API custom domain serves at /)
+  #   /{cellId}/api/<x>  -> /<x>        (the cell API origin adds /prod via OriginPath)
+  #   /{cellId}/<x>      -> /<x>        (the cell distribution serves the SPA at /)
+  PrefixStripFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub '${ProjectName}-edge-prefix-strip'
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Strip /api or /{cellId}[/api] path prefixes for origin routing
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          var uri = request.uri;
+          // Global routing API: /api/* -> /*
+          if (uri === '/api' || uri.indexOf('/api/') === 0) {
+            request.uri = uri.substring(4) || '/';
+            return request;
+          }
+          // Cell paths: drop the leading /{cellId}
+          var i = uri.indexOf('/', 1);
+          var rest = i === -1 ? '/' : uri.substring(i);
+          // Cell API: /{cellId}/api/* -> /* (OriginPath prepends /prod)
+          if (rest === '/api' || rest.indexOf('/api/') === 0) {
+            request.uri = rest.substring(4) || '/';
+          } else {
+            request.uri = rest;
+          }
+          return request;
+        }
+
+  EdgeDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: !Sub 'Single-hostname edge for ${ProjectName} (audience traffic)'
+        Enabled: true
+        IPV6Enabled: true
+        PriceClass: PriceClass_100
+        # Router page as the landing page for the bare hostname (the QR code
+        # target). deploy-frontend.sh uploads it to the admin bucket as
+        # router.html; the admin dashboard stays at /index.html.
+        DefaultRootObject: router.html
+        Aliases:
+          - !Sub '${EdgeSubdomain}.${DomainName}'
+        ViewerCertificate:
+          AcmCertificateArn: !Ref EdgeCertificate
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        Origins:
+          - Id: AdminS3Origin
+            DomainName: !Ref AdminBucketRegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: !Sub 'origin-access-identity/cloudfront/${AdminOriginAccessIdentity}'
+          - Id: RoutingApiOrigin
+            DomainName: !Sub 'api.${DomainName}'
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+          - !If
+            - HasCell1
+            - Id: CellPageOrigin1
+              DomainName: !Ref CellPageOrigin1
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell1
+            - Id: CellApiOrigin1
+              DomainName: !Ref CellApiOrigin1
+              OriginPath: '/prod'
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell2
+            - Id: CellPageOrigin2
+              DomainName: !Ref CellPageOrigin2
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell2
+            - Id: CellApiOrigin2
+              DomainName: !Ref CellApiOrigin2
+              OriginPath: '/prod'
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell3
+            - Id: CellPageOrigin3
+              DomainName: !Ref CellPageOrigin3
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell3
+            - Id: CellApiOrigin3
+              DomainName: !Ref CellApiOrigin3
+              OriginPath: '/prod'
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell4
+            - Id: CellPageOrigin4
+              DomainName: !Ref CellPageOrigin4
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell4
+            - Id: CellApiOrigin4
+              DomainName: !Ref CellApiOrigin4
+              OriginPath: '/prod'
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell5
+            - Id: CellPageOrigin5
+              DomainName: !Ref CellPageOrigin5
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell5
+            - Id: CellApiOrigin5
+              DomainName: !Ref CellApiOrigin5
+              OriginPath: '/prod'
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell6
+            - Id: CellPageOrigin6
+              DomainName: !Ref CellPageOrigin6
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell6
+            - Id: CellApiOrigin6
+              DomainName: !Ref CellApiOrigin6
+              OriginPath: '/prod'
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell7
+            - Id: CellPageOrigin7
+              DomainName: !Ref CellPageOrigin7
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell7
+            - Id: CellApiOrigin7
+              DomainName: !Ref CellApiOrigin7
+              OriginPath: '/prod'
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell8
+            - Id: CellPageOrigin8
+              DomainName: !Ref CellPageOrigin8
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell8
+            - Id: CellApiOrigin8
+              DomainName: !Ref CellApiOrigin8
+              OriginPath: '/prod'
+              CustomOriginConfig:
+                OriginProtocolPolicy: https-only
+                OriginSSLProtocols: [TLSv1.2]
+            - !Ref 'AWS::NoValue'
+        DefaultCacheBehavior:
+          TargetOriginId: AdminS3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+        CacheBehaviors:
+          # Global routing API - no caching, forward everything except Host
+          # (API Gateway requires the origin's own Host header).
+          - PathPattern: '/api/*'
+            TargetOriginId: RoutingApiOrigin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # Managed-AllViewerExceptHostHeader
+            FunctionAssociations:
+              - EventType: viewer-request
+                FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+          # Per-cell API behaviors must precede the per-cell page behaviors:
+          # CloudFront evaluates cache behaviors in order and /{cellId}/*
+          # would otherwise swallow /{cellId}/api/*.
+          - !If
+            - HasCell1
+            - PathPattern: !Sub '/${CellId1}/api/*'
+              TargetOriginId: CellApiOrigin1
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled
+              OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # Managed-AllViewerExceptHostHeader
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell2
+            - PathPattern: !Sub '/${CellId2}/api/*'
+              TargetOriginId: CellApiOrigin2
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled
+              OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # Managed-AllViewerExceptHostHeader
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell3
+            - PathPattern: !Sub '/${CellId3}/api/*'
+              TargetOriginId: CellApiOrigin3
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled
+              OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # Managed-AllViewerExceptHostHeader
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell4
+            - PathPattern: !Sub '/${CellId4}/api/*'
+              TargetOriginId: CellApiOrigin4
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled
+              OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # Managed-AllViewerExceptHostHeader
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell5
+            - PathPattern: !Sub '/${CellId5}/api/*'
+              TargetOriginId: CellApiOrigin5
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled
+              OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # Managed-AllViewerExceptHostHeader
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell6
+            - PathPattern: !Sub '/${CellId6}/api/*'
+              TargetOriginId: CellApiOrigin6
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled
+              OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # Managed-AllViewerExceptHostHeader
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell7
+            - PathPattern: !Sub '/${CellId7}/api/*'
+              TargetOriginId: CellApiOrigin7
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled
+              OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # Managed-AllViewerExceptHostHeader
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell8
+            - PathPattern: !Sub '/${CellId8}/api/*'
+              TargetOriginId: CellApiOrigin8
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled
+              OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac  # Managed-AllViewerExceptHostHeader
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell1
+            - PathPattern: !Sub '/${CellId1}/*'
+              TargetOriginId: CellPageOrigin1
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS]
+              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell2
+            - PathPattern: !Sub '/${CellId2}/*'
+              TargetOriginId: CellPageOrigin2
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS]
+              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell3
+            - PathPattern: !Sub '/${CellId3}/*'
+              TargetOriginId: CellPageOrigin3
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS]
+              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell4
+            - PathPattern: !Sub '/${CellId4}/*'
+              TargetOriginId: CellPageOrigin4
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS]
+              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell5
+            - PathPattern: !Sub '/${CellId5}/*'
+              TargetOriginId: CellPageOrigin5
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS]
+              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell6
+            - PathPattern: !Sub '/${CellId6}/*'
+              TargetOriginId: CellPageOrigin6
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS]
+              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell7
+            - PathPattern: !Sub '/${CellId7}/*'
+              TargetOriginId: CellPageOrigin7
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS]
+              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+          - !If
+            - HasCell8
+            - PathPattern: !Sub '/${CellId8}/*'
+              TargetOriginId: CellPageOrigin8
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS]
+              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              FunctionAssociations:
+                - EventType: viewer-request
+                  FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
+            - !Ref 'AWS::NoValue'
+
+  EdgeAliasRecordA:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub '${EdgeSubdomain}.${DomainName}'
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt EdgeDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+
+  EdgeAliasRecordAAAA:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Sub '${EdgeSubdomain}.${DomainName}'
+      Type: AAAA
+      AliasTarget:
+        DNSName: !GetAtt EdgeDistribution.DomainName
+        HostedZoneId: Z2FDTNDATAQYW2  # CloudFront hosted zone ID
+
+Outputs:
+  EdgeUrl:
+    Value: !Sub 'https://${EdgeSubdomain}.${DomainName}'
+    Description: Single audience-facing hostname (router page at /)
+  EdgeDistributionDomainName:
+    Value: !GetAtt EdgeDistribution.DomainName
+    Description: CloudFront domain of the edge distribution
+  EdgeDistributionId:
+    Value: !Ref EdgeDistribution
+    Description: CloudFront distribution ID (for cache invalidations)

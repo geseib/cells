@@ -115,9 +115,17 @@ const App: React.FC = () => {
 
   // CELL_API_URL and ADMIN_URL are injected at build time by webpack DefinePlugin;
   // deploy-frontend.sh builds the SPA once per cell with that cell's API endpoint.
+  // Edge mode: when this page is served under its own /{cellId}/ path prefix
+  // (single-hostname edge distribution), the cell's API is reachable at the
+  // relative /{cellId}/api on the same host - still this cell's OWN API, just
+  // via the edge, so fault isolation is unchanged.
   const getApiUrl = () => {
     if (window.location.hostname === 'localhost') {
       return 'http://localhost:3000/prod';
+    }
+    const cellId = process.env.CELL_ID || '';
+    if (cellId && window.location.pathname.startsWith(`/${cellId}/`)) {
+      return `/${cellId}/api`;
     }
     return process.env.CELL_API_URL || '';
   };

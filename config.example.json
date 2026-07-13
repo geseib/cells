@@ -3,6 +3,8 @@
   "samBucket": "my-sam-deployment-bucket",
   "domainName": "cells.example.com",
   "siteDomainName": "cellintro.example.com",
+  "_edgeDomainComment": "Optional single-hostname mode: set edgeDomain to a subdomain label (e.g. 'go') to serve the router, routing API and every cell from go.{domainName} through one CloudFront distribution (see demo-edge.yaml). Empty string = disabled.",
+  "edgeDomain": "",
   "hostedZoneId": "Z1234567890ABC",
   "regions": ["us-east-1", "us-west-2"],
   "azsPerRegion": 2,

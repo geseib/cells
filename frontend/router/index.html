@@ -597,12 +597,26 @@
         // ROUTING_API_URL is substituted by infrastructure/scripts/deploy-frontend.sh
         // from the routing stack's API endpoint at deploy time.
         const ROUTING_API_URL = '%%ROUTING_API_URL%%';
+        // EDGE_MODE ('true'/'false', substituted at deploy time): when the demo
+        // runs behind the single-hostname edge distribution, the routing API is
+        // reached at the relative /api base and cells at /{cellId}/ on this
+        // same host - one DNS name for everything the audience touches.
+        const EDGE_MODE = '%%EDGE_MODE%%' === 'true';
 
         function getApiUrl() {
+            if (EDGE_MODE) {
+                return '/api';
+            }
             if (window.location.hostname === 'localhost') {
                 return 'http://localhost:3000/prod';
             }
             return ROUTING_API_URL;
+        }
+
+        // Where to send the client for a given cell: the cell's own hostname
+        // normally, or the /{cellId}/ path on this host in edge mode.
+        function cellHref(cellId, directUrl) {
+            return EDGE_MODE ? '/' + encodeURIComponent(cellId) + '/' : directUrl;
         }
 
         // Inline SVG icon snippets for the status line (thin-stroke set, same
@@ -716,7 +730,9 @@
                 const data = await response.json();
                 const targetCell = data.targetCell;
                 await fetchCellUrls();
-                const cellUrl = cellUrlCache[targetCell.cellId] ? cellUrlCache[targetCell.cellId].directUrl : '';
+                const cellUrl = cellUrlCache[targetCell.cellId]
+                    ? cellHref(targetCell.cellId, cellUrlCache[targetCell.cellId].directUrl)
+                    : '';
                 const color = cellColorVar(targetCell.cellId);
 
                 showRoutingResult(`
@@ -755,7 +771,7 @@
             const cell = cellUrlCache[cellId];
             if (!cell) return;
             const urlClientId = document.getElementById('clientIdInput').value || getClientId();
-            window.location.href = `${cell.directUrl}?clientId=${encodeURIComponent(urlClientId)}`;
+            window.location.href = `${cellHref(cellId, cell.directUrl)}?clientId=${encodeURIComponent(urlClientId)}`;
         }
 
         // Show client input section after initial routing
@@ -800,7 +816,7 @@
                 redirectButton.className = 'primary go-button';
                 redirectButton.textContent = `Go to ${targetCell.cellId} now`;
                 redirectButton.onclick = () => {
-                    window.location.href = `${targetCell.directUrl}?clientId=${encodeURIComponent(clientId)}`;
+                    window.location.href = `${cellHref(targetCell.cellId, targetCell.directUrl)}?clientId=${encodeURIComponent(clientId)}`;
                 };
                 document.getElementById('cellInfo').appendChild(redirectButton);
                 document.getElementById('spinner').style.display = 'none';

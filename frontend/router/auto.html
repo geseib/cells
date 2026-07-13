@@ -487,6 +487,18 @@
         let countdownInterval;
         let redirectTimeout;
 
+        // EDGE_MODE ('true'/'false', substituted at deploy time): when the demo
+        // runs behind the single-hostname edge distribution, the routing API is
+        // reached at the relative /api base and cells at /{cellId}/ on this
+        // same host - one DNS name for everything the audience touches.
+        const EDGE_MODE = '%%EDGE_MODE%%' === 'true';
+
+        // Where to send the client for a given cell: the cell's own hostname
+        // normally, or the /{cellId}/ path on this host in edge mode.
+        function cellHref(cellId, directUrl) {
+            return EDGE_MODE ? '/' + encodeURIComponent(cellId) + '/' : directUrl;
+        }
+
         // Get or generate client ID
         function getClientId() {
             let clientId = localStorage.getItem('cellClientId');
@@ -591,10 +603,13 @@
 
             try {
                 // ROUTING_API_URL is substituted by infrastructure/scripts/deploy-frontend.sh
-                // from the routing stack's API endpoint at deploy time.
-                const apiUrl = window.location.hostname === 'localhost'
-                    ? 'http://localhost:3000/prod'
-                    : '%%ROUTING_API_URL%%';
+                // from the routing stack's API endpoint at deploy time. In edge
+                // mode the API lives at the relative /api base on this host.
+                const apiUrl = EDGE_MODE
+                    ? '/api'
+                    : (window.location.hostname === 'localhost'
+                        ? 'http://localhost:3000/prod'
+                        : '%%ROUTING_API_URL%%');
 
                 // Get routing decision
                 const response = await fetch(`${apiUrl}/admin/client-route/${clientId}`);
@@ -627,7 +642,7 @@
 
                 document.getElementById('spinner').style.display = 'none';
                 updateStatus(`${ICON_TARGET} Redirecting to ${escHtml(targetCell.cellId)} in...`);
-                showCellInfo(routingData, targetCell.directUrl, clientId, color);
+                showCellInfo(routingData, cellHref(targetCell.cellId, targetCell.directUrl), clientId, color);
 
             } catch (error) {
                 console.error('Routing error:', error);
