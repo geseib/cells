@@ -4,220 +4,517 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cell Architecture - Routing</title>
+    <script>
+        // Anti-flash: apply a manually forced theme before first paint (same
+        // pattern and localStorage key as the educational site and admin).
+        try {
+            var t = localStorage.getItem('cells-theme');
+            if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+        } catch (e) {}
+    </script>
     <style>
+        /* Design-system tokens - copied verbatim from site/src/styles.css /
+           frontend/admin/src/styles.css so this page reads as a sibling. */
+        :root {
+            --surface-1: #fcfcfb;
+            --page: #f9f9f7;
+            --ink: #0b0b0b;
+            --ink-2: #52514e;
+            --muted: #898781;
+            --grid: #e1e0d9;
+            --baseline: #c3c2b7;
+            --border: rgba(11, 11, 11, 0.1);
+            --accent: #2a78d6;
+
+            --cell-1: #2a78d6;
+            --cell-2: #1baf7a;
+            --cell-3: #eda100;
+            --cell-4: #4a3aa7;
+            --cell-5: #e87ba4;
+            --cell-6: #eb6834;
+            --cell-7: #008300;
+            --cell-8: #104281;
+
+            --good: #0ca30c;
+            --critical: #d03b3b;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --surface-1: #1a1a19;
+                --page: #0d0d0d;
+                --ink: #ffffff;
+                --ink-2: #c3c2b7;
+                --muted: #898781;
+                --grid: #2c2c2a;
+                --baseline: #383835;
+                --border: rgba(255, 255, 255, 0.1);
+                --accent: #3987e5;
+
+                --cell-1: #3987e5;
+                --cell-2: #199e70;
+                --cell-3: #c98500;
+                --cell-4: #9085e9;
+                --cell-5: #d55181;
+                --cell-6: #d95926;
+                --cell-7: #008300;
+                --cell-8: #86b6ef;
+
+                --good: #0ca30c;
+                --critical: #e66767;
+            }
+        }
+
+        /* Manual theme override (set by the site's ThemeToggle via the shared
+           localStorage key): the attribute selectors outrank the media blocks,
+           so an explicit choice wins in both directions. */
+        :root[data-theme='light'] {
+            --surface-1: #fcfcfb;
+            --page: #f9f9f7;
+            --ink: #0b0b0b;
+            --ink-2: #52514e;
+            --muted: #898781;
+            --grid: #e1e0d9;
+            --baseline: #c3c2b7;
+            --border: rgba(11, 11, 11, 0.1);
+            --accent: #2a78d6;
+
+            --cell-1: #2a78d6;
+            --cell-2: #1baf7a;
+            --cell-3: #eda100;
+            --cell-4: #4a3aa7;
+            --cell-5: #e87ba4;
+            --cell-6: #eb6834;
+            --cell-7: #008300;
+            --cell-8: #104281;
+
+            --good: #0ca30c;
+            --critical: #d03b3b;
+        }
+
+        :root[data-theme='dark'] {
+            --surface-1: #1a1a19;
+            --page: #0d0d0d;
+            --ink: #ffffff;
+            --ink-2: #c3c2b7;
+            --muted: #898781;
+            --grid: #2c2c2a;
+            --baseline: #383835;
+            --border: rgba(255, 255, 255, 0.1);
+            --accent: #3987e5;
+
+            --cell-1: #3987e5;
+            --cell-2: #199e70;
+            --cell-3: #c98500;
+            --cell-4: #9085e9;
+            --cell-5: #d55181;
+            --cell-6: #d95926;
+            --cell-7: #008300;
+            --cell-8: #86b6ef;
+
+            --good: #0ca30c;
+            --critical: #e66767;
+        }
+
+        * { box-sizing: border-box; }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation: none !important;
+                transition: none !important;
+            }
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
             margin: 0;
-            /* top padding clears the fixed demo banner */
-            padding: 76px 1rem 2rem;
-            box-sizing: border-box;
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+            background: var(--page);
+            color: var(--ink);
+            line-height: 1.65;
+            -webkit-font-smoothing: antialiased;
         }
-        .container {
-            text-align: center;
-            padding: 2rem;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
         }
-        h1 {
-            margin-bottom: 1rem;
-        }
-        .status {
-            font-size: 1.2rem;
-            margin: 1rem 0;
-        }
-        .spinner {
-            border: 3px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top: 3px solid white;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 2rem auto;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .error {
-            background: rgba(255, 59, 48, 0.2);
-            padding: 1rem;
-            border-radius: 10px;
-            margin-top: 1rem;
-        }
-        .cell-info {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 1rem;
-            border-radius: 10px;
-            margin-top: 1rem;
-        }
-        .retry-button {
-            background: white;
-            color: #667eea;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 25px;
-            font-size: 1rem;
-            cursor: pointer;
-            margin-top: 1rem;
-            transition: transform 0.2s;
-        }
-        .retry-button:hover {
-            transform: scale(1.05);
-        }
-        .client-input-section {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 2rem;
-            border-radius: 15px;
-            margin-top: 2rem;
-        }
-        .client-input-section h2 {
-            margin-bottom: 1rem;
-            color: white;
-        }
-        .input-group {
-            display: flex;
-            gap: 1rem;
-            margin: 1rem 0;
-            align-items: center;
-        }
-        .client-input {
-            flex: 1;
-            padding: 0.75rem;
-            border: none;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
-            font-size: 1rem;
-        }
-        .route-btn {
-            background: white;
-            color: #667eea;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
-            font-size: 1rem;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.2s;
-        }
-        .route-btn:hover {
-            transform: scale(1.05);
-            background: #f0f0f0;
-        }
-        .routing-result {
-            background: rgba(255, 255, 255, 0.15);
-            padding: 1rem;
-            border-radius: 10px;
-            margin-top: 1rem;
-        }
-        .routing-result.success {
-            border-left: 4px solid #43e97b;
-        }
-        .routing-result.error {
-            border-left: 4px solid #ff6b6b;
-        }
-        /* ---------- Demo banner ---------- */
+
+        /* ---------- Demo banner (matches the admin dashboard) ---------- */
         .demo-banner {
-            position: fixed;
+            position: sticky;
             top: 0;
-            left: 0;
-            right: 0;
-            z-index: 50;
-            height: 48px;
+            z-index: 20;
+            height: 42px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 1rem;
-            padding: 0 1.25rem;
-            background: rgba(30, 30, 46, 0.45);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+            padding: 0 1.5rem;
+            background: color-mix(in srgb, var(--surface-1) 92%, transparent);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
         }
+
         .banner-brand {
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            font-weight: 600;
-            font-size: 0.9rem;
+            font-weight: 700;
+            font-size: 0.88rem;
+            letter-spacing: -0.01em;
             white-space: nowrap;
         }
-        .banner-dot {
-            width: 9px;
-            height: 9px;
-            border-radius: 50%;
-            background: #43e97b;
-        }
-        .banner-menu {
-            position: relative;
-        }
+
+        .banner-menu { position: relative; }
+
         .banner-menu-btn {
             display: inline-flex;
             align-items: center;
             gap: 0.4rem;
-            font-family: inherit;
+            font: inherit;
             font-size: 0.82rem;
             font-weight: 600;
-            color: white;
-            background: rgba(255, 255, 255, 0.12);
-            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: var(--ink);
+            background: var(--surface-1);
+            border: 1px solid var(--border);
             border-radius: 999px;
-            padding: 0.3rem 0.8rem;
+            padding: 0.26rem 0.7rem;
             cursor: pointer;
-            transition: background 0.15s ease;
+            transition: border-color 0.15s ease;
         }
-        .banner-menu-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
+
+        .banner-menu-btn:hover { border-color: var(--baseline); }
+
         .banner-dropdown {
             position: absolute;
             right: 0;
-            top: calc(100% + 8px);
+            top: calc(100% + 6px);
             min-width: 200px;
             display: flex;
             flex-direction: column;
             padding: 0.35rem;
-            background: rgba(30, 30, 46, 0.95);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: var(--surface-1);
+            border: 1px solid var(--border);
             border-radius: 10px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.45);
+            box-shadow: 0 12px 32px -16px rgba(11, 11, 11, 0.35);
+            z-index: 30;
             text-align: left;
         }
+
         .banner-dropdown a {
-            padding: 0.5rem 0.75rem;
+            padding: 0.42rem 0.75rem;
             border-radius: 7px;
-            color: white;
-            font-weight: 500;
+            color: var(--ink);
+            font-weight: 600;
             font-size: 0.85rem;
             text-decoration: none;
             white-space: nowrap;
-            transition: background 0.15s ease;
         }
+
         .banner-dropdown a:hover {
-            background: rgba(255, 255, 255, 0.12);
+            background: color-mix(in srgb, var(--accent) 10%, transparent);
         }
+
         /* the class display:flex outranks the UA [hidden] rule */
-        .banner-dropdown[hidden] {
-            display: none;
+        .banner-dropdown[hidden] { display: none; }
+
+        /* ---------- Page shell ---------- */
+        .wrap {
+            max-width: 660px;
+            margin: 0 auto;
+            padding: 2.5rem 1.25rem 5rem;
+        }
+
+        .hero {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero .ring-mark {
+            display: block;
+            margin: 0 auto 1.1rem;
+        }
+
+        .kicker {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--accent);
+        }
+
+        .hero h1 {
+            font-size: clamp(1.7rem, 5vw, 2.2rem);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin: 0.3rem 0 0.6rem;
+        }
+
+        .hero p.lede {
+            color: var(--ink-2);
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        /* ---------- Panels ---------- */
+        .panel {
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.4rem;
+            margin-top: 1.25rem;
+            box-shadow: 0 1px 2px rgba(11, 11, 11, 0.03), 0 12px 32px -20px rgba(11, 11, 11, 0.18);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .panel { box-shadow: none; }
+        }
+        :root[data-theme='dark'] .panel { box-shadow: none; }
+        :root[data-theme='light'] .panel {
+            box-shadow: 0 1px 2px rgba(11, 11, 11, 0.03), 0 12px 32px -20px rgba(11, 11, 11, 0.18);
+        }
+
+        .panel h2 {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0 0 0.5rem;
+            font-size: 1.05rem;
+            letter-spacing: -0.01em;
+        }
+
+        .panel p.hint {
+            margin: 0 0 0.9rem;
+            color: var(--ink-2);
+            font-size: 0.9rem;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1rem;
+            margin: 1rem 0 0;
+            min-height: 1.6rem;
+        }
+
+        .spinner {
+            border: 3px solid var(--grid);
+            border-top: 3px solid var(--accent);
+            border-radius: 50%;
+            width: 34px;
+            height: 34px;
+            animation: spin 1s linear infinite;
+            margin: 1.25rem auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ---------- Routing story rows ---------- */
+        .route-story {
+            border: 1px solid var(--grid);
+            border-radius: 10px;
+            margin-top: 1rem;
+            text-align: left;
+            overflow: hidden;
+        }
+
+        .route-story .row {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.55rem 0.9rem;
+            border-bottom: 1px solid var(--grid);
+            font-size: 0.9rem;
+        }
+
+        .route-story .row:last-child { border-bottom: none; }
+
+        .route-story .row .k {
+            color: var(--muted);
+            font-weight: 600;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        .route-story .row .v {
+            text-align: right;
+            word-break: break-all;
+        }
+
+        .hash-chip {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.8rem;
+            background: var(--page);
+            border: 1px solid var(--grid);
+            border-radius: 6px;
+            padding: 0.1rem 0.4rem;
+            word-break: break-all;
+        }
+
+        .swatch {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            margin-right: 0.4rem;
+            vertical-align: baseline;
+        }
+
+        .cell-chip {
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        .route-story a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .route-story a:hover { text-decoration: underline; }
+
+        /* ---------- Controls ---------- */
+        button {
+            font: inherit;
+            font-size: 0.88rem;
+            font-weight: 600;
+            padding: 0.48rem 0.95rem;
+            border-radius: 9px;
+            border: 1px solid var(--border);
+            background: var(--surface-1);
+            color: var(--ink);
+            cursor: pointer;
+            transition: border-color 0.15s ease, transform 0.15s ease;
+        }
+
+        button:hover {
+            border-color: var(--baseline);
+            transform: translateY(-1px);
+        }
+
+        button:active { transform: translateY(0); }
+
+        button:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        button.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        input[type='text'] {
+            font: inherit;
+            padding: 0.45rem 0.7rem;
+            border-radius: 8px;
+            border: 1px solid var(--baseline);
+            background: var(--surface-1);
+            color: var(--ink);
+            min-width: 0;
+            flex: 1;
+        }
+
+        input[type='text']:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 0.6rem;
+            margin: 0.75rem 0 0;
+            align-items: center;
+        }
+
+        .go-button { margin-top: 0.9rem; }
+
+        /* ---------- Result / error notes ---------- */
+        .routing-result {
+            border: 1px solid var(--grid);
+            border-radius: 10px;
+            padding: 0.9rem 1rem;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .routing-result:empty { display: none; }
+
+        .routing-result.success { border-left: 3px solid var(--good); }
+        .routing-result.error { border-left: 3px solid var(--critical); }
+
+        .routing-result h3 {
+            margin: 0 0 0.5rem;
+            font-size: 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        .error-note {
+            border: 1px solid var(--grid);
+            border-left: 3px solid var(--critical);
+            border-radius: 10px;
+            padding: 0.9rem 1rem;
+            margin-top: 1rem;
+            color: var(--ink-2);
+            font-size: 0.9rem;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .error-note p { margin: 0; display: flex; align-items: center; gap: 0.45rem; }
+
+        .your-id {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.4rem 0.6rem;
+            color: var(--ink-2);
+            font-size: 0.9rem;
+            margin: 0 0 0.9rem;
+        }
+
+        .intro-link {
+            text-align: center;
+            margin-top: 1.75rem;
+            font-size: 0.9rem;
+        }
+
+        .intro-link a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .intro-link a:hover { text-decoration: underline; }
+
+        svg.icon { vertical-align: -3px; flex: none; }
+
+        @media (max-width: 480px) {
+            .input-group { flex-direction: column; align-items: stretch; }
+            .route-story .row { flex-direction: column; align-items: flex-start; gap: 0.1rem; }
+            .route-story .row .v { text-align: left; }
         }
     </style>
 </head>
 <body>
     <div class="demo-banner">
-        <span class="banner-brand"><span class="banner-dot"></span> Cell Demo · Router</span>
+        <span class="banner-brand"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style="vertical-align:-4px"><path d="M 6.68 1.34 A 8 8 0 0 1 13.43 2.34 L 10.66 6.5 A 3 3 0 0 0 8.13 6.13 Z" fill="var(--cell-4)"/><path d="M 13.43 2.34 A 8 8 0 0 1 16.47 6.15 L 11.8 7.93 A 3 3 0 0 0 10.66 6.5 Z" fill="var(--cell-3)"/><path d="M 16.47 6.15 A 8 8 0 0 1 16.94 10 L 11.98 9.38 A 3 3 0 0 0 11.8 7.93 Z" fill="var(--cell-2)"/><path d="M 16.94 10 A 8 8 0 0 1 16.54 11.67 L 11.83 10 A 3 3 0 0 0 11.98 9.38 Z" fill="var(--cell-1)"/><path d="M 16.54 11.67 A 8 8 0 0 1 15.9 13.05 L 11.59 10.52 A 3 3 0 0 0 11.83 10 Z" fill="var(--cell-1)"/><path d="M 15.9 13.05 A 8 8 0 0 1 15.56 13.58 L 11.46 10.72 A 3 3 0 0 0 11.59 10.52 Z" fill="var(--cell-2)"/><path d="M 15.56 13.58 A 8 8 0 0 1 15.47 13.7 L 11.43 10.76 A 3 3 0 0 0 11.46 10.72 Z" fill="var(--cell-3)"/><path d="M 15.47 13.7 A 8 8 0 0 1 14.45 14.86 L 11.04 11.2 A 3 3 0 0 0 11.43 10.76 Z" fill="var(--cell-2)"/><path d="M 14.45 14.86 A 8 8 0 0 1 12.84 16.02 L 10.44 11.63 A 3 3 0 0 0 11.04 11.2 Z" fill="var(--cell-3)"/><path d="M 12.84 16.02 A 8 8 0 0 1 11.26 16.67 L 9.85 11.88 A 3 3 0 0 0 10.44 11.63 Z" fill="var(--cell-4)"/><path d="M 11.26 16.67 A 8 8 0 0 1 7.34 16.82 L 8.38 11.93 A 3 3 0 0 0 9.85 11.88 Z" fill="var(--cell-1)"/><path d="M 7.34 16.82 A 8 8 0 0 1 2.56 13.74 L 6.58 10.78 A 3 3 0 0 0 8.38 11.93 Z" fill="var(--cell-2)"/><path d="M 2.56 13.74 A 8 8 0 0 1 1.5 6.22 L 6.19 7.96 A 3 3 0 0 0 6.58 10.78 Z" fill="var(--cell-4)"/><path d="M 1.5 6.22 A 8 8 0 0 1 1.6 5.96 L 6.23 7.86 A 3 3 0 0 0 6.19 7.96 Z" fill="var(--cell-4)"/><path d="M 1.6 5.96 A 8 8 0 0 1 2.03 5.07 L 6.39 7.53 A 3 3 0 0 0 6.23 7.86 Z" fill="var(--cell-3)"/><path d="M 2.03 5.07 A 8 8 0 0 1 6.68 1.34 L 8.13 6.13 A 3 3 0 0 0 6.39 7.53 Z" fill="var(--cell-1)"/></svg> Cell Demo · Router</span>
         <div class="banner-menu" id="bannerMenu">
             <button class="banner-menu-btn" id="bannerMenuBtn" aria-haspopup="true" aria-expanded="false">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+                <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
                 Menu
             </button>
             <div class="banner-dropdown" id="bannerDropdown" role="menu" hidden>
@@ -255,25 +552,35 @@
             });
         })();
     </script>
-    <div class="container">
-        <h1><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-4px"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a13.5 13.5 0 0 1 0 18 13.5 13.5 0 0 1 0-18Z"/></svg> Cell Architecture Router</h1>
+
+    <div class="wrap">
+        <div class="hero">
+            <svg class="ring-mark" width="96" height="96" viewBox="0 0 96 96" aria-hidden="true"><path d="M 34.38 3.02 A 47 47 0 0 1 51.01 1.1 L 50.79 4.59 A 43.5 43.5 0 0 0 35.39 6.37 Z" fill="var(--cell-2)"/><path d="M 51.01 1.1 A 47 47 0 0 1 51.69 1.15 L 51.42 4.63 A 43.5 43.5 0 0 0 50.79 4.59 Z" fill="var(--cell-1)"/><path d="M 51.69 1.15 A 47 47 0 0 1 74.05 8.88 L 72.11 11.79 A 43.5 43.5 0 0 0 51.42 4.63 Z" fill="var(--cell-4)"/><path d="M 74.05 8.88 A 47 47 0 0 1 76.57 10.68 L 74.44 13.46 A 43.5 43.5 0 0 0 72.11 11.79 Z" fill="var(--cell-3)"/><path d="M 76.57 10.68 A 47 47 0 0 1 81.15 14.68 L 78.68 17.16 A 43.5 43.5 0 0 0 74.44 13.46 Z" fill="var(--cell-2)"/><path d="M 81.15 14.68 A 47 47 0 0 1 90.96 28.94 L 87.76 30.36 A 43.5 43.5 0 0 0 78.68 17.16 Z" fill="var(--cell-2)"/><path d="M 90.96 28.94 A 47 47 0 0 1 91.91 31.23 L 88.64 32.48 A 43.5 43.5 0 0 0 87.76 30.36 Z" fill="var(--cell-3)"/><path d="M 91.91 31.23 A 47 47 0 0 1 94.63 53.9 L 91.16 53.46 A 43.5 43.5 0 0 0 88.64 32.48 Z" fill="var(--cell-2)"/><path d="M 94.63 53.9 A 47 47 0 0 1 92.31 63.66 L 89.01 62.49 A 43.5 43.5 0 0 0 91.16 53.46 Z" fill="var(--cell-1)"/><path d="M 92.31 63.66 A 47 47 0 0 1 90.49 68.1 L 87.32 66.6 A 43.5 43.5 0 0 0 89.01 62.49 Z" fill="var(--cell-3)"/><path d="M 90.49 68.1 A 47 47 0 0 1 88.62 71.64 L 85.6 69.88 A 43.5 43.5 0 0 0 87.32 66.6 Z" fill="var(--cell-3)"/><path d="M 88.62 71.64 A 47 47 0 0 1 88.52 71.81 L 85.51 70.04 A 43.5 43.5 0 0 0 85.6 69.88 Z" fill="var(--cell-1)"/><path d="M 88.52 71.81 A 47 47 0 0 1 86.52 74.93 L 83.65 72.92 A 43.5 43.5 0 0 0 85.51 70.04 Z" fill="var(--cell-2)"/><path d="M 86.52 74.93 A 47 47 0 0 1 86.02 75.63 L 83.19 73.57 A 43.5 43.5 0 0 0 83.65 72.92 Z" fill="var(--cell-3)"/><path d="M 86.02 75.63 A 47 47 0 0 1 80.01 82.42 L 77.63 79.85 A 43.5 43.5 0 0 0 83.19 73.57 Z" fill="var(--cell-2)"/><path d="M 80.01 82.42 A 47 47 0 0 1 75.97 85.77 L 73.89 82.96 A 43.5 43.5 0 0 0 77.63 79.85 Z" fill="var(--cell-3)"/><path d="M 75.97 85.77 A 47 47 0 0 1 70.58 89.22 L 68.9 86.15 A 43.5 43.5 0 0 0 73.89 82.96 Z" fill="var(--cell-3)"/><path d="M 70.58 89.22 A 47 47 0 0 1 61.27 93.09 L 60.29 89.73 A 43.5 43.5 0 0 0 68.9 86.15 Z" fill="var(--cell-4)"/><path d="M 61.27 93.09 A 47 47 0 0 1 56.62 94.2 L 55.98 90.76 A 43.5 43.5 0 0 0 60.29 89.73 Z" fill="var(--cell-1)"/><path d="M 56.62 94.2 A 47 47 0 0 1 39.53 94.23 L 40.16 90.79 A 43.5 43.5 0 0 0 55.98 90.76 Z" fill="var(--cell-4)"/><path d="M 39.53 94.23 A 47 47 0 0 1 38.22 93.97 L 38.95 90.55 A 43.5 43.5 0 0 0 40.16 90.79 Z" fill="var(--cell-1)"/><path d="M 38.22 93.97 A 47 47 0 0 1 32.14 92.24 L 33.32 88.95 A 43.5 43.5 0 0 0 38.95 90.55 Z" fill="var(--cell-4)"/><path d="M 32.14 92.24 A 47 47 0 0 1 24.78 88.86 L 26.51 85.82 A 43.5 43.5 0 0 0 33.32 88.95 Z" fill="var(--cell-1)"/><path d="M 24.78 88.86 A 47 47 0 0 1 10.3 76.07 L 13.11 73.98 A 43.5 43.5 0 0 0 26.51 85.82 Z" fill="var(--cell-4)"/><path d="M 10.3 76.07 A 47 47 0 0 1 10.16 75.88 L 12.98 73.8 A 43.5 43.5 0 0 0 13.11 73.98 Z" fill="var(--cell-2)"/><path d="M 10.16 75.88 A 47 47 0 0 1 1 48.53 L 4.5 48.49 A 43.5 43.5 0 0 0 12.98 73.8 Z" fill="var(--cell-1)"/><path d="M 1 48.53 A 47 47 0 0 1 1.19 43.78 L 4.68 44.09 A 43.5 43.5 0 0 0 4.5 48.49 Z" fill="var(--cell-2)"/><path d="M 1.19 43.78 A 47 47 0 0 1 3.92 31.68 L 7.21 32.9 A 43.5 43.5 0 0 0 4.68 44.09 Z" fill="var(--cell-4)"/><path d="M 3.92 31.68 A 47 47 0 0 1 4.53 30.13 L 7.77 31.46 A 43.5 43.5 0 0 0 7.21 32.9 Z" fill="var(--cell-4)"/><path d="M 4.53 30.13 A 47 47 0 0 1 7.05 24.93 L 10.1 26.65 A 43.5 43.5 0 0 0 7.77 31.46 Z" fill="var(--cell-3)"/><path d="M 7.05 24.93 A 47 47 0 0 1 11.34 18.59 L 14.07 20.78 A 43.5 43.5 0 0 0 10.1 26.65 Z" fill="var(--cell-4)"/><path d="M 11.34 18.59 A 47 47 0 0 1 16.19 13.4 L 18.56 15.98 A 43.5 43.5 0 0 0 14.07 20.78 Z" fill="var(--cell-4)"/><path d="M 16.19 13.4 A 47 47 0 0 1 18.27 11.6 L 20.48 14.31 A 43.5 43.5 0 0 0 18.56 15.98 Z" fill="var(--cell-3)"/><path d="M 18.27 11.6 A 47 47 0 0 1 29.76 4.69 L 31.11 7.91 A 43.5 43.5 0 0 0 20.48 14.31 Z" fill="var(--cell-1)"/><path d="M 29.76 4.69 A 47 47 0 0 1 29.97 4.59 L 31.31 7.83 A 43.5 43.5 0 0 0 31.11 7.91 Z" fill="var(--cell-2)"/><path d="M 29.97 4.59 A 47 47 0 0 1 34.38 3.02 L 35.39 6.37 A 43.5 43.5 0 0 0 31.31 7.83 Z" fill="var(--cell-1)"/></svg>
+            <div class="kicker">Consistent-hash routing</div>
+            <h1>Cell Architecture Router</h1>
+            <p class="lede">
+                Your client ID is hashed onto the ring and lands in exactly one cell.
+                Same ID, same cell — every time.
+            </p>
+        </div>
+
         <div class="status" id="status">Welcome to the Cell Router</div>
         <div class="spinner" id="spinner" style="display: none;"></div>
         <div id="cellInfo"></div>
         <div id="error"></div>
-        
+
         <!-- Client ID Input Section -->
-        <div class="client-input-section" id="clientInputSection">
-            <h2><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> Direct Client Routing</h2>
-            <p>Enter a client ID to see which cell it routes to:</p>
+        <div class="panel" id="clientInputSection">
+            <h2><svg class="icon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> Direct client routing</h2>
+            <p class="hint">Enter any client ID to see which cell it routes to:</p>
             <div class="input-group">
-                <input type="text" id="clientIdInput" placeholder="Enter client ID (e.g., user123)" class="client-input">
-                <button onclick="routeSpecificClient()" class="route-btn">Route Now</button>
+                <input type="text" id="clientIdInput" placeholder="Enter client ID (e.g., user123)">
+                <button onclick="routeSpecificClient()" class="primary">Route now</button>
             </div>
             <div id="routingResult"></div>
         </div>
-        <p id="introLink" style="margin-top: 1.5rem; font-size: 0.9rem;">
-            <a href="%%INTRO_URL%%" style="color: #fff; opacity: 0.85;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><path d="M2 5h6a4 4 0 0 1 4 4v11a3 3 0 0 0-3-3H2V5ZM22 5h-6a4 4 0 0 0-4 4v11a3 3 0 0 1 3-3h7V5Z"/></svg> New to cell architecture? Start with the interactive guide</a>
+        <p id="introLink" class="intro-link">
+            <a href="%%INTRO_URL%%"><svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 5h6a4 4 0 0 1 4 4v11a3 3 0 0 0-3-3H2V5ZM22 5h-6a4 4 0 0 0-4 4v11a3 3 0 0 1 3-3h7V5Z"/></svg> New to cell architecture? Start with the interactive guide</a>
         </p>
     </div>
     <script>
@@ -298,6 +605,18 @@
             return ROUTING_API_URL;
         }
 
+        // Inline SVG icon snippets for the status line (thin-stroke set, same
+        // language as site/src/ui/icons.tsx).
+        function iconSvg(paths, size) {
+            size = size || 16;
+            return '<svg class="icon" width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>';
+        }
+        const ICON_REFRESH = iconSvg('<path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1L20.5 8"/><path d="M20.5 3.5V8H16"/>');
+        const ICON_CHECK = iconSvg('<circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16.5 9"/>');
+        const ICON_ERROR = iconSvg('<circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/>');
+        const ICON_TARGET = iconSvg('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>', 19);
+        const ICON_DICE = iconSvg('<rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><circle cx="8.5" cy="8.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="0.9" fill="currentColor" stroke="none"/>', 19);
+
         // Cache of cell URLs from the admin API, keyed by cellId
         let cellUrlCache = {};
 
@@ -312,6 +631,14 @@
                 cellUrlCache[cell.cellId] = cell;
             }
             return data.cellUrls;
+        }
+
+        // Stable cellId -> palette color: sorted cellId order over all known
+        // cells, mirroring makeCellColors in the admin dashboard and site.
+        function cellColorVar(cellId) {
+            const sorted = Object.keys(cellUrlCache).sort();
+            const i = sorted.indexOf(cellId);
+            return 'var(--cell-' + ((i >= 0 ? i : 0) % 8 + 1) + ')';
         }
 
         // Get or generate client ID
@@ -342,21 +669,30 @@
             const spinner = document.getElementById('spinner');
             if (spinner) spinner.style.display = 'none';
             document.getElementById('error').innerHTML = `
-                <div class="error">
-                    <p><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg> ${message}</p>
-                    <button class="retry-button" onclick="routeToCell()">Retry</button>
+                <div class="error-note">
+                    <p>${ICON_ERROR} ${escHtml(message)}</p>
+                    <button onclick="routeToCell()">Retry</button>
                 </div>
             `;
         }
 
-        // Show cell info
+        // Show cell info: the "you are being routed" story - your ID, its hash
+        // position, and the cell that owns that slice of the ring.
         function showCellInfo(cellData) {
+            const color = cellColorVar(cellData.targetCell.cellId);
+            const hashRow = typeof cellData.hashValue === 'number'
+                ? `<div class="row"><span class="k">Hash position</span>
+                       <span class="v"><span class="hash-chip">md5("${escHtml(cellData.clientId)}") → ${cellData.hashValue.toLocaleString()}</span></span></div>`
+                : '';
             document.getElementById('cellInfo').innerHTML = `
-                <div class="cell-info">
-                    <p><strong>Your ID:</strong> ${cellData.clientId}</p>
-                    <p><strong>Assigned Cell:</strong> ${cellData.targetCell.cellId}</p>
-                    <p><strong>Region:</strong> ${cellData.targetCell.region}</p>
-                    <p><strong>AZ:</strong> ${cellData.targetCell.availabilityZone}</p>
+                <div class="route-story">
+                    <div class="row"><span class="k">Your client ID</span>
+                        <span class="v"><span class="hash-chip">${escHtml(cellData.clientId)}</span></span></div>
+                    ${hashRow}
+                    <div class="row"><span class="k">Assigned cell</span>
+                        <span class="v cell-chip"><span class="swatch" style="background:${color}"></span>${escHtml(cellData.targetCell.cellId)}</span></div>
+                    <div class="row"><span class="k">Region · AZ</span>
+                        <span class="v">${escHtml(cellData.targetCell.region)} · ${escHtml(cellData.targetCell.availabilityZone)}</span></div>
                 </div>
             `;
         }
@@ -381,30 +717,31 @@
                 const targetCell = data.targetCell;
                 await fetchCellUrls();
                 const cellUrl = cellUrlCache[targetCell.cellId] ? cellUrlCache[targetCell.cellId].directUrl : '';
+                const color = cellColorVar(targetCell.cellId);
 
                 showRoutingResult(`
                     <div>
-                        <h3><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg> Routing Result for "${clientId}"</h3>
-                        <p><strong>Target Cell:</strong> ${targetCell.cellId}</p>
-                        <p><strong>Region:</strong> ${targetCell.region}</p>
-                        <p><strong>Availability Zone:</strong> ${targetCell.availabilityZone}</p>
-                        <p><strong>Hash Value:</strong> ${data.hashValue}</p>
+                        <h3>${ICON_TARGET} Routing result for <span class="hash-chip">${escHtml(clientId)}</span></h3>
+                        <div class="route-story">
+                            <div class="row"><span class="k">Hash position</span>
+                                <span class="v"><span class="hash-chip">${escHtml(data.hashValue)}</span></span></div>
+                            <div class="row"><span class="k">Target cell</span>
+                                <span class="v cell-chip"><span class="swatch" style="background:${color}"></span>${escHtml(targetCell.cellId)}</span></div>
+                            <div class="row"><span class="k">Region · AZ</span>
+                                <span class="v">${escHtml(targetCell.region)} · ${escHtml(targetCell.availabilityZone)}</span></div>
+                            ${cellUrl ? `
+                            <div class="row"><span class="k">Cell URL</span>
+                                <span class="v"><a class="hash-chip" href="${escHtml(cellUrl)}" target="_blank" rel="noopener noreferrer">${escHtml(cellUrl)}</a></span></div>` : ''}
+                        </div>
                         ${cellUrl ? `
-                        <p><strong>Cell URL:</strong>
-                            <a href="${cellUrl}"
-                               style="color: #43e97b; text-decoration: underline;"
-                               target="_blank">
-                               ${cellUrl}
-                            </a>
-                        </p>
-                        <button onclick="redirectToCell('${targetCell.cellId}')" class="retry-button">
-                            Go to Cell Now
+                        <button onclick="redirectToCell('${escHtml(targetCell.cellId)}')" class="primary go-button">
+                            Go to cell now
                         </button>` : ''}
                     </div>
                 `, true);
 
             } catch (error) {
-                showRoutingResult(`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg> Error: ${error.message}`, false);
+                showRoutingResult(`${ICON_ERROR} Error: ${escHtml(error.message)}`, false);
             }
         }
 
@@ -432,7 +769,7 @@
             document.getElementById('error').innerHTML = '';
 
             const clientId = getClientId();
-            updateStatus(`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1L20.5 8"/><path d="M20.5 3.5V8H16"/></svg> Routing ${escHtml(clientId)} to optimal cell...`);
+            updateStatus(`${ICON_REFRESH} Routing ${escHtml(clientId)} to optimal cell...`);
 
             try {
                 const response = await fetch(`${getApiUrl()}/admin/client-route/${clientId}`);
@@ -450,16 +787,18 @@
                     throw new Error('Target cell is not available');
                 }
 
-                updateStatus(`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2.5px"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16.5 9"/></svg> Ready! You'll be redirected to ${escHtml(targetCell.cellId)}...`);
+                // Re-render now that the cell registry (and palette order) is known
+                showCellInfo(routingData);
+
+                updateStatus(`${ICON_CHECK} Ready! You'll be redirected to ${escHtml(targetCell.cellId)}...`);
 
                 // Show the client input section after successful routing
                 showClientInputSection();
 
                 // Add manual redirect button instead of auto-redirect
                 const redirectButton = document.createElement('button');
-                redirectButton.className = 'retry-button';
-                redirectButton.textContent = `Go to ${targetCell.cellId} Now`;
-                redirectButton.style.marginTop = '1rem';
+                redirectButton.className = 'primary go-button';
+                redirectButton.textContent = `Go to ${targetCell.cellId} now`;
                 redirectButton.onclick = () => {
                     window.location.href = `${targetCell.directUrl}?clientId=${encodeURIComponent(clientId)}`;
                 };
@@ -491,16 +830,16 @@
             const spinner = document.getElementById('spinner');
             if (spinner) spinner.style.display = 'none';
 
-            // Add a button to route current client
+            // Add a panel to route the current client
             const currentClientSection = document.createElement('div');
             currentClientSection.innerHTML = `
-                <div style="margin: 2rem 0; padding: 1.5rem; background: rgba(255, 255, 255, 0.1); border-radius: 15px;">
-                    <h3 style="margin-bottom: 1rem;"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><circle cx="8.5" cy="8.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="15.5" cy="8.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="0.9" fill="currentColor" stroke="none"/><circle cx="8.5" cy="15.5" r="0.9" fill="currentColor" stroke="none"/><circle cx="15.5" cy="15.5" r="0.9" fill="currentColor" stroke="none"/></svg> Route Your Client ID</h3>
-                    <p style="margin-bottom: 1rem; opacity: 0.8;">Your current client ID: <strong>${getClientId()}</strong></p>
-                    <button onclick="routeToCell()" class="route-btn" style="padding: 0.75rem 2rem;">
-                        Route Me to a Cell
+                <div class="panel">
+                    <h2>${ICON_DICE} Route your client ID</h2>
+                    <p class="your-id">Your current client ID: <span class="hash-chip">${escHtml(getClientId())}</span></p>
+                    <button onclick="routeToCell()" class="primary">
+                        Route me to a cell
                     </button>
-                    <p style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.7;">
+                    <p class="hint" style="margin-top: 0.9rem; margin-bottom: 0;">
                         Or use the form below to test any client ID
                     </p>
                 </div>
