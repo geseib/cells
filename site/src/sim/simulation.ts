@@ -20,6 +20,9 @@ export const CELL_COLOR_VARS = [
 
 export const FAILED_COLOR = 'var(--critical)';
 
+/** Degraded-but-alive (lost some redundancy, still serving): amber, never red. */
+export const DEGRADED_COLOR = 'var(--degraded)';
+
 const REGIONS = ['us-east-1', 'us-west-2'];
 const AZS = ['a', 'b', 'c', 'd'];
 
