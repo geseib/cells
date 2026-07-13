@@ -390,23 +390,9 @@ body,
   margin: 0 0 0.6rem;
 }
 
-/* Shuffle-math slide: the guide page stacks "count it" and "scale it", but
-   both together overflow the 1280×800 canvas — on stage the halves swap via
-   the 4 key (data-view is the component's deck-view state) */
-.reveal .sm-panel[data-view='count'] .sm-scale,
-.reveal .sm-panel[data-view='scale'] .sm-count {
-  display: none;
-}
-
-.reveal .sm-step + .sm-step {
-  margin-top: 0;
-  padding-top: 0;
-  border-top: none;
-}
-
-.reveal .sm-panel .sm-lede,
+/* Shuffle-math slide: the calculator (h2 and notes carry the framing) */
 .reveal .sm-panel .mini-title {
-  display: none; /* speaker material — the h2 and notes carry it */
+  display: none; /* speaker material */
 }
 
 /* six stats + chart must fit under the h2 on the 800px canvas */
@@ -441,20 +427,55 @@ body,
   margin: 0 auto;
 }
 
-.reveal .hand-grid {
-  max-width: 680px;
-  margin: 0.5rem auto 0;
-}
-
-.reveal .hand-counts {
+/* Shuffle-sharding ladder slide: two mirrored panels + the totals table on
+   the 1280×800 canvas. The teach line and legend stay (they carry the
+   verdict); spacing tightens so all four rungs fit without overflow. */
+.reveal .ladder .controls {
+  margin-bottom: 0.5rem;
   justify-content: center;
-  font-size: 1rem;
 }
 
-.reveal .sm-contrast {
+.reveal .ladder-change {
   max-width: none;
   text-align: center;
-  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.reveal .ladder .mini-title {
+  display: block; /* the two panel titles ARE the comparison labels */
+  text-align: center;
+}
+
+.reveal .ladder .panel-hint {
+  max-width: none;
+  margin: 0.5rem 0;
+}
+
+.reveal .ladder .legend {
+  justify-content: center;
+  margin-top: 0.3rem;
+}
+
+.reveal .ladder .stat {
+  padding: 0.4rem 0.8rem;
+}
+
+.reveal .ladder .stat .value {
+  font-size: 1.35rem;
+}
+
+.reveal .ladder .stat .label {
+  font-size: 0.72rem;
+}
+
+.reveal .ladder-table {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+}
+
+.reveal .ladder-bridge {
+  text-align: center;
+  margin-top: 0.4rem;
 }
 
 /* Fine-print slide: four compact cards */
