@@ -7,8 +7,12 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Configuration - try to load from config file if available
-CONFIG_FILE="../../config.json"
+# Configuration - try to load from config file if available.
+# CONFIG_FILE must be absolute: the script cd's into frontend/ later, and a
+# relative path silently resolves outside the repo from there (the
+# siteDomainName lookup below then kills the script via set -e).
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="${SCRIPT_DIR}/../../config.json"
 if [ -f "$CONFIG_FILE" ] && command -v jq >/dev/null 2>&1; then
     echo -e "${GREEN}Loading configuration from config.json...${NC}"
     PROJECT_NAME="${PROJECT_NAME:-$(jq -r '.projectName // "cell-demo"' $CONFIG_FILE)}"
@@ -93,7 +97,7 @@ fi
 
 # Educational-site URL - the site is hosted on Vercel (auto-deployed from
 # GitHub), so the link target comes straight from config.json's siteDomainName.
-SITE_DOMAIN_NAME="${SITE_DOMAIN_NAME:-$(jq -r '.siteDomainName // empty' $CONFIG_FILE 2>/dev/null)}"
+SITE_DOMAIN_NAME="${SITE_DOMAIN_NAME:-$(jq -r '.siteDomainName // empty' $CONFIG_FILE 2>/dev/null || true)}"
 INTRO_URL=""
 if [ ! -z "$SITE_DOMAIN_NAME" ]; then INTRO_URL="https://${SITE_DOMAIN_NAME}"; fi
 
