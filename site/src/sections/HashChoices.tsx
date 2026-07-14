@@ -1,5 +1,6 @@
 import React from 'react';
 import RingMark from '../ui/RingMark';
+import Sidequest from '../ui/Sidequest';
 
 /**
  * "Choosing your hash" — the algorithm zoo. Adapts a survey of consistent-
@@ -218,12 +219,37 @@ const HashChoices: React.FC = () => (
   <section className="lesson" id="hash-choices">
     <div className="kicker">06 · The algorithm zoo</div>
     <h2>Choosing your hash</h2>
+    <Sidequest
+      id="hash-choices-zoo"
+      className="sidequest-lg"
+      kicker="Optional deep-dive · six algorithms compared"
+      title="The consistent-hashing menu"
+      blurb={
+        <>
+          <p>
+            "Consistent hashing" names a goal, not one algorithm — there is a whole menu: the
+            classic ring with virtual nodes, rendezvous, jump, maglev, multi-probe, CRUSH. Each
+            trades balance, lookup cost, memory, and weight support a little differently.
+          </p>
+          <p>
+            For this discussion — and for the demo behind every visualization on this page — we
+            use the <strong>classic hash ring with virtual nodes</strong>: remapping stays minimal
+            (a cell hands over exactly its share of the keyspace, nothing more), it is simple to
+            implement and reason about, weights fall out of virtual-node counts, and the exact
+            recipe reproduces identically in every language — which is what keeps this page honest
+            with the deployed backend.
+          </p>
+          <span className="sidequest-expand-hint">
+            Expand for the full algorithm-by-algorithm comparison
+          </span>
+        </>
+      }
+    >
     <p>
-      "Consistent hashing" names a goal, not one algorithm. The shopping list is always the same —
-      say 10&nbsp;million users across 100 servers: an even spread (≈100,000 users each), minimal
-      movement when a server joins or leaves, fast lookup, low memory, and stable placement.
-      Several algorithms hit that goal, and none of them wins on everything — each trades balance,
-      lookup speed, memory, and weight support differently.
+      The shopping list is always the same — say 10&nbsp;million users across 100 servers: an even
+      spread (≈100,000 users each), minimal movement when a server joins or leaves, fast lookup,
+      low memory, and stable placement. Several algorithms hit that goal, and none of them wins on
+      everything — each trades balance, lookup speed, memory, and weight support differently.
     </p>
     <div className="algo-grid">
       {ALGOS.map((a) => (
@@ -339,6 +365,7 @@ const HashChoices: React.FC = () => (
       of the whole zoo: the decision that matters is less <em>which</em> algorithm than running{' '}
       <em>exactly one recipe everywhere</em>, guarded so it can never drift.
     </div>
+    </Sidequest>
   </section>
 );
 

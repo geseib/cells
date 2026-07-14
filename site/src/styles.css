@@ -656,6 +656,52 @@ button.sidequest-summary:hover .sidequest-chevron {
   white-space: nowrap;
 }
 
+/* ---- Large sidequest variant: a numbered section that collapses its deep
+   content behind a fuller summary panel (06 · the algorithm zoo). Same
+   behavior and reduced-motion handling as the compact chrome — only the
+   presence changes. ---- */
+
+.sidequest-lg button.sidequest-summary {
+  padding: 1.35rem 1.6rem;
+}
+
+.sidequest-lg .sidequest-title {
+  font-size: 1.15rem;
+}
+
+.sidequest-lg .sidequest-blurb {
+  max-width: 720px;
+}
+
+.sidequest-lg .sidequest-blurb p {
+  margin: 0.45rem 0 0;
+  font-size: 0.92rem;
+  color: var(--ink-2);
+  max-width: none;
+}
+
+.sidequest-lg .sidequest-blurb strong {
+  color: var(--ink);
+}
+
+.sidequest-expand-hint {
+  display: inline-block;
+  margin-top: 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+/* The invitation has been accepted — drop it while the body is open. */
+.sidequest.open .sidequest-expand-hint {
+  display: none;
+}
+
+.sidequest-lg .sidequest-body {
+  padding: 0 1.6rem;
+}
+
 /* Pinning demo (RouteClient sidequest): compact cell cards + client chips */
 .pin-cells {
   display: grid;
