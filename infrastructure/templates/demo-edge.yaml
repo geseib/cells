@@ -370,7 +370,7 @@ Resources:
           TargetOriginId: AdminS3Origin
           ViewerProtocolPolicy: redirect-to-https
           AllowedMethods: [GET, HEAD, OPTIONS]
-          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled: the viewer-request prefix strip rewrites URIs BEFORE the cache key is computed and cache entries are shared across behaviors, so caching here poisons /{cellId}/ with whatever was cached at / (and vice versa)
         CacheBehaviors:
           # Global routing API - no caching, forward everything except Host
           # (API Gateway requires the origin's own Host header).
@@ -488,7 +488,7 @@ Resources:
               TargetOriginId: CellPageOrigin1
               ViewerProtocolPolicy: redirect-to-https
               AllowedMethods: [GET, HEAD, OPTIONS]
-              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled: the viewer-request prefix strip rewrites URIs BEFORE the cache key is computed and cache entries are shared across behaviors, so caching here poisons /{cellId}/ with whatever was cached at / (and vice versa)
               FunctionAssociations:
                 - EventType: viewer-request
                   FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
@@ -499,7 +499,7 @@ Resources:
               TargetOriginId: CellPageOrigin2
               ViewerProtocolPolicy: redirect-to-https
               AllowedMethods: [GET, HEAD, OPTIONS]
-              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled: the viewer-request prefix strip rewrites URIs BEFORE the cache key is computed and cache entries are shared across behaviors, so caching here poisons /{cellId}/ with whatever was cached at / (and vice versa)
               FunctionAssociations:
                 - EventType: viewer-request
                   FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
@@ -510,7 +510,7 @@ Resources:
               TargetOriginId: CellPageOrigin3
               ViewerProtocolPolicy: redirect-to-https
               AllowedMethods: [GET, HEAD, OPTIONS]
-              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled: the viewer-request prefix strip rewrites URIs BEFORE the cache key is computed and cache entries are shared across behaviors, so caching here poisons /{cellId}/ with whatever was cached at / (and vice versa)
               FunctionAssociations:
                 - EventType: viewer-request
                   FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
@@ -521,7 +521,7 @@ Resources:
               TargetOriginId: CellPageOrigin4
               ViewerProtocolPolicy: redirect-to-https
               AllowedMethods: [GET, HEAD, OPTIONS]
-              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled: the viewer-request prefix strip rewrites URIs BEFORE the cache key is computed and cache entries are shared across behaviors, so caching here poisons /{cellId}/ with whatever was cached at / (and vice versa)
               FunctionAssociations:
                 - EventType: viewer-request
                   FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
@@ -532,7 +532,7 @@ Resources:
               TargetOriginId: CellPageOrigin5
               ViewerProtocolPolicy: redirect-to-https
               AllowedMethods: [GET, HEAD, OPTIONS]
-              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled: the viewer-request prefix strip rewrites URIs BEFORE the cache key is computed and cache entries are shared across behaviors, so caching here poisons /{cellId}/ with whatever was cached at / (and vice versa)
               FunctionAssociations:
                 - EventType: viewer-request
                   FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
@@ -543,7 +543,7 @@ Resources:
               TargetOriginId: CellPageOrigin6
               ViewerProtocolPolicy: redirect-to-https
               AllowedMethods: [GET, HEAD, OPTIONS]
-              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled: the viewer-request prefix strip rewrites URIs BEFORE the cache key is computed and cache entries are shared across behaviors, so caching here poisons /{cellId}/ with whatever was cached at / (and vice versa)
               FunctionAssociations:
                 - EventType: viewer-request
                   FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
@@ -554,7 +554,7 @@ Resources:
               TargetOriginId: CellPageOrigin7
               ViewerProtocolPolicy: redirect-to-https
               AllowedMethods: [GET, HEAD, OPTIONS]
-              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled: the viewer-request prefix strip rewrites URIs BEFORE the cache key is computed and cache entries are shared across behaviors, so caching here poisons /{cellId}/ with whatever was cached at / (and vice versa)
               FunctionAssociations:
                 - EventType: viewer-request
                   FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
@@ -565,7 +565,7 @@ Resources:
               TargetOriginId: CellPageOrigin8
               ViewerProtocolPolicy: redirect-to-https
               AllowedMethods: [GET, HEAD, OPTIONS]
-              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # Managed-CachingOptimized
+              CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad  # Managed-CachingDisabled: the viewer-request prefix strip rewrites URIs BEFORE the cache key is computed and cache entries are shared across behaviors, so caching here poisons /{cellId}/ with whatever was cached at / (and vice versa)
               FunctionAssociations:
                 - EventType: viewer-request
                   FunctionARN: !GetAtt PrefixStripFunction.FunctionMetadata.FunctionARN
