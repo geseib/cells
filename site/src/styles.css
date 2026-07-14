@@ -672,6 +672,49 @@ button.sidequest-summary:hover .sidequest-chevron {
   white-space: nowrap;
 }
 
+/* Hydration sidequest (Scale): one card per pattern — prose beside a small
+   diagram, stacking on narrow screens. */
+.hydration-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.5rem;
+  border: 1px solid var(--grid);
+  border-radius: 10px;
+  padding: 0.9rem 1.1rem;
+  margin: 0 0 0.8rem;
+  max-width: 780px;
+}
+
+.hydration-card .text {
+  flex: 1 1 300px;
+  min-width: 0;
+}
+
+.hydration-card h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+}
+
+.hydration-card p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.hydration-card .tradeoff {
+  margin-top: 0.45rem;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.hydration-card svg {
+  flex: 0 1 300px;
+  min-width: 220px;
+  max-width: 100%;
+  height: auto;
+}
+
 /* ---- Large sidequest variant: a numbered section that collapses its deep
    content behind a fuller summary panel (06 · the algorithm zoo). Same
    behavior and reduced-motion handling as the compact chrome — only the
