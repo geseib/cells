@@ -232,6 +232,11 @@ Resources:
           // Cell API: /{cellId}/api/* -> /* (OriginPath prepends /prod)
           if (rest === '/api' || rest.indexOf('/api/') === 0) {
             request.uri = rest.substring(4) || '/';
+          } else if (rest === '/') {
+            // A bare /{cellId}/ strips to '/', but a CloudFront origin does
+            // NOT apply its DefaultRootObject to proxied requests - ask for
+            // the SPA entry point explicitly.
+            request.uri = '/index.html';
           } else {
             request.uri = rest;
           }
