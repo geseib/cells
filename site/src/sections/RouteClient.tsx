@@ -343,6 +343,92 @@ const RouteClient: React.FC = () => {
           failure for that client.
         </p>
       </Sidequest>
+      <Sidequest
+        id="sidequest-registry"
+        title="The registry is a database. Who keeps IT alive?"
+        blurb={
+          <>
+            The hash ring is a pure function — <em>of the registry</em>. That makes the registry
+            the real control plane: whoever can write it decides where every client goes. So the
+            interesting question isn't the ring. It's who keeps the registry alive and honest.
+          </>
+        }
+      >
+        <p>
+          <strong>This demo: a DynamoDB registry.</strong> One table, living in one region, holds
+          a row per cell. Each cell runs a scheduled Lambda that re-writes its own row every five
+          minutes, stamped with a 10-minute TTL — liveness is push-based, so a dead cell simply
+          stops writing and falls out of the registry on its own. <code>active</code> is the human
+          switch: the admin API flips the flag, and because every routing decision re-derives the
+          ring from whatever the registry says right now, deactivating a cell is one write, not a
+          deploy. For cross-region reads the demo hand-rolls replication: a DynamoDB Stream on
+          the table triggers a sync Lambda that copies each write into replica tables in the
+          other regions. That's the teaching-scale version of DynamoDB{' '}
+          <strong>global tables</strong>, which do the same job managed — every region's routers
+          read a local replica, and the registry survives the loss of its home region.
+        </p>
+        <p>
+          <strong>Route 53 as the registry.</strong> DNS itself can <em>be</em> the membership
+          database: one record per cell, with Route 53 <strong>health checks</strong> — probers
+          around the world hitting each cell's <code>/health</code> — deciding which records get
+          served. Draining a cell that is technically healthy is the "reverse" health check: an
+          inverted or calculated check, or a check watching an operator-controlled endpoint you
+          flip to force the cell out on purpose. Combined, the DNS answer <em>is</em> the routing
+          decision — massively replicated, no server you operate — but eventually consistent
+          (client and resolver TTLs), coarse-grained (per hostname, not per client key), and
+          every write still goes through a single global API.
+        </p>
+        <p>
+          <strong>AWS's purpose-built answer: Application Recovery Controller.</strong> For teams
+          running real cells,{' '}
+          <a href="https://docs.aws.amazon.com/r53recovery/latest/dg/what-is-route53-recovery.html" target="_blank" rel="noopener noreferrer">
+            Route 53 ARC
+          </a>{' '}
+          is a highly available control plane for exactly this job:{' '}
+          <strong>routing controls</strong> (on/off switches evaluated by health checks) hosted
+          on a data plane replicated across five regions, <strong>readiness checks</strong> that
+          continuously verify the standby cell could actually absorb the traffic — capacity,
+          quotas, config parity — and <strong>safety rules</strong> like "never allow every cell
+          off at once."
+        </p>
+        <p>
+          <strong>Design rules, so the control plane doesn't become your biggest cell:</strong>
+        </p>
+        <ul>
+          <li>
+            <strong>Separate data plane from control plane.</strong> Routing decisions (reads)
+            must keep working when membership management (writes) is down.
+          </li>
+          <li>
+            <strong>Static stability.</strong> Routers cache the last-known-good registry with a
+            TTL and keep serving it if the registry is unreachable — a stale ring that routes
+            100% of traffic beats a fresh ring nobody can read. Adding a cell can wait; that's a
+            business-hours operation.
+          </li>
+          <li>
+            <strong>Fail toward serving.</strong> Liveness signals — heartbeat TTLs, health
+            checks — may remove a cell automatically, but bulk removal needs guardrails (ARC's
+            safety rules, or "never drop below N cells" logic) so a control-plane bug can't
+            evacuate everything at once.
+          </li>
+          <li>
+            <strong>Keep membership changes rare, small, and deliberate.</strong> The registry is
+            low-write by design — and that's exactly what lets you replicate it aggressively.
+          </li>
+          <li>
+            <strong>No circular dependencies.</strong> The registry must not live inside a cell
+            it manages, and the tooling that flips <code>active</code> must not route through the
+            cells either. The demo's admin API is honest about being exactly such a shared tool —
+            the same "router is sacred" caveat from <a href="#trade-offs">the trade-offs</a>, one
+            layer up.
+          </li>
+        </ul>
+        <p>
+          Same idea at three altitudes: the DynamoDB registry with heartbeat TTLs is the
+          teaching-scale version, Route 53 health checks are the DNS-native version, and ARC is
+          the productized version with the guardrails built in.
+        </p>
+      </Sidequest>
       <TryLive path="/router.html">Route your real browser through the deployed router</TryLive>
     </section>
   );

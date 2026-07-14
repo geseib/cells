@@ -165,6 +165,27 @@ fi
 # Build and deploy the cell SPA once per cell, injecting that cell's own API
 # endpoint — cells must not depend on another cell's or region's API at runtime.
 IFS=',' read -ra REGION_ARRAY <<< "$REGIONS"
+
+# The SPA tints itself with the same palette slot the admin dashboard and the
+# site assign this cell: index into CELL_COLOR_VARS by sorted-cellId order over
+# ALL cells (see makeCellColors in frontend/admin/src/ring.ts). A single cell
+# can't see the full registry at runtime, so gather every cell id across all
+# regions up front and pass each build its CELL_INDEX.
+ALL_CELL_IDS=""
+for region in "${REGION_ARRAY[@]}"; do
+    REGION_CELL_STACKS=$(aws cloudformation list-stacks \
+        --region ${region} \
+        --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \
+        --query "StackSummaries[?starts_with(StackName, '${PROJECT_NAME}-cell-')].StackName" \
+        --output text)
+    for stack in ${REGION_CELL_STACKS}; do
+        ALL_CELL_IDS="${ALL_CELL_IDS} ${stack#${PROJECT_NAME}-cell-}"
+    done
+done
+# Lexicographic sort (LC_ALL=C matches the JS sort the admin/site use on
+# these ASCII ids), de-duplicated.
+ALL_CELL_IDS=$(echo ${ALL_CELL_IDS} | tr ' ' '\n' | LC_ALL=C sort -u)
+
 for region in "${REGION_ARRAY[@]}"; do
     echo -e "\n${YELLOW}Deploying SPAs to region: ${region}${NC}"
 
@@ -193,8 +214,16 @@ for region in "${REGION_ARRAY[@]}"; do
             # under /{cellId}/ it swaps its API base to the relative
             # /{cellId}/api instead of the baked absolute endpoint.
             CELL_ID="${stack#${PROJECT_NAME}-cell-}"
-            echo -e "${GREEN}Building SPA for ${stack} (API: ${CELL_API})${NC}"
-            (cd spa && npm install && CELL_API_URL="$CELL_API" CELL_ID="$CELL_ID" ADMIN_URL="$ADMIN_URL" INTRO_URL="$INTRO_URL" npm run build)
+            # CELL_INDEX: this cell's position in the sorted list of all cell
+            # ids — drives the SPA's identity color (palette parity with the
+            # admin dashboard and site).
+            CELL_INDEX=0
+            for id in ${ALL_CELL_IDS}; do
+                if [ "$id" == "$CELL_ID" ]; then break; fi
+                CELL_INDEX=$((CELL_INDEX + 1))
+            done
+            echo -e "${GREEN}Building SPA for ${stack} (API: ${CELL_API}, palette index: ${CELL_INDEX})${NC}"
+            (cd spa && npm install && CELL_API_URL="$CELL_API" CELL_ID="$CELL_ID" CELL_INDEX="$CELL_INDEX" ADMIN_URL="$ADMIN_URL" INTRO_URL="$INTRO_URL" npm run build)
             echo -e "${GREEN}Deploying to ${CONTENT_BUCKET}${NC}"
             aws s3 sync spa/dist/ s3://${CONTENT_BUCKET}/ --delete --region ${region}
             aws s3 cp admin/demo-panel-embed.js s3://${CONTENT_BUCKET}/demo-panel-embed.js --region ${region}

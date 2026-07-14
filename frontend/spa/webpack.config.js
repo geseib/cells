@@ -36,6 +36,11 @@ module.exports = {
       // detect edge mode at runtime: served under /{cellId}/ the SPA calls
       // the relative /{cellId}/api instead of the absolute CELL_API_URL.
       'process.env.CELL_ID': JSON.stringify(process.env.CELL_ID || ''),
+      // This cell's palette index (sorted-cellId order across ALL cells),
+      // computed by deploy-frontend.sh so the page's identity color matches
+      // the admin dashboard and site palette (CELL_COLOR_VARS). When unset,
+      // App.tsx falls back to hashing CELL_ID (local builds only).
+      'process.env.CELL_INDEX': JSON.stringify(process.env.CELL_INDEX || ''),
       'process.env.ADMIN_URL': JSON.stringify(process.env.ADMIN_URL || ''),
       'process.env.INTRO_URL': JSON.stringify(process.env.INTRO_URL || '')
     })

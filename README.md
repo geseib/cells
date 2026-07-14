@@ -11,7 +11,25 @@ This repository teaches that pattern two ways:
 1. **📖 Learn it in your browser** — a self-contained interactive site in
    [`site/`](site/) that simulates a hash ring, client routing, cell failure,
    and scaling with zero AWS setup. Build it with `npm run build:site` or open
-   the dev server with `cd site && npm run dev`.
+   the dev server with `cd site && npm run dev`. It has grown into three
+   surfaces sharing one design system:
+
+   - **The interactive guide** — eight numbered lessons (the problem, the
+     ring, routing, failure, scaling, a consistent-hashing "algorithm zoo",
+     shuffle sharding & friends, trade-offs), every diagram powered by the
+     repository's real MD5 ring code. Optional **sidequests** expand for
+     deeper dives: hash-library drift, pinning clients (and what happens when
+     the pinned cell dies), and how to run the registry/control plane without
+     making it a single point of failure.
+   - **A cloud-neutral primer** (`primer.html`) — the problem before the
+     pattern, with AWS/Azure/Google terminology bridges and an isolation
+     stepper comparing AZs, regions, microservices, shards, and cells.
+   - **A presentation deck** (`slides.html`) — 16 reveal.js slides that embed
+     the same live demos, driven by arrow-key phase scripts, presenter
+     hotkeys, and a touch bar for iPad/iPhone; the narrative lives in speaker
+     notes.
+
+   ![The shuffle-sharding ladder: plain shards vs shuffle sharding side by side, with running totals](docs/images/site-shuffle-ladder.png)
 
    **Hosting** (no AWS involved): the site auto-deploys on Vercel from GitHub —
    the root `vercel.json` builds and serves only `site/`, and every push to
@@ -78,6 +96,26 @@ With a custom domain: cells at `{cell-id}.{domain}`, admin at
 `admin.{domain}`, API at `api.{domain}`; ACM certificates are created
 automatically.
 
+### What the demo looks like
+
+**Each cell is visibly its own site.** Every cell page carries the ring mark
+tinted with that cell's palette color (the same color the admin dashboard and
+the educational site assign it), so an audience can tell at a glance they
+landed somewhere different than their neighbor:
+
+| `us-east-1-az1` (light) | `us-west-2-az2` (dark) |
+|---|---|
+| ![us-east-1-az1 cell page, blue identity](docs/images/cell-page-east.png) | ![us-west-2-az2 cell page, violet identity](docs/images/cell-page-west-dark.png) |
+
+**One QR code routes the whole room.** The admin dashboard's "Scan to join"
+card encodes the router page; each phone that scans it gets its client ID
+hashed onto the ring and lands in its own cell — same ID, same cell, every
+time:
+
+| Router page | Scan-to-join card |
+|---|---|
+| ![The router page showing a client's hash and assigned cell](docs/images/router-page.png) | ![The admin dashboard's audience QR card](docs/images/admin-scan-to-join.png) |
+
 ### Single-hostname mode (optional)
 
 For audiences behind corporate proxies, the demo's normal topology is a
@@ -136,16 +174,25 @@ See [API_REFERENCE.md](API_REFERENCE.md) for details and
 
 ## How it works
 
-1. **Cell registration**: each cell registers itself in the global registry
-   table with a heartbeat
-2. **Consistent hashing**: the routing Lambda MD5-hashes the client ID onto a
+1. **Cell registration**: each cell heartbeats into the global registry table
+   every 5 minutes. The heartbeat only refreshes liveness (`lastHeartbeat`,
+   a 10-minute `ttl`) and static facts — it never touches operator state, so
+   an admin's deactivate sticks
+2. **Liveness, two ways**: a cell leaves the ring either **deliberately**
+   (the admin API flips its `active` flag — a single boolean, no DNS, takes
+   effect on the next routing decision) or **automatically** (its heartbeats
+   stop, its `ttl` passes, and every ring builder treats the expired row as
+   gone — DynamoDB's TTL deletion also reaps it, but readers don't wait for
+   that)
+3. **Consistent hashing**: the routing Lambda MD5-hashes the client ID onto a
    ring of virtual nodes (see `backend/lib/consistent-hash.ts` — the same code
-   powers the backend, the admin dashboard, and the educational site)
-3. **Load distribution**: virtual nodes (150 per weight-1.0 cell) smooth out
+   powers the backend, the admin dashboard, and the educational site, anchored
+   by a shared golden-value test)
+4. **Load distribution**: virtual nodes (150 per weight-1.0 cell) smooth out
    the distribution
-4. **Failover**: inactive cells are excluded from the ring; only their clients
-   remap
-5. **Monitoring**: per-cell health checks and the admin dashboard
+5. **Failover**: excluded cells' clients deterministically remap to the
+   survivors — exactly their keyspace share moves, nobody else
+6. **Monitoring**: per-cell health checks and the admin dashboard
 
 ## Testing
 
