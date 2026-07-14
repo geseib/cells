@@ -157,6 +157,7 @@ const GLYPHS: Record<string, React.ReactNode> = {
   ),
   moon: <path d="M20.5 14.6A8.5 8.5 0 0 1 9.4 3.5a8.5 8.5 0 1 0 11.1 11.1Z" />,
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
+  'chevron-down': <path d="M6.5 9.5 12 15l5.5-5.5" />,
 };
 
 export const Icon: React.FC<{
