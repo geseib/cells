@@ -1024,7 +1024,7 @@ export const ConstantWork: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false 
 
 const BeyondCells: React.FC = () => (
   <section className="lesson" id="beyond-cells">
-    <div className="kicker">06 · Beyond cells</div>
+    <div className="kicker">07 · Beyond cells</div>
     <h2>Cells have siblings</h2>
     <p>
       Cells are one member of a family of patterns — mostly documented by Amazon's Builders'

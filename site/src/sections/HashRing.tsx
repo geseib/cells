@@ -125,80 +125,18 @@ const HashRing: React.FC = () => {
           </>
         }
       >
-        <div className="table-scroll">
-          <table className="data">
-            <thead>
-              <tr>
-                <th>Approach</th>
-                <th>Lookup</th>
-                <th>Weights</th>
-                <th>Remove any node</th>
-                <th>Trade-off</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Hash ring + virtual nodes (ketama-style)</td>
-                <td>O(log n) ring search</td>
-                <td>Natural</td>
-                <td>Yes</td>
-                <td>
-                  Needs vnodes for balance; holds the ring in memory; a crypto hash (MD5) is
-                  slower than the job needs
-                </td>
-              </tr>
-              <tr>
-                <td>Ring + non-crypto hash (murmur3, xxHash)</td>
-                <td>O(log n) ring search</td>
-                <td>Natural</td>
-                <td>Yes</td>
-                <td>Faster hashing — but seeds and implementations differ across libraries</td>
-              </tr>
-              <tr>
-                <td>Jump consistent hash (Lamping &amp; Veach)</td>
-                <td>O(1), no table</td>
-                <td>No easy way</td>
-                <td>Only the last bucket</td>
-                <td>Tiny and perfectly balanced, but buckets are 0..N−1 — you can only shrink
-                  from the end</td>
-              </tr>
-              <tr>
-                <td>Rendezvous / HRW hashing</td>
-                <td>O(N) — hash per node, take the max</td>
-                <td>Possible</td>
-                <td>Yes</td>
-                <td>No ring, no vnodes, minimal churn; per-lookup cost grows with the fleet
-                  (fine for small ones)</td>
-              </tr>
-              <tr>
-                <td>Maglev (Google)</td>
-                <td>O(1) table lookup</td>
-                <td>Yes</td>
-                <td>Yes</td>
-                <td>Near-perfect balance, but rebuilding the table costs more churn on
-                  membership change than a ring</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
         <p>
-          This repo uses the first row: MD5, first 4 bytes big-endian, 150 virtual nodes per unit
-          of weight — the ketama recipe, chosen because any node can join or leave, weights fall
-          out naturally, and the recipe is trivially portable across languages. Jump hash (the
-          paper is "A Fast, Minimal Memory, Consistent Hash Algorithm") is what you get from
-          Guava's <code>Hashing.consistentHash</code>; rendezvous hashing shines when the fleet
-          is small; Envoy ships both ring-hash and Maglev and lets you pick per cluster.
+          Two "consistent hash" libraries will happily give different answers for the same key —
+          different hash function, different seed, different vnode recipe — and a fleet that mixes
+          them quietly splits its routing. That is why this repo pins one exact recipe and guards
+          it with a golden value — <span className="hash-chip">md5("user123") → 1,792,101,289</span>{' '}
+          — asserted by the backend's jest test, computed by the routing Lambda, by this page, and
+          re-checked by the post-deploy smoke test. If you adopt a library per language instead,
+          cross-verify them with golden values before anything routes for real.
         </p>
         <p>
-          <strong>The part that actually matters:</strong> it barely matters <em>which</em> one
-          you pick — it matters that every consumer computes the <em>same</em> one. Two
-          "consistent hash" libraries will happily give different answers for the same key:
-          different hash function, different seed, different vnode recipe. That is why this repo
-          pins one exact recipe and guards it with a golden value —{' '}
-          <span className="hash-chip">md5("user123") → 1,792,101,289</span> — asserted by the
-          backend's jest test, computed by the routing Lambda, by this page, and re-checked by
-          the post-deploy smoke test. If you adopt a library per language instead, cross-verify
-          them with golden values before anything routes for real.
+          Full algorithm-by-algorithm comparison in{' '}
+          <a href="#hash-choices">06 · Choosing your hash</a>.
         </p>
       </Sidequest>
       <TryLive>See the live ring built from real registered cells in the admin dashboard</TryLive>

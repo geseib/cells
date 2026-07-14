@@ -803,6 +803,122 @@ button.sidequest-summary:hover .sidequest-chevron {
   color: var(--ink-2);
 }
 
+/* ---- Choosing your hash: the algorithm zoo ---- */
+
+.algo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.algo-grid .panel {
+  margin-top: 0;
+  padding: 1.1rem 1.2rem;
+}
+
+.algo-card h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.02rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.algo-glyph {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.algo-chip {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.05rem 0.3rem;
+  white-space: nowrap;
+}
+
+.algo-how {
+  margin: 0 0 0.6rem;
+  font-size: 0.87rem;
+  color: var(--ink-2);
+}
+
+.algo-card ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.84rem;
+  color: var(--ink-2);
+}
+
+.algo-card li {
+  position: relative;
+  padding-left: 1.05rem;
+  margin: 0.18rem 0;
+}
+
+.algo-card li::before {
+  position: absolute;
+  left: 0;
+  font-weight: 700;
+}
+
+.algo-pros li::before {
+  content: '+';
+  color: var(--good);
+}
+
+.algo-cons {
+  margin-top: 0.35rem;
+}
+
+.algo-cons li::before {
+  content: '−';
+  color: var(--critical);
+}
+
+section#hash-choices h3.hc-subhead {
+  margin: 2.4rem 0 0.4rem;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+}
+
+section#hash-choices .hc-subtext {
+  color: var(--ink-2);
+  max-width: 720px;
+  margin-top: 0;
+}
+
+/* Recommendations: two-column definition list */
+.reco-dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1.25rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.reco-dl dt {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.reco-dl dd {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+@media (max-width: 620px) {
+  .reco-dl {
+    grid-template-columns: 1fr;
+  }
+
+  .reco-dl dd {
+    margin-bottom: 0.45rem;
+  }
+}
+
 .route-history {
   margin-top: 1rem;
   font-size: 0.85rem;
