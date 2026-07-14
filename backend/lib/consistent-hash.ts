@@ -7,6 +7,18 @@ export interface Cell {
   /** Fractional multiplier of virtualNodes (1.0 = normal share, 2.0 = double). */
   weight: number;
   active: boolean;
+  /** Heartbeat expiry (epoch seconds). Absent on statically-defined cells. */
+  ttl?: number;
+}
+
+/**
+ * A cell counts for routing only while it is BOTH operator-enabled (`active`)
+ * and heartbeat-fresh (`ttl` in the future). DynamoDB's TTL deletion is
+ * best-effort and can lag well behind the expiry time, so readers must not
+ * trust row presence alone - an expired-but-undeleted row is a dead cell.
+ */
+export function isLiveCell(cell: Cell, nowEpochSeconds: number = Math.floor(Date.now() / 1000)): boolean {
+  return cell.active && (cell.ttl === undefined || cell.ttl > nowEpochSeconds);
 }
 
 export interface HashRing {

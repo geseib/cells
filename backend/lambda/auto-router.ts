@@ -1,7 +1,7 @@
 import { APIGatewayProxyHandler } from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
-import { ConsistentHash, Cell } from '../lib/consistent-hash';
+import { ConsistentHash, Cell, isLiveCell } from '../lib/consistent-hash';
 
 const client = new DynamoDBClient({});
 const ddbDoc = DynamoDBDocumentClient.from(client);
@@ -30,7 +30,7 @@ export const handler = async (event: any): Promise<any> => {
     }));
 
     const cells = (scanResult.Items || []) as Cell[];
-    const activeCells = cells.filter(cell => cell.active);
+    const activeCells = cells.filter(cell => isLiveCell(cell));
 
     if (activeCells.length === 0) {
       return {

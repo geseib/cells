@@ -8,7 +8,7 @@ import {
   UpdateCommand 
 } from '@aws-sdk/lib-dynamodb';
 import MD5 from 'crypto-js/md5';
-import { ConsistentHash, Cell } from '../lib/consistent-hash';
+import { ConsistentHash, Cell, isLiveCell } from '../lib/consistent-hash';
 
 const client = new DynamoDBClient({});
 const ddbDoc = DynamoDBDocumentClient.from(client);
@@ -124,7 +124,7 @@ async function handleGetHashRing() {
   }));
 
   const cells = (scanResult.Items || []) as Cell[];
-  const activeCells = cells.filter(cell => cell.active);
+  const activeCells = cells.filter(cell => isLiveCell(cell));
 
   const consistentHash = new ConsistentHash();
   consistentHash.rebuildFromCells(activeCells);
@@ -169,7 +169,7 @@ async function handleGetClientRoute(event: any) {
   }));
 
   const cells = (scanResult.Items || []) as Cell[];
-  const activeCells = cells.filter(cell => cell.active);
+  const activeCells = cells.filter(cell => isLiveCell(cell));
 
   const consistentHash = new ConsistentHash();
   consistentHash.rebuildFromCells(activeCells);
@@ -197,7 +197,7 @@ async function handleGetCellUrls() {
   }));
 
   const cells = (scanResult.Items || []) as (Cell & { url?: string })[];
-  const activeCells = cells.filter(cell => cell.active);
+  const activeCells = cells.filter(cell => isLiveCell(cell));
 
   const cellUrls = activeCells.map(cell => {
     // Prefer the URL the cell registered for itself (custom domain or its
