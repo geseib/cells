@@ -161,6 +161,16 @@
             white-space: nowrap;
         }
 
+        /* Brand as a home link: keep the exact brand look, add a subtle hover */
+        a.banner-brand {
+            color: inherit;
+            text-decoration: none;
+            cursor: pointer;
+            transition: opacity 0.15s ease;
+        }
+
+        a.banner-brand:hover { opacity: 0.75; }
+
         .banner-menu { position: relative; }
 
         .banner-menu-btn {
@@ -430,7 +440,7 @@
 </head>
 <body>
     <div class="demo-banner">
-        <span class="banner-brand"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style="vertical-align:-4px"><path d="M 6.68 1.34 A 8 8 0 0 1 13.43 2.34 L 10.66 6.5 A 3 3 0 0 0 8.13 6.13 Z" fill="var(--cell-4)"/><path d="M 13.43 2.34 A 8 8 0 0 1 16.47 6.15 L 11.8 7.93 A 3 3 0 0 0 10.66 6.5 Z" fill="var(--cell-3)"/><path d="M 16.47 6.15 A 8 8 0 0 1 16.94 10 L 11.98 9.38 A 3 3 0 0 0 11.8 7.93 Z" fill="var(--cell-2)"/><path d="M 16.94 10 A 8 8 0 0 1 16.54 11.67 L 11.83 10 A 3 3 0 0 0 11.98 9.38 Z" fill="var(--cell-1)"/><path d="M 16.54 11.67 A 8 8 0 0 1 15.9 13.05 L 11.59 10.52 A 3 3 0 0 0 11.83 10 Z" fill="var(--cell-1)"/><path d="M 15.9 13.05 A 8 8 0 0 1 15.56 13.58 L 11.46 10.72 A 3 3 0 0 0 11.59 10.52 Z" fill="var(--cell-2)"/><path d="M 15.56 13.58 A 8 8 0 0 1 15.47 13.7 L 11.43 10.76 A 3 3 0 0 0 11.46 10.72 Z" fill="var(--cell-3)"/><path d="M 15.47 13.7 A 8 8 0 0 1 14.45 14.86 L 11.04 11.2 A 3 3 0 0 0 11.43 10.76 Z" fill="var(--cell-2)"/><path d="M 14.45 14.86 A 8 8 0 0 1 12.84 16.02 L 10.44 11.63 A 3 3 0 0 0 11.04 11.2 Z" fill="var(--cell-3)"/><path d="M 12.84 16.02 A 8 8 0 0 1 11.26 16.67 L 9.85 11.88 A 3 3 0 0 0 10.44 11.63 Z" fill="var(--cell-4)"/><path d="M 11.26 16.67 A 8 8 0 0 1 7.34 16.82 L 8.38 11.93 A 3 3 0 0 0 9.85 11.88 Z" fill="var(--cell-1)"/><path d="M 7.34 16.82 A 8 8 0 0 1 2.56 13.74 L 6.58 10.78 A 3 3 0 0 0 8.38 11.93 Z" fill="var(--cell-2)"/><path d="M 2.56 13.74 A 8 8 0 0 1 1.5 6.22 L 6.19 7.96 A 3 3 0 0 0 6.58 10.78 Z" fill="var(--cell-4)"/><path d="M 1.5 6.22 A 8 8 0 0 1 1.6 5.96 L 6.23 7.86 A 3 3 0 0 0 6.19 7.96 Z" fill="var(--cell-4)"/><path d="M 1.6 5.96 A 8 8 0 0 1 2.03 5.07 L 6.39 7.53 A 3 3 0 0 0 6.23 7.86 Z" fill="var(--cell-3)"/><path d="M 2.03 5.07 A 8 8 0 0 1 6.68 1.34 L 8.13 6.13 A 3 3 0 0 0 6.39 7.53 Z" fill="var(--cell-1)"/></svg> Cell Demo · Auto-router</span>
+        <a class="banner-brand" id="bannerBrand" href="/index.html" aria-label="Back to home"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" style="vertical-align:-4px"><path d="M 6.68 1.34 A 8 8 0 0 1 13.43 2.34 L 10.66 6.5 A 3 3 0 0 0 8.13 6.13 Z" fill="var(--cell-4)"/><path d="M 13.43 2.34 A 8 8 0 0 1 16.47 6.15 L 11.8 7.93 A 3 3 0 0 0 10.66 6.5 Z" fill="var(--cell-3)"/><path d="M 16.47 6.15 A 8 8 0 0 1 16.94 10 L 11.98 9.38 A 3 3 0 0 0 11.8 7.93 Z" fill="var(--cell-2)"/><path d="M 16.94 10 A 8 8 0 0 1 16.54 11.67 L 11.83 10 A 3 3 0 0 0 11.98 9.38 Z" fill="var(--cell-1)"/><path d="M 16.54 11.67 A 8 8 0 0 1 15.9 13.05 L 11.59 10.52 A 3 3 0 0 0 11.83 10 Z" fill="var(--cell-1)"/><path d="M 15.9 13.05 A 8 8 0 0 1 15.56 13.58 L 11.46 10.72 A 3 3 0 0 0 11.59 10.52 Z" fill="var(--cell-2)"/><path d="M 15.56 13.58 A 8 8 0 0 1 15.47 13.7 L 11.43 10.76 A 3 3 0 0 0 11.46 10.72 Z" fill="var(--cell-3)"/><path d="M 15.47 13.7 A 8 8 0 0 1 14.45 14.86 L 11.04 11.2 A 3 3 0 0 0 11.43 10.76 Z" fill="var(--cell-2)"/><path d="M 14.45 14.86 A 8 8 0 0 1 12.84 16.02 L 10.44 11.63 A 3 3 0 0 0 11.04 11.2 Z" fill="var(--cell-3)"/><path d="M 12.84 16.02 A 8 8 0 0 1 11.26 16.67 L 9.85 11.88 A 3 3 0 0 0 10.44 11.63 Z" fill="var(--cell-4)"/><path d="M 11.26 16.67 A 8 8 0 0 1 7.34 16.82 L 8.38 11.93 A 3 3 0 0 0 9.85 11.88 Z" fill="var(--cell-1)"/><path d="M 7.34 16.82 A 8 8 0 0 1 2.56 13.74 L 6.58 10.78 A 3 3 0 0 0 8.38 11.93 Z" fill="var(--cell-2)"/><path d="M 2.56 13.74 A 8 8 0 0 1 1.5 6.22 L 6.19 7.96 A 3 3 0 0 0 6.58 10.78 Z" fill="var(--cell-4)"/><path d="M 1.5 6.22 A 8 8 0 0 1 1.6 5.96 L 6.23 7.86 A 3 3 0 0 0 6.19 7.96 Z" fill="var(--cell-4)"/><path d="M 1.6 5.96 A 8 8 0 0 1 2.03 5.07 L 6.39 7.53 A 3 3 0 0 0 6.23 7.86 Z" fill="var(--cell-3)"/><path d="M 2.03 5.07 A 8 8 0 0 1 6.68 1.34 L 8.13 6.13 A 3 3 0 0 0 6.39 7.53 Z" fill="var(--cell-1)"/></svg> Cell Demo · Auto-router</a>
         <div class="banner-menu" id="bannerMenu">
             <button class="banner-menu-btn" id="bannerMenuBtn" aria-haspopup="true" aria-expanded="false">
                 <svg class="icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
@@ -440,7 +450,7 @@
                 <a role="menuitem" class="intro-dependent" href="%%INTRO_URL%%" target="_blank" rel="noopener noreferrer">Interactive guide</a>
                 <a role="menuitem" class="intro-dependent" href="%%INTRO_URL%%/primer.html" target="_blank" rel="noopener noreferrer">Primer</a>
                 <a role="menuitem" class="intro-dependent" href="%%INTRO_URL%%/slides.html" target="_blank" rel="noopener noreferrer">Slides</a>
-                <a role="menuitem" href="/">Admin dashboard</a>
+                <a role="menuitem" href="/index.html">Admin dashboard</a>
                 <a role="menuitem" href="./index.html">Router page</a>
             </div>
         </div>
@@ -454,6 +464,16 @@
             var btn = document.getElementById('bannerMenuBtn');
             var dropdown = document.getElementById('bannerDropdown');
             var menu = document.getElementById('bannerMenu');
+            // Brand home link: on the edge host the router IS the home page,
+            // so the brand points at the edge root "/". Elsewhere (served as
+            // admin.../auto.html) it keeps the admin dashboard root
+            // /index.html. Same %%EDGE_HOST%% substitution + runtime host
+            // check as the routing script below.
+            var brandEdgeHost = '%%EDGE_HOST%%';
+            if (brandEdgeHost !== '' && brandEdgeHost.indexOf('%%') !== 0 &&
+                window.location.hostname === brandEdgeHost) {
+                document.getElementById('bannerBrand').setAttribute('href', '/');
+            }
             dropdown.querySelectorAll('a.intro-dependent').forEach(function (a) {
                 var href = a.getAttribute('href') || '';
                 if (href.indexOf('%%') === 0 || href === '') a.style.display = 'none';

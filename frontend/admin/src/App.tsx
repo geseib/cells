@@ -9,6 +9,10 @@ const DemoBanner: React.FC = () => {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const introUrl = process.env.INTRO_URL || '';
+  // Brand = home link. In edge mode ROUTER_URL (baked by deploy-frontend.sh,
+  // = https://go.{domain}) is the demo's home page; otherwise the admin IS
+  // home, so link to its own root for a consistent affordance.
+  const homeHref = process.env.ROUTER_URL || '/';
 
   useEffect(() => {
     if (!open) return undefined;
@@ -28,9 +32,9 @@ const DemoBanner: React.FC = () => {
 
   return (
     <div className="demo-banner">
-      <span className="banner-brand">
+      <a className="banner-brand" href={homeHref} aria-label="Back to home">
         <span className="banner-dot" aria-hidden="true" /> Cell Demo
-      </span>
+      </a>
       <div className="banner-menu" ref={menuRef}>
         <button
           className="banner-menu-btn"

@@ -181,6 +181,18 @@ body {
   vertical-align: -4px;
 }
 
+/* Brand as a home link: keep the exact brand look, add a subtle hover */
+a.banner-brand {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+a.banner-brand:hover {
+  opacity: 0.75;
+}
+
 .banner-cell {
   font-weight: 600;
   font-size: 0.78rem;

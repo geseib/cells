@@ -836,6 +836,18 @@ table.data td {
   background: var(--accent);
 }
 
+/* Brand as a home link: keep the exact brand look, add a subtle hover */
+.demo-banner a.banner-brand {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.demo-banner a.banner-brand:hover {
+  opacity: 0.75;
+}
+
 .banner-menu {
   position: relative;
 }
