@@ -395,3 +395,14 @@ Outputs:
   AdminBucket:
     Value: !Ref AdminBucket
     Description: Admin UI S3 bucket
+
+  AdminBucketRegionalDomainName:
+    Value: !GetAtt AdminBucket.RegionalDomainName
+    Description: Admin bucket origin domain (used by the optional edge stack)
+
+  AdminOAI:
+    Value: !Ref AdminOAI
+    Description: >
+      CloudFront Origin Access Identity ID for the admin bucket. The optional
+      edge distribution (demo-edge.yaml) reuses it so the existing bucket
+      policy grants it read access.

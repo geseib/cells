@@ -23,6 +23,7 @@
   /* status */
   --good: #0ca30c;
   --critical: #d03b3b;
+  --degraded: #b97e07;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -48,6 +49,7 @@
 
     --good: #0ca30c;
     --critical: #e66767;
+    --degraded: #e3aa3d;
   }
 }
 
@@ -957,6 +959,71 @@ section#beyond-cells h3 + p {
   color: var(--ink);
 }
 
+/* Beyond cells: the shuffle-sharding scenario ladder — side-by-side panels,
+   a step change line, the accumulating totals table, and the bridge to the
+   calculator */
+.ladder-change {
+  font-size: 0.88rem;
+  color: var(--ink-2);
+  margin: 0 0 0.9rem;
+  max-width: 720px;
+}
+
+.ladder-change .lc-bad,
+.lc-bad {
+  color: var(--critical);
+}
+
+.lc-good {
+  color: var(--good);
+}
+
+.ladder-table-caption {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink-2);
+  margin: 1rem 0 0.2rem;
+}
+
+.ladder-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ladder-table th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--grid);
+  padding: 0.3rem 0.5rem;
+  white-space: nowrap;
+}
+
+.ladder-table td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--grid);
+  white-space: nowrap;
+}
+
+.ladder-table tr.current td {
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  font-weight: 600;
+}
+
+.ladder-table-wrap {
+  overflow-x: auto;
+}
+
+.ladder-bridge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  color: var(--ink-2);
+  margin: 0.8rem 0 0;
+}
+
 /* Beyond cells: the constant-work health-check table */
 .cw-grid {
   display: grid;
@@ -1259,6 +1326,7 @@ a.deep-dive-btn:hover {
 
   --good: #0ca30c;
   --critical: #d03b3b;
+  --degraded: #b97e07;
 }
 
 :root[data-theme='dark'] {
@@ -1283,6 +1351,7 @@ a.deep-dive-btn:hover {
 
   --good: #0ca30c;
   --critical: #e66767;
+  --degraded: #e3aa3d;
 }
 
 /* Mirror the one non-token dark rule in both directions */

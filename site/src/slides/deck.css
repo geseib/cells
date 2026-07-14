@@ -390,6 +390,94 @@ body,
   margin: 0 0 0.6rem;
 }
 
+/* Shuffle-math slide: the calculator (h2 and notes carry the framing) */
+.reveal .sm-panel .mini-title {
+  display: none; /* speaker material */
+}
+
+/* six stats + chart must fit under the h2 on the 800px canvas */
+.reveal .sm-panel .stat .value {
+  font-size: 1.55rem;
+}
+
+.reveal .sm-panel .stat .label {
+  font-size: 0.72rem;
+}
+
+.reveal .sm-panel .stat-row {
+  margin-top: 0.6rem;
+  gap: 0.75rem;
+}
+
+.reveal .sm-panel .stat {
+  padding: 0.45rem 0.8rem;
+}
+
+.reveal .sm-scale .controls {
+  margin-bottom: 0.5rem;
+}
+
+.reveal .sm-scale .formula {
+  margin-bottom: 0.5rem;
+  padding: 0.45rem 0.9rem;
+}
+
+.reveal .sm-scale > svg {
+  display: block;
+  margin: 0 auto;
+}
+
+/* Shuffle-sharding ladder slide: two mirrored panels + the totals table on
+   the 1280×800 canvas. The teach line and legend stay (they carry the
+   verdict); spacing tightens so all four rungs fit without overflow. */
+.reveal .ladder .controls {
+  margin-bottom: 0.5rem;
+  justify-content: center;
+}
+
+.reveal .ladder-change {
+  max-width: none;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.reveal .ladder .mini-title {
+  display: block; /* the two panel titles ARE the comparison labels */
+  text-align: center;
+}
+
+.reveal .ladder .panel-hint {
+  max-width: none;
+  margin: 0.5rem 0;
+}
+
+.reveal .ladder .legend {
+  justify-content: center;
+  margin-top: 0.3rem;
+}
+
+.reveal .ladder .stat {
+  padding: 0.4rem 0.8rem;
+}
+
+.reveal .ladder .stat .value {
+  font-size: 1.35rem;
+}
+
+.reveal .ladder .stat .label {
+  font-size: 0.72rem;
+}
+
+.reveal .ladder-table {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+}
+
+.reveal .ladder-bridge {
+  text-align: center;
+  margin-top: 0.4rem;
+}
+
 /* Fine-print slide: four compact cards */
 .fine-print {
   display: grid;

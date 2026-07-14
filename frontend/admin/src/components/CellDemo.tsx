@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MAX_HASH, arcPath, makeCellColors, ownershipArcs, pointOnCircle } from '../ring';
+import JoinCard from './JoinCard';
 
 interface CellData {
   cellId: string;
@@ -321,6 +322,8 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
 
   return (
     <div>
+      <JoinCard apiUrl={apiUrl} />
+
       <section className="section">
         <div className="kicker">Cells</div>
         <h2>Cell health &amp; control</h2>

@@ -17,6 +17,9 @@ if [ -f "$CONFIG_FILE" ] && command -v jq >/dev/null 2>&1; then
     AZS_PER_REGION="${AZS_PER_REGION:-$(jq -r '.azsPerRegion // 2' $CONFIG_FILE)}"
     DOMAIN_NAME="${DOMAIN_NAME:-$(jq -r '.domainName // empty' $CONFIG_FILE)}"
     HOSTED_ZONE_ID="${HOSTED_ZONE_ID:-$(jq -r '.hostedZoneId // empty' $CONFIG_FILE)}"
+    # Optional single-hostname edge mode: subdomain for the shared CloudFront
+    # distribution (e.g. "go" -> go.{domainName}). Empty/absent = disabled.
+    EDGE_DOMAIN="${EDGE_DOMAIN:-$(jq -r '.edgeDomain // empty' $CONFIG_FILE)}"
     AWS_PROFILE_CONFIG=$(jq -r '.deployment.awsProfile // empty' $CONFIG_FILE)
     
     # Set AWS profile if specified
@@ -32,6 +35,7 @@ else
     AZS_PER_REGION="${AZS_PER_REGION:-2}"
     DOMAIN_NAME="${DOMAIN_NAME:-}"
     HOSTED_ZONE_ID="${HOSTED_ZONE_ID:-}"
+    EDGE_DOMAIN="${EDGE_DOMAIN:-}"
 fi
 
 echo -e "${GREEN}AWS Cell Architecture Demo - Deployment Script${NC}"
@@ -155,6 +159,74 @@ for region in "${REGION_ARRAY[@]}"; do
         AZ_COUNT=$((AZ_COUNT + 1))
     done
 done
+
+# Optional single-hostname edge mode: one CloudFront distribution fronting the
+# router pages, the routing API and every cell under {edgeDomain}.{domainName}.
+# Deployed after the cell stacks because it needs each cell's CloudFront
+# domain and execute-api endpoint from the stack outputs.
+if [ ! -z "$EDGE_DOMAIN" ]; then
+    if [ -z "$DOMAIN_NAME" ] || [ -z "$HOSTED_ZONE_ID" ]; then
+        echo -e "${RED}edgeDomain is set but domainName/hostedZoneId are not - skipping edge stack (it requires the custom domain).${NC}"
+    else
+        echo -e "\n${YELLOW}Deploying single-hostname edge distribution (${EDGE_DOMAIN}.${DOMAIN_NAME})...${NC}"
+
+        ADMIN_BUCKET_ORIGIN=$(aws cloudformation describe-stacks \
+            --stack-name ${PROJECT_NAME}-routing \
+            --region us-east-1 \
+            --query 'Stacks[0].Outputs[?OutputKey==`AdminBucketRegionalDomainName`].OutputValue' \
+            --output text)
+        ADMIN_OAI=$(aws cloudformation describe-stacks \
+            --stack-name ${PROJECT_NAME}-routing \
+            --region us-east-1 \
+            --query 'Stacks[0].Outputs[?OutputKey==`AdminOAI`].OutputValue' \
+            --output text)
+
+        # Gather every cell's CloudFront domain + execute-api host from the
+        # cell stack outputs. demo-edge.yaml has 8 parameter slots.
+        EDGE_PARAMS="ProjectName=${PROJECT_NAME} DomainName=${DOMAIN_NAME} EdgeSubdomain=${EDGE_DOMAIN} HostedZoneId=${HOSTED_ZONE_ID}"
+        EDGE_PARAMS="${EDGE_PARAMS} AdminBucketRegionalDomainName=${ADMIN_BUCKET_ORIGIN} AdminOriginAccessIdentity=${ADMIN_OAI}"
+        CELL_SLOT=1
+        for region in "${REGION_ARRAY[@]}"; do
+            CELL_STACKS=$(aws cloudformation list-stacks \
+                --region ${region} \
+                --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \
+                --query "StackSummaries[?starts_with(StackName, '${PROJECT_NAME}-cell-')].StackName" \
+                --output text)
+            for stack in ${CELL_STACKS}; do
+                if [ "$CELL_SLOT" -gt 8 ]; then
+                    echo -e "${RED}More than 8 cells; demo-edge.yaml only has 8 slots - skipping the rest.${NC}"
+                    break 2
+                fi
+                CELL_ID="${stack#${PROJECT_NAME}-cell-}"
+                CELL_CF=$(aws cloudformation describe-stacks \
+                    --region ${region} --stack-name ${stack} \
+                    --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontUrl`].OutputValue' \
+                    --output text)
+                CELL_API=$(aws cloudformation describe-stacks \
+                    --region ${region} --stack-name ${stack} \
+                    --query 'Stacks[0].Outputs[?OutputKey==`ApiEndpoint`].OutputValue' \
+                    --output text)
+                # Strip scheme and stage: origins are bare hostnames
+                CELL_CF_HOST="${CELL_CF#https://}"
+                CELL_API_HOST="${CELL_API#https://}"
+                CELL_API_HOST="${CELL_API_HOST%/prod}"
+                EDGE_PARAMS="${EDGE_PARAMS} CellId${CELL_SLOT}=${CELL_ID} CellPageOrigin${CELL_SLOT}=${CELL_CF_HOST} CellApiOrigin${CELL_SLOT}=${CELL_API_HOST}"
+                CELL_SLOT=$((CELL_SLOT + 1))
+            done
+        done
+
+        sam deploy \
+            --template-file ../templates/demo-edge.yaml \
+            --stack-name ${PROJECT_NAME}-edge \
+            --s3-bucket ${SAM_BUCKET} \
+            --region us-east-1 \
+            --parameter-overrides ${EDGE_PARAMS} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset
+
+        echo -e "${GREEN}Edge URL:${NC} https://${EDGE_DOMAIN}.${DOMAIN_NAME}"
+    fi
+fi
 
 # Get admin URL
 ADMIN_URL=$(aws cloudformation describe-stacks \

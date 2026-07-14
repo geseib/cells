@@ -107,6 +107,37 @@ Finding your hosted zone ID:
 aws route53 list-hosted-zones --query 'HostedZones[?Name==`example.com.`].Id' --output text
 ```
 
+## Single-hostname mode (optional)
+
+If you demo to audiences behind restrictive corporate proxies, many
+hostnames (`admin.…`, `api.…`, one per cell, raw `*.execute-api.…` hosts)
+are a problem — each needs allowlisting. Single-hostname "edge mode" puts
+every audience-facing endpoint behind **one** DNS name:
+
+1. Requires the custom-domain setup above (`domainName` + `hostedZoneId`).
+2. Set `"edgeDomain": "go"` (any subdomain label) in `config.json`.
+3. Re-run `./setup.sh`. deploy.sh deploys `infrastructure/templates/demo-edge.yaml`
+   as `{project}-edge` in us-east-1 after the cell stacks (it reads each
+   cell's CloudFront domain and API endpoint from stack outputs; the
+   template has slots for up to 8 cells), and deploy-frontend.sh rebuilds
+   the frontends in edge mode (`%%EDGE_MODE%%=true`, QR card pointing at
+   the edge hostname).
+
+Give the audience `https://go.{domainName}` (or the QR code on the admin
+dashboard): the router page is the default root, the routing API is at
+`/api/*`, and each cell is at `/{cellId}/` with its API at `/{cellId}/api/*`.
+One name to allowlist.
+
+**Trade-off, stated honestly:** this bolts a shared component in front of
+all client traffic — it is exactly the "central router" topology the demo's
+trade-offs discussion argues against, accepted deliberately for demo
+convenience. Cells stay isolated from each other behind it (each
+`/{cellId}/api/*` route reaches only that cell's own API), but the edge
+distribution itself is a single shared failure point for audience access.
+
+`infrastructure/scripts/smoke-test.sh` checks the edge paths automatically
+when `edgeDomain` is set, and skips them cleanly when it isn't.
+
 ## Cleanup
 
 ```bash

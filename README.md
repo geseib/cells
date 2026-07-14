@@ -78,6 +78,35 @@ With a custom domain: cells at `{cell-id}.{domain}`, admin at
 `admin.{domain}`, API at `api.{domain}`; ACM certificates are created
 automatically.
 
+### Single-hostname mode (optional)
+
+For audiences behind corporate proxies, the demo's normal topology is a
+problem: the router, the routing API, and every cell live on different
+hostnames, each of which would need allowlisting. Setting
+`"edgeDomain": "go"` in `config.json` deploys one extra CloudFront
+distribution (`demo-edge.yaml`, stack `{project}-edge`) that serves
+**everything the audience touches from a single DNS name**,
+`go.{domainName}`:
+
+| Path | Serves |
+|------|--------|
+| `/` | router page (QR target), `/auto.html`, admin at `/index.html` |
+| `/api/*` | the routing API |
+| `/{cellId}/*` | that cell's page |
+| `/{cellId}/api/*` | that cell's API (rewritten to its `/prod` stage) |
+
+The router pages switch to relative `/api` calls and `/{cellId}/`
+redirects, and each cell SPA detects its own path prefix at runtime and
+uses `/{cellId}/api` — no extra build variants.
+
+**The honest trade-off:** the edge distribution is a shared dependency in
+front of all client traffic — exactly the "central router" topology the
+trade-offs discussion warns against, chosen deliberately here for demo
+convenience. If the edge distribution fails, every cell is unreachable for
+the audience, even though the cells themselves remain isolated from each
+other (each `/{cellId}/api/*` path still hits only that cell's own API).
+Point that out when you present it; it makes the lesson sharper.
+
 ### Environment variables (alternative to config.json)
 
 - `SAM_BUCKET`: S3 bucket for SAM package uploads (required)
@@ -85,6 +114,7 @@ automatically.
 - `REGIONS`: comma-separated regions (default: us-east-1,us-west-2)
 - `AZS_PER_REGION`: AZs per region (default: 2)
 - `DOMAIN_NAME` / `HOSTED_ZONE_ID`: custom domain (optional)
+- `EDGE_DOMAIN`: subdomain label for single-hostname mode (optional)
 
 ### Cleanup
 
