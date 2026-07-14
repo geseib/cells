@@ -528,6 +528,298 @@ table.data td {
   color: var(--ink);
 }
 
+/* ---- Sidequest: collapsible optional deep-dive (ui/Sidequest.tsx) ---- */
+
+.sidequest {
+  padding: 0;
+  overflow: hidden;
+}
+
+/* The summary row is a real button; undo the global button chrome. */
+button.sidequest-summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 1.05rem 1.4rem;
+  font-weight: 400;
+  font-size: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+button.sidequest-summary:hover {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border: none;
+  transform: none;
+}
+
+button.sidequest-summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.sidequest-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidequest-kicker {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.sidequest-title {
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-top: 0.15rem;
+}
+
+.sidequest-blurb {
+  margin: 0.25rem 0 0;
+  font-size: 0.88rem;
+  color: var(--ink-2);
+  max-width: 640px;
+}
+
+.sidequest-chevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform 0.25s ease, color 0.15s ease;
+}
+
+button.sidequest-summary:hover .sidequest-chevron {
+  color: var(--ink);
+}
+
+.sidequest.open .sidequest-chevron {
+  transform: rotate(180deg);
+}
+
+/* Smooth height: grid rows 0fr → 1fr. The global reduced-motion rule strips
+   the transition; visibility keeps collapsed content out of the tab order. */
+.sidequest-body-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition: grid-template-rows 0.3s ease, visibility 0.3s ease;
+}
+
+.sidequest.open .sidequest-body-wrap {
+  grid-template-rows: 1fr;
+  visibility: visible;
+}
+
+.sidequest-body {
+  overflow: hidden;
+  min-height: 0;
+  padding: 0 1.4rem;
+}
+
+.sidequest-body > :first-child {
+  margin-top: 0.15rem;
+}
+
+.sidequest-body > :last-child {
+  margin-bottom: 1.4rem;
+}
+
+.sidequest-body p {
+  font-size: 0.92rem;
+  color: var(--ink-2);
+  max-width: 720px;
+}
+
+.sidequest-body p strong {
+  color: var(--ink);
+}
+
+.sidequest-body table.data {
+  font-size: 0.82rem;
+}
+
+.sidequest-body table.data td {
+  color: var(--ink-2);
+}
+
+.sidequest-body table.data td:first-child {
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---- Large sidequest variant: a numbered section that collapses its deep
+   content behind a fuller summary panel (06 · the algorithm zoo). Same
+   behavior and reduced-motion handling as the compact chrome — only the
+   presence changes. ---- */
+
+.sidequest-lg button.sidequest-summary {
+  padding: 1.35rem 1.6rem;
+}
+
+.sidequest-lg .sidequest-title {
+  font-size: 1.15rem;
+}
+
+.sidequest-lg .sidequest-blurb {
+  max-width: 720px;
+}
+
+.sidequest-lg .sidequest-blurb p {
+  margin: 0.45rem 0 0;
+  font-size: 0.92rem;
+  color: var(--ink-2);
+  max-width: none;
+}
+
+.sidequest-lg .sidequest-blurb strong {
+  color: var(--ink);
+}
+
+.sidequest-expand-hint {
+  display: inline-block;
+  margin-top: 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+
+/* The invitation has been accepted — drop it while the body is open. */
+.sidequest.open .sidequest-expand-hint {
+  display: none;
+}
+
+.sidequest-lg .sidequest-body {
+  padding: 0 1.6rem;
+}
+
+/* Pinning demo (RouteClient sidequest): compact cell cards + client chips */
+.pin-cells {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.pin-cell {
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem 0.6rem;
+  transition: border-color 0.3s ease, opacity 0.3s ease;
+}
+
+.pin-cell.failed {
+  border-color: var(--critical);
+  opacity: 0.75;
+}
+
+.pin-cell .title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.pin-cell .title .down-tag {
+  margin-left: auto;
+  color: var(--critical);
+  font-weight: 700;
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pin-clients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  min-height: 1.5rem;
+}
+
+.pin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--grid);
+  background: var(--page);
+  color: var(--ink-2);
+}
+
+.pin-chip.vip {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.pin-chip.vip.rerouted {
+  border-style: dashed;
+}
+
+.pin-chip.vip.erroring {
+  border-color: var(--critical);
+  color: var(--critical);
+}
+
+.pin-status {
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  border-left: 3px solid var(--accent);
+  padding-left: 0.65rem;
+  margin: 0.9rem 0 0;
+  max-width: 700px;
+}
+
+.pin-status.bad {
+  border-left-color: var(--critical);
+}
+
+.pin-status.warn {
+  border-left-color: var(--degraded);
+}
+
+.pin-fieldset {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.pin-fieldset legend {
+  float: left;
+  padding: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-right: 0.25rem;
+}
+
+.pin-fieldset .swatch,
+.pin-cell .title .swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+
 .tradeoff-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -555,6 +847,122 @@ table.data td {
   margin: 0;
   font-size: 0.9rem;
   color: var(--ink-2);
+}
+
+/* ---- Choosing your hash: the algorithm zoo ---- */
+
+.algo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.algo-grid .panel {
+  margin-top: 0;
+  padding: 1.1rem 1.2rem;
+}
+
+.algo-card h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.02rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.algo-glyph {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.algo-chip {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.05rem 0.3rem;
+  white-space: nowrap;
+}
+
+.algo-how {
+  margin: 0 0 0.6rem;
+  font-size: 0.87rem;
+  color: var(--ink-2);
+}
+
+.algo-card ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.84rem;
+  color: var(--ink-2);
+}
+
+.algo-card li {
+  position: relative;
+  padding-left: 1.05rem;
+  margin: 0.18rem 0;
+}
+
+.algo-card li::before {
+  position: absolute;
+  left: 0;
+  font-weight: 700;
+}
+
+.algo-pros li::before {
+  content: '+';
+  color: var(--good);
+}
+
+.algo-cons {
+  margin-top: 0.35rem;
+}
+
+.algo-cons li::before {
+  content: '−';
+  color: var(--critical);
+}
+
+section#hash-choices h3.hc-subhead {
+  margin: 2.4rem 0 0.4rem;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+}
+
+section#hash-choices .hc-subtext {
+  color: var(--ink-2);
+  max-width: 720px;
+  margin-top: 0;
+}
+
+/* Recommendations: two-column definition list */
+.reco-dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1.25rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.reco-dl dt {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.reco-dl dd {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+@media (max-width: 620px) {
+  .reco-dl {
+    grid-template-columns: 1fr;
+  }
+
+  .reco-dl dd {
+    margin-bottom: 0.45rem;
+  }
 }
 
 .route-history {

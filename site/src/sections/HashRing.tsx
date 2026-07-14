@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { arcPath, buildRing, cellColor, keyspaceShare, makeCells, ownershipArcs } from '../sim/simulation';
 import TryLive from '../TryLive';
 import KeyHint, { useHotkeys } from '../ui/KeyHint';
+import Sidequest from '../ui/Sidequest';
 
 const CELL_COUNT = 4;
 const SIZE = 300;
@@ -114,6 +115,30 @@ const HashRing: React.FC = () => {
         (what the real backend uses), every cell converges on its fair share. Virtual nodes are the
         trick that makes consistent hashing <em>balanced</em>.
       </div>
+      <Sidequest
+        id="sidequest-which-hash"
+        title="Which hash? Every library has opinions"
+        blurb={
+          <>
+            Many algorithms and libraries implement "consistent hashing" — and they do not agree
+            with each other. Each one is a real trade-off, not a drop-in swap.
+          </>
+        }
+      >
+        <p>
+          Two "consistent hash" libraries will happily give different answers for the same key —
+          different hash function, different seed, different vnode recipe — and a fleet that mixes
+          them quietly splits its routing. That is why this repo pins one exact recipe and guards
+          it with a golden value — <span className="hash-chip">md5("user123") → 1,792,101,289</span>{' '}
+          — asserted by the backend's jest test, computed by the routing Lambda, by this page, and
+          re-checked by the post-deploy smoke test. If you adopt a library per language instead,
+          cross-verify them with golden values before anything routes for real.
+        </p>
+        <p>
+          Full algorithm-by-algorithm comparison in{' '}
+          <a href="#hash-choices">06 · Choosing your hash</a>.
+        </p>
+      </Sidequest>
       <TryLive>See the live ring built from real registered cells in the admin dashboard</TryLive>
     </section>
   );
