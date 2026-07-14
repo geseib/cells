@@ -61,6 +61,14 @@ interface CellDemoProps {
   apiUrl: string;
 }
 
+// Edge mode: deploy-frontend.sh injects ROUTER_URL (= https://{edgeHost}) via
+// webpack DefinePlugin when the single-hostname edge distribution is enabled.
+// Each cell is then reachable at https://{edgeHost}/{cellId}/ — derived here
+// client-side, never fetched from the API. Empty string = edge mode off.
+const ROUTER_URL = (process.env.ROUTER_URL || '').replace(/\/+$/, '');
+const EDGE_HOST = ROUTER_URL.replace(/^https?:\/\//, '');
+const edgeUrlFor = (cellId: string) => (ROUTER_URL ? `${ROUTER_URL}/${cellId}/` : '');
+
 // Ring SVG geometry (wider than tall so client labels never clip)
 const WIDTH = 540;
 const HEIGHT = 480;
@@ -208,9 +216,11 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
       const data = await response.json();
       setCellUrls(data);
 
-      // Generate QR codes for each cell URL
+      // Generate QR codes for each cell URL. In edge mode the QR encodes the
+      // single-hostname edge link (the flow the audience actually uses);
+      // otherwise it encodes the cell's own direct URL.
       data.cellUrls.forEach(async (cellUrl: CellUrl) => {
-        await generateQRCode(cellUrl.cellId, cellUrl.directUrl);
+        await generateQRCode(cellUrl.cellId, edgeUrlFor(cellUrl.cellId) || cellUrl.directUrl);
       });
     } catch (error) {
       console.error('Failed to fetch cell URLs:', error);
@@ -336,10 +346,19 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
           const allInactive = regionCells.every(cell => !cell.active);
 
           return (
-            <div key={region}>
+            <div key={region} className="region-panel">
               <div className="region-header">
                 <h3>
                   {region}
+                  <span className="region-swatches" aria-hidden="true">
+                    {regionCells.map(cell => (
+                      <span
+                        key={cell.cellId}
+                        className="swatch"
+                        style={{ background: colorFor(cell.cellId) }}
+                      />
+                    ))}
+                  </span>
                   <span className="meta">
                     {regionCells.filter(c => c.active).length}/{regionCells.length} active
                   </span>
@@ -605,8 +624,11 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
           <div className="kicker">Access</div>
           <h2>Cell endpoints</h2>
           <p className="lede">
-            Direct and routed URLs for every cell{cellUrls.customDomain ? ` under ${cellUrls.customDomain}` : ''}.
-            Scan a QR code to open a cell's page on your phone.
+            {ROUTER_URL
+              ? `Each cell's direct hostname and its single-hostname path on ${EDGE_HOST}`
+              : 'Direct URLs for every cell'}
+            {cellUrls.customDomain ? ` under ${cellUrls.customDomain}` : ''}.
+            {' '}Scan a QR code to open a cell's page on your phone.
           </p>
           <div className="urls-grid">
             {cellUrls.cellUrls.map(cellUrl => (
@@ -626,10 +648,14 @@ const CellDemo: React.FC<CellDemoProps> = ({ apiUrl }) => {
                   <a href={cellUrl.directUrl} target="_blank" rel="noopener noreferrer">
                     {cellUrl.directUrl}
                   </a>
-                  <div className="link-label">Via router</div>
-                  <a href={cellUrl.routingUrl} target="_blank" rel="noopener noreferrer">
-                    {cellUrl.routingUrl}
-                  </a>
+                  {ROUTER_URL && (
+                    <>
+                      <div className="link-label">Via {EDGE_HOST}</div>
+                      <a href={edgeUrlFor(cellUrl.cellId)} target="_blank" rel="noopener noreferrer">
+                        {edgeUrlFor(cellUrl.cellId)}
+                      </a>
+                    </>
+                  )}
                 </div>
                 {qrCodes.get(cellUrl.cellId) && (
                   <img
