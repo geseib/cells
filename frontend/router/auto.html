@@ -487,16 +487,23 @@
         let countdownInterval;
         let redirectTimeout;
 
-        // EDGE_MODE ('true'/'false', substituted at deploy time): when the demo
-        // runs behind the single-hostname edge distribution, the routing API is
-        // reached at the relative /api base and cells at /{cellId}/ on this
-        // same host - one DNS name for everything the audience touches.
-        const EDGE_MODE = '%%EDGE_MODE%%' === 'true';
+        // EDGE_HOST (substituted at deploy time, e.g. "go.example.com"; empty
+        // when the single-hostname edge distribution is not deployed). The
+        // same router artifact is served from BOTH the admin host and the
+        // edge host, so edge behavior (relative /api base, /{cellId}/
+        // redirects) must be decided at runtime from the host actually
+        // serving this page - a baked-in flag breaks whichever host it
+        // wasn't built for.
+        const EDGE_HOST = '%%EDGE_HOST%%';
+        const ON_EDGE = EDGE_HOST !== '' &&
+            EDGE_HOST.indexOf('%%') !== 0 &&
+            window.location.hostname === EDGE_HOST;
 
         // Where to send the client for a given cell: the cell's own hostname
-        // normally, or the /{cellId}/ path on this host in edge mode.
+        // normally, or the /{cellId}/ path on this host when served from the
+        // edge distribution.
         function cellHref(cellId, directUrl) {
-            return EDGE_MODE ? '/' + encodeURIComponent(cellId) + '/' : directUrl;
+            return ON_EDGE ? '/' + encodeURIComponent(cellId) + '/' : directUrl;
         }
 
         // Get or generate client ID
@@ -603,9 +610,9 @@
 
             try {
                 // ROUTING_API_URL is substituted by infrastructure/scripts/deploy-frontend.sh
-                // from the routing stack's API endpoint at deploy time. In edge
-                // mode the API lives at the relative /api base on this host.
-                const apiUrl = EDGE_MODE
+                // from the routing stack's API endpoint at deploy time. On the
+                // edge host the API lives at the relative /api base instead.
+                const apiUrl = ON_EDGE
                     ? '/api'
                     : (window.location.hostname === 'localhost'
                         ? 'http://localhost:3000/prod'

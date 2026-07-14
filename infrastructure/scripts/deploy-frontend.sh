@@ -35,12 +35,32 @@ fi
 # router pages call the routing API at the relative /api base and redirect to
 # /{cellId}/ paths; the admin QR card encodes the edge hostname.
 EDGE_MODE="false"
+EDGE_HOST=""
 ROUTER_URL=""
 if [ ! -z "$EDGE_DOMAIN" ] && [ ! -z "$DOMAIN_NAME" ]; then
     EDGE_MODE="true"
-    ROUTER_URL="https://${EDGE_DOMAIN}.${DOMAIN_NAME}"
+    EDGE_HOST="${EDGE_DOMAIN}.${DOMAIN_NAME}"
+    ROUTER_URL="https://${EDGE_HOST}"
     echo -e "${GREEN}Edge mode enabled: ${ROUTER_URL}${NC}"
 fi
+
+# Invalidate a CloudFront distribution's cache by its dxxx.cloudfront.net
+# domain. Without this, a cached index.html keeps referencing hashed bundle
+# names that `aws s3 sync --delete` just removed - the page then loads blank
+# with 403s on the bundle until the cache expires.
+invalidate_distribution() {
+    local domain="${1#https://}"
+    [ -z "$domain" ] && return 0
+    local dist_id=$(aws cloudfront list-distributions \
+        --query "DistributionList.Items[?DomainName=='${domain}'].Id" \
+        --output text 2>/dev/null)
+    if [ ! -z "$dist_id" ] && [ "$dist_id" != "None" ]; then
+        aws cloudfront create-invalidation --distribution-id "$dist_id" --paths "/*" > /dev/null
+        echo -e "${GREEN}Invalidated CloudFront cache: ${domain} (${dist_id})${NC}"
+    else
+        echo -e "${YELLOW}Warning: no CloudFront distribution found for ${domain} - skipping invalidation${NC}"
+    fi
+}
 
 echo -e "${GREEN}AWS Cell Architecture Demo - Frontend Deployment${NC}"
 echo "================================================"
@@ -106,17 +126,41 @@ aws s3 cp admin/demo-script.html s3://${ADMIN_BUCKET}/demo-script.html
 aws s3 cp admin/demo-panel-embed.js s3://${ADMIN_BUCKET}/demo-panel-embed.js
 
 # Router pages live in the admin bucket; substitute the routing API endpoint
-# for the %%ROUTING_API_URL%% placeholder at deploy time. %%EDGE_MODE%% (true/
-# false) switches the pages to relative /api calls and /{cellId}/ redirects
-# when everything is served from the single edge hostname.
+# for the %%ROUTING_API_URL%% placeholder at deploy time. %%EDGE_HOST%% is the
+# edge hostname (empty when edge mode is off): the SAME router artifact is
+# served from both the admin host and the edge host, so the page decides at
+# runtime - relative /api calls and /{cellId}/ redirects only when
+# location.hostname matches the edge host.
 TMP_ROUTER_DIR=$(mktemp -d)
 for page in index.html auto.html; do
-    sed "s|%%ROUTING_API_URL%%|${ROUTING_API}|g; s|%%INTRO_URL%%|${INTRO_URL}|g; s|%%EDGE_MODE%%|${EDGE_MODE}|g" router/${page} > ${TMP_ROUTER_DIR}/${page}
+    sed "s|%%ROUTING_API_URL%%|${ROUTING_API}|g; s|%%INTRO_URL%%|${INTRO_URL}|g; s|%%EDGE_HOST%%|${EDGE_HOST}|g" router/${page} > ${TMP_ROUTER_DIR}/${page}
 done
 aws s3 cp ${TMP_ROUTER_DIR}/index.html s3://${ADMIN_BUCKET}/router.html
 aws s3 cp ${TMP_ROUTER_DIR}/auto.html s3://${ADMIN_BUCKET}/auto.html
 aws s3 cp router/favicon.ico s3://${ADMIN_BUCKET}/favicon.ico
 rm -rf ${TMP_ROUTER_DIR}
+
+# The admin distribution just received new hashed bundles + router pages;
+# flush its cache so stale index.html never points at deleted bundles.
+ADMIN_CF_DOMAIN=$(aws cloudformation describe-stacks \
+    --stack-name ${PROJECT_NAME}-routing \
+    --region us-east-1 \
+    --query 'Stacks[0].Outputs[?OutputKey==`AdminUrl`].OutputValue' \
+    --output text)
+invalidate_distribution "$ADMIN_CF_DOMAIN"
+
+# The edge distribution serves the same admin-bucket router pages at /.
+if [ "$EDGE_MODE" == "true" ]; then
+    EDGE_DIST_ID=$(aws cloudformation describe-stacks \
+        --stack-name ${PROJECT_NAME}-edge \
+        --region us-east-1 \
+        --query 'Stacks[0].Outputs[?OutputKey==`EdgeDistributionId`].OutputValue' \
+        --output text 2>/dev/null)
+    if [ ! -z "$EDGE_DIST_ID" ] && [ "$EDGE_DIST_ID" != "None" ]; then
+        aws cloudfront create-invalidation --distribution-id "$EDGE_DIST_ID" --paths "/*" > /dev/null
+        echo -e "${GREEN}Invalidated CloudFront cache: edge (${EDGE_DIST_ID})${NC}"
+    fi
+fi
 
 # Build and deploy the cell SPA once per cell, injecting that cell's own API
 # endpoint — cells must not depend on another cell's or region's API at runtime.
@@ -154,6 +198,15 @@ for region in "${REGION_ARRAY[@]}"; do
             echo -e "${GREEN}Deploying to ${CONTENT_BUCKET}${NC}"
             aws s3 sync spa/dist/ s3://${CONTENT_BUCKET}/ --delete --region ${region}
             aws s3 cp admin/demo-panel-embed.js s3://${CONTENT_BUCKET}/demo-panel-embed.js --region ${region}
+
+            # Flush this cell's CloudFront cache so its index.html can't
+            # reference the bundle hash the sync above just deleted.
+            CELL_CF_URL=$(aws cloudformation describe-stacks \
+                --region ${region} \
+                --stack-name ${stack} \
+                --query 'Stacks[0].Outputs[?OutputKey==`CloudFrontUrl`].OutputValue' \
+                --output text)
+            invalidate_distribution "$CELL_CF_URL"
         fi
     done
 done
