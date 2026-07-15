@@ -164,6 +164,23 @@ const DemoBanner: React.FC = () => {
   const adminUrl = process.env.ADMIN_URL || '';
   const introUrl = process.env.INTRO_URL || '';
 
+  // Brand = home link. Same edge detection as getApiUrl: when this page is
+  // served under its own /{cellId}/ path prefix (single-hostname edge
+  // distribution), the edge root "/" is the router/home page. Otherwise the
+  // admin dashboard is "home". If neither applies (ad-hoc build with no
+  // ADMIN_URL), the brand stays a plain span.
+  const cellId = process.env.CELL_ID || '';
+  const onEdge =
+    cellId !== '' && window.location.pathname.startsWith(`/${cellId}/`);
+  const homeHref = onEdge ? '/' : adminUrl;
+  const brandContent = (
+    <>
+      <RingMark size={18} band={5.5} className="banner-ring" />
+      Cell Demo
+      {cellId ? <span className="banner-cell mono">· {cellId}</span> : null}
+    </>
+  );
+
   useEffect(() => {
     if (!open) return undefined;
     const onPointerDown = (e: MouseEvent) => {
@@ -182,13 +199,13 @@ const DemoBanner: React.FC = () => {
 
   return (
     <div className="demo-banner">
-      <span className="banner-brand">
-        <RingMark size={18} band={5.5} className="banner-ring" />
-        Cell Demo
-        {process.env.CELL_ID ? (
-          <span className="banner-cell mono">· {process.env.CELL_ID}</span>
-        ) : null}
-      </span>
+      {homeHref ? (
+        <a className="banner-brand" href={homeHref} aria-label="Back to home">
+          {brandContent}
+        </a>
+      ) : (
+        <span className="banner-brand">{brandContent}</span>
+      )}
       <div className="banner-menu" ref={menuRef}>
         <button
           className="banner-menu-btn"
