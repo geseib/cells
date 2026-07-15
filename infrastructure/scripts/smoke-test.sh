@@ -122,6 +122,24 @@ check "routing is deterministic (user123 → ${target1})" \
 ring_total=$(curl -sf "${ROUTING_API}/admin/hash-ring" | jq -r '.totalVirtualNodes // 0' 2>/dev/null || echo 0)
 check "hash ring populated (${ring_total} virtual nodes)" "$([ "$ring_total" -ge 1 ] && echo true || echo false)"
 
+# Registry rows carry each cell's own API endpoint (needed by the failover
+# demo); populated on the cell's 5-minute registration heartbeat.
+apiurl_ok=$(curl -sf "${ROUTING_API}/admin/cell-urls" \
+    | jq -r '(.cellUrls | length > 0) and ([.cellUrls[] | has("apiUrl")] | all)' 2>/dev/null || echo "")
+check "/admin/cell-urls rows include apiUrl" "$([ "$apiurl_ok" == "true" ] && echo true || echo false)" \
+    "redeploy the routing stack and wait for a cell heartbeat"
+
+# Failover demo must be DISARMED at rest (armed = paid health checks accruing).
+if [ -n "$DOMAIN_NAME" ]; then
+    fo_armed=$(curl -sf "${ROUTING_API}/admin/failover/status" | jq -r '.armed' 2>/dev/null || echo "")
+    check "failover demo is disarmed (armed=false)" "$([ "$fo_armed" == "false" ] && echo true || echo false)" \
+        "armed='${fo_armed}' — POST ${ROUTING_API}/admin/failover/disarm when the demo is done"
+else
+    fo_code=$(curl -s -o /dev/null -w '%{http_code}' "${ROUTING_API}/admin/failover/status")
+    check "failover status reports unconfigured domain (503)" \
+        "$([ "$fo_code" == "503" ] && echo true || echo false)" "got HTTP ${fo_code}"
+fi
+
 # --- Each cell ---------------------------------------------------------------
 IFS=',' read -ra APIS <<< "$CELL_API_URLS"
 IFS=',' read -ra IDS <<< "$CELL_IDS"
@@ -146,7 +164,72 @@ for i in "${!APIS[@]}"; do
     seen=$(curl -sf "${api}/clients/cell/${cid}" \
         | jq -r "[.clients[].clientId] | index(\"smoke-test-${cid}\") != null" 2>/dev/null || echo "")
     check "GET /clients/cell/${cid} shows the tracked visit" "$([ "$seen" == "true" ] && echo true || echo false)"
+
+    chaos_enabled=$(curl -sf "${api}/chaos" | jq -r '.chaos.enabled' 2>/dev/null || echo "")
+    check "GET /chaos reports disabled" "$([ "$chaos_enabled" == "false" ] && echo true || echo false)" \
+        "got '${chaos_enabled}' — chaos must be off outside a live failover demo"
 done
+
+# --- Failover demo (opt-in: mutates DNS and creates paid health checks) -------
+# SMOKE_FAILOVER=1 runs a live arm → verify → disarm cycle and asserts zero
+# leftovers. Only run against a deployment you own, with a custom domain.
+if [ "${SMOKE_FAILOVER:-0}" == "1" ]; then
+    echo -e "\n${YELLOW}Failover demo (SMOKE_FAILOVER=1 — real Route 53 mutations)${NC}"
+
+    cell_count=$(echo "$CELL_IDS" | tr ',' '\n' | grep -c .)
+    if [ -z "$DOMAIN_NAME" ]; then
+        check "failover smoke requires a custom domain" false "set domainName in config.json or unset SMOKE_FAILOVER"
+    elif [ "$cell_count" -lt 2 ]; then
+        check "failover smoke requires at least 2 cells (found ${cell_count})" false
+    else
+        primary_id=$(echo "$CELL_IDS" | cut -d',' -f1)
+        secondary_id=$(echo "$CELL_IDS" | cut -d',' -f2)
+
+        arm_resp=$(curl -s -X POST "${ROUTING_API}/admin/failover/arm" \
+            -H 'Content-Type: application/json' \
+            -d "{\"primaryCellId\":\"${primary_id}\",\"secondaryCellId\":\"${secondary_id}\"}")
+        arm_ok=$(echo "$arm_resp" | jq -r '.armed' 2>/dev/null || echo "")
+        check "arm (primary=${primary_id}, secondary=${secondary_id})" \
+            "$([ "$arm_ok" == "true" ] && echo true || echo false)" \
+            "$(echo "$arm_resp" | jq -r '.error // empty' 2>/dev/null) (422? cells register apiUrl on their 5-minute heartbeat)"
+
+        if [ "$arm_ok" == "true" ]; then
+            fo_status=$(curl -sf "${ROUTING_API}/admin/failover/status")
+
+            hc_count=$(echo "$fo_status" | jq -r \
+                '[.healthChecks.primary.healthCheckId, .healthChecks.secondary.healthCheckId] | map(select(. != null and . != "")) | length' \
+                2>/dev/null || echo 0)
+            check "status shows 2 health checks" "$([ "$hc_count" == "2" ] && echo true || echo false)" "got ${hc_count}"
+
+            cname_count=$(echo "$fo_status" | jq -r \
+                '[.records[] | select(.type == "CNAME")] | length' 2>/dev/null || echo 0)
+            check "2 failover CNAME record sets live" "$([ "$cname_count" == "2" ] && echo true || echo false)" "got ${cname_count}"
+
+            probe_fqdn=$(curl -sf "${ROUTING_API}/admin/failover/probe" | jq -r '.fqdn' 2>/dev/null || echo "")
+            check "probe answers for failover.${DOMAIN_NAME}" \
+                "$([ "$probe_fqdn" == "failover.${DOMAIN_NAME}" ] && echo true || echo false)"
+        fi
+
+        disarm_resp=$(curl -s -X POST "${ROUTING_API}/admin/failover/disarm")
+        disarm_ok=$(echo "$disarm_resp" | jq -r '.armed' 2>/dev/null || echo "")
+        check "disarm (armed=false)" "$([ "$disarm_ok" == "false" ] && echo true || echo false)"
+
+        # Zero leftovers: no failover.* record sets (route53-info lists A+CNAME
+        # at that name) and no health checks created under our CallerReference
+        # prefix (arm always uses {project}-failover-{cellId}-{timestamp}).
+        leftover_records=$(curl -sf "${ROUTING_API}/route53-info" | jq -r '.records | length' 2>/dev/null || echo "?")
+        check "no leftover failover.* record sets" "$([ "$leftover_records" == "0" ] && echo true || echo false)" \
+            "found ${leftover_records}"
+
+        leftover_checks=$(aws route53 list-health-checks \
+            --query "HealthChecks[?starts_with(CallerReference, '${PROJECT_NAME}-failover-')]" \
+            --output json 2>/dev/null | jq -r 'length' 2>/dev/null || echo "?")
+        check "no leftover failover health checks" "$([ "$leftover_checks" == "0" ] && echo true || echo false)" \
+            "found ${leftover_checks} tagged ${PROJECT_NAME}-failover-*"
+    fi
+else
+    echo -e "\n${YELLOW}Failover live checks skipped (set SMOKE_FAILOVER=1 to arm/verify/disarm for real).${NC}"
+fi
 
 # --- Optional single-hostname edge mode ---------------------------------------
 # Skips cleanly when edgeDomain is not configured.

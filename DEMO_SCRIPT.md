@@ -128,29 +128,54 @@ This demo showcases a fault-tolerant, scalable cell-based architecture using AWS
 >
 > "In production, you'd integrate this with your monitoring systems - Datadog, New Relic, CloudWatch - to get alerts when cells become unhealthy."
 
-### 5. Fault Tolerance Demonstration (3 minutes)
+### 5. Fault Tolerance Demonstration — LIVE Route 53 Failover (5 minutes)
 
-**"The real power shows when things go wrong."**
+**"The real power shows when things go wrong. This part is not a simulation — we're about to make real DNS fail over."**
 
-#### Simulated Scenarios (choose one):
+Two demonstrations, cheapest first:
 
-**Option A: Cell Disable Simulation**
+**Option A: Cell Disable (ring-level failover)**
 1. In admin dashboard, disable one cell
 2. Show how routing automatically excludes it
 3. Test client IDs that would normally route there
 4. Re-enable and show recovery
 
-**Option B: Health Check Failure**
-1. Point out current healthy status
-2. Explain what happens during failures:
-   - Load balancer health checks fail
-   - Traffic automatically routes to healthy cells
-   - Failed cell gets isolated until recovery
+**Option B: LIVE Route 53 failover (the armed demo)**
+
+Prereqs: custom domain configured; both cells have heartbeated their `apiUrl`
+(≤5 min after deploy). Everything below runs from the admin dashboard's
+Failover tab — the browser only ever talks to the admin API host.
+
+1. **Arm** — pick a primary and secondary cell, click Arm. Call out what
+   just got created for real: two Route 53 health checks (HTTPS against each
+   cell's `/health`, 10-second interval, 2-failure threshold) and two
+   `failover.{domain}` CNAMEs (TTL 15, PRIMARY/SECONDARY)
+2. **Show the baseline** — checker cards green on both cells; the DNS answer
+   points at the primary
+3. **Break the primary** — flip the chaos toggle. The admin calls the cell's
+   own `/chaos` endpoint (server-side proxy); the cell's `/health` now
+   returns 503. The flag self-expires (default 30 min) so a forgotten toggle
+   can't wedge the cell
+4. **Watch the checkers fail (~20–40s)** — 10s interval × 2 failures; narrate
+   while Route 53's checkers around the world start reporting the 503
+5. **Watch DNS flip** — the status panel's DNS answer (resolved by the Lambda,
+   authoritative) switches to the secondary's API host
+6. **Prove it** — click "Probe from server": it resolves the CNAME and fetches
+   the winning cell's `/info` — the secondary answers
+7. **Recover** — chaos off; checkers go green in another ~20–40s; DNS flips
+   back to the primary
+8. **DISARM — do not skip this.** Disarm deletes the records and health
+   checks (plus an orphan sweep by tag). The status panel shows the accrued
+   cost the whole time: health checks are paid hourly — about $0.007/hour for
+   the pair (~$2.50/check/month if left running). Armed for a 20-minute demo,
+   that's a fraction of a cent; left armed for a month, it's real money
 
 #### Demo Script:
 > "In traditional architectures, when one server fails, it can take down your entire application. With cells, failure is isolated. If the Purple Galaxy cell fails, only clients that hash to that cell are affected - maybe 20% of traffic instead of 100%."
 >
-> "Plus, we can detect these failures in seconds and automatically route traffic to healthy cells."
+> "What you just watched was real: real health checkers observed a real 503, and real DNS moved the traffic — in about half a minute, with nobody touching a thing."
+>
+> "And notice the cost line: resilience infrastructure meters by the hour. We arm this demo when we present and disarm it when we're done."
 
 ### 6. Real-World Applications (2 minutes)
 

@@ -249,6 +249,85 @@ Resources:
             Path: /clients/count/cell/{cellId}
             Method: GET
 
+  # Lambda for the on-demand REAL failover demo: arm/disarm creates/deletes
+  # actual Route 53 health checks + failover.{domain} CNAMEs. Deliberately a
+  # separate function from AdminFunction so Route 53 write permissions never
+  # attach to the general admin surface. It also proxies chaos toggles and
+  # health reads to the cells server-side, so the browser only ever talks to
+  # this API's hostname (proxy-friendly: no new DNS names to allowlist).
+  FailoverAdminFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-failover-admin'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/failover-admin.handler
+      Environment:
+        Variables:
+          CELL_REGISTRY_TABLE: !Sub '${ProjectName}-cell-registry'
+          ROUTING_CONFIG_TABLE: !Sub '${ProjectName}-routing-config'
+          HOSTED_ZONE_ID: !Ref HostedZoneId
+          DOMAIN_NAME: !Ref DomainName
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Sub '${ProjectName}-cell-registry'
+        - DynamoDBCrudPolicy:
+            TableName: !Sub '${ProjectName}-routing-config'
+        - Statement:
+          # Health-check ARNs are unknowable before creation, so the
+          # health-check and tag actions cannot be resource-scoped ('*' is
+          # unavoidable here); record-set mutations below ARE scoped to the
+          # configured hosted zone.
+          - Effect: Allow
+            Action:
+              - route53:CreateHealthCheck
+              - route53:DeleteHealthCheck
+              - route53:GetHealthCheck
+              - route53:GetHealthCheckStatus
+              - route53:ListHealthChecks
+              - route53:ChangeTagsForResource
+              - route53:ListTagsForResources
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - route53:ChangeResourceRecordSets
+              - route53:ListResourceRecordSets
+              - route53:TestDNSAnswer
+            Resource: !If
+              - HasCustomDomain
+              - !Sub 'arn:aws:route53:::hostedzone/${HostedZoneId}'
+              - '*'
+      Events:
+        ArmFailover:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/failover/arm
+            Method: POST
+        DisarmFailover:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/failover/disarm
+            Method: POST
+        FailoverStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/failover/status
+            Method: GET
+        FailoverProbe:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/failover/probe
+            Method: GET
+        FailoverChaos:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/failover/chaos
+            Method: POST
+
   # Lambda function for Route 53 record information
   Route53InfoFunction:
     Type: AWS::Serverless::Function

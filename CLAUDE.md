@@ -13,7 +13,7 @@ workload into isolated cells with consistent-hash routing. Two deliverables:
 | Path | What it is |
 |------|-----------|
 | `site/` | Educational site: React + webpack, simulates the hash ring in-browser |
-| `backend/lambda/` | Lambda handlers (routing, admin, cell info/health, client tracking, registration, QR, Route 53 info, cross-region sync) |
+| `backend/lambda/` | Lambda handlers (routing, admin, failover admin, cell info/health, client tracking, registration, QR, Route 53 info, cross-region sync) |
 | `backend/lib/consistent-hash.ts` | **The shared core.** MD5 hash ring with virtual nodes. Used by the backend, the admin dashboard, and the site |
 | `frontend/spa/` | Per-cell page (React + webpack) |
 | `frontend/admin/` | Admin dashboard (React + webpack, recharts) |
@@ -76,8 +76,16 @@ region-only names can't distinguish the AZs.
   (`cell-certificate.yaml`) and passes the ARN via the cell template's
   `CertificateArn` parameter. Cells register their actual URL (`url` in the
   registry) — never derive a cell URL from its cellId.
-- **The failover demo is a simulation** (labeled as such in the UI). Don't wire
-  it to fake network calls; real failover is Route 53 health checks.
+- **The failover demo is REAL when armed.** Arm/disarm from the admin dashboard
+  (`backend/lambda/failover-admin.ts`) creates/deletes actual Route 53 health
+  checks and `failover.{domainName}` CNAMEs. **Never leave it armed** — health
+  checks are paid hourly; disarm sweeps every `failover.*` record set (any
+  type) and every health check tagged `{project}-failover-*`. The chaos flag
+  lives in the cell's **own** table/API (`/chaos`, pk=`CHAOS`, code-honored
+  expiry) so cell isolation holds. The browser talks **only to the API host**:
+  the failover Lambda proxies chaos toggles and cell health reads server-side
+  (control plane → cell, never cell → cell) — no new DNS names for an audience
+  to allowlist.
 - AWS deployment can't be verified in CI (no credentials) — builds and unit
   tests are the automated gate; E2E tests skip when endpoint env vars are unset.
   After a real deploy, run `infrastructure/scripts/smoke-test.sh`: it checks

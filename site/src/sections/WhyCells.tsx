@@ -604,57 +604,47 @@ const WhyCells: React.FC = () => {
 
       <h3>Scale by multiplication, not by modeling</h3>
       <p>
-        Nobody can tell you the true maximum size of a large shared system. Its limits are
-        emergent — hot keys, lock contention, connection storms, the accumulated entropy of years
-        of coupling — and you usually discover them the bad way, in production, at peak. A small
-        thing is different: a small thing can be load-tested to a ceiling you actually trust.
-        Cells turn that into the whole capacity plan: prove one cell handles X, cap it below X,
-        and add cells. Growth becomes multiplication instead of a model with error bars — and
-        because a cell's maximum size never changes, you can keep rehearsing it at full size
-        forever.
+        Nobody knows the true limit of a large shared system — its ceilings are emergent, and
+        you meet them in production, at peak. A small thing is different: one cell can be
+        load-tested to a ceiling you actually trust. Cap every cell below that ceiling, and
+        capacity is just cells × ceiling.
       </p>
       <div className="tradeoff-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
         <div className="panel">
           <h3><Icon name="clock" size={18} />Recovery without diagnosis</h3>
           <p>
-            "Cell 2 is sick" is simultaneously the diagnosis, the blast-radius estimate, and the
-            runbook. Mean-time-to-recovery stops being chained to mean-time-to-root-cause — the
-            bug hunt moves to daylight hours, after every client is already served.
+            "Cell 2 is sick" is the diagnosis, the blast-radius estimate, and the runbook in
+            one — the bug hunt moves to daylight hours, after every client is served.
           </p>
         </div>
         <div className="panel">
           <h3><Icon name="maximize" size={18} />A unit of scale you can trust</h3>
           <p>
-            Load-test one cell to a proven ceiling and never let any cell grow past it. Capacity
-            planning becomes cells × ceiling. The question "will the system survive 2× traffic?"
-            has an arithmetic answer, not a meeting.
+            Prove one cell handles X and never let any cell grow past it — "will we survive 2×
+            traffic?" gets an arithmetic answer, not a meeting.
           </p>
         </div>
         <div className="panel">
           <h3><Icon name="check-circle" size={18} />Testable at full size</h3>
           <p>
-            A monolith that grows without bound can never be tested at tomorrow's size. A cell's
-            maximum is fixed by policy, so the thing you run in production is a thing you can
-            rehearse — at max load, including its failure and drain procedures.
+            A cell's maximum is fixed by policy, so the thing you run in production can be
+            rehearsed at full load — failure and drain procedures included.
           </p>
         </div>
         <div className="panel">
           <h3><Icon name="refresh" size={18} />Deploys become waves</h3>
           <p>
-            Roll every change one cell at a time and watch the canaries. The worst possible
-            deploy is now a cell-sized incident with a built-in rollback: drain the cell. The
-            same math that bounds failures bounds your own mistakes.
+            Roll every change one cell at a time — the worst possible deploy is a cell-sized
+            incident with a built-in rollback: drain the cell.
           </p>
         </div>
       </div>
 
       <p style={{ marginTop: '2rem' }}>
-        A common objection: "we already have redundancy at every layer." That's not the same
-        thing. Cross-wired shared tiers create a <em>complex</em> failure pattern — a single bad
-        replica sits in every user's request path, so everyone's requests fail intermittently.
-        Cells group the whole stack into one isolated failure domain: the failure is total inside
-        one box, the routing layer moves that box's traffic to the survivors, and nobody else
-        ever sees it:
+        A common objection: "we already have redundancy at every layer." Not the same thing. In
+        cross-wired shared tiers one bad replica sits in <em>every</em> user's request path, so
+        everyone fails intermittently. A cell isolates its whole stack: the failure is total
+        inside one box, the routing layer moves that box's traffic, and nobody else ever sees it:
       </p>
       <TopologyContrast />
       <div className="quote-grid">

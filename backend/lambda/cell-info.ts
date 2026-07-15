@@ -24,13 +24,24 @@ export const handler = async (event: any): Promise<any> => {
       userAgent: event.headers['User-Agent'] || 'Unknown'
     };
 
-    const statsResult = await ddbDoc.send(new GetCommand({
-      TableName: CELL_DATA_TABLE,
-      Key: {
-        pk: 'CELL_STATS',
-        sk: CELL_ID
-      }
-    }));
+    const [statsResult, chaosResult] = await Promise.all([
+      ddbDoc.send(new GetCommand({
+        TableName: CELL_DATA_TABLE,
+        Key: {
+          pk: 'CELL_STATS',
+          sk: CELL_ID
+        }
+      })),
+      // Chaos flag (set via the cell's own /chaos endpoint) — surfaced here so
+      // the admin UI can show it on the winning cell during the failover demo
+      ddbDoc.send(new GetCommand({
+        TableName: CELL_DATA_TABLE,
+        Key: {
+          pk: 'CHAOS',
+          sk: CELL_ID
+        }
+      }))
+    ]);
 
     if (statsResult.Item) {
       cellInfo['stats'] = {
@@ -39,6 +50,13 @@ export const handler = async (event: any): Promise<any> => {
         uptime: statsResult.Item.uptime || '0%'
       };
     }
+
+    const chaosItem = chaosResult.Item;
+    const chaosActive = !!chaosItem && chaosItem.enabled === true &&
+      typeof chaosItem.expiresAt === 'number' && chaosItem.expiresAt > Date.now();
+    cellInfo['chaos'] = chaosActive
+      ? { enabled: true, expiresAt: chaosItem!.expiresAt }
+      : { enabled: false };
 
     return {
       statusCode: 200,
