@@ -1,6 +1,13 @@
-import React, { useId, useState } from 'react';
+import React, { createContext, useId, useState } from 'react';
 import Icon from './icons';
 import { usePrefersReducedMotion } from '../sections/BeyondCells';
+
+/**
+ * Whether the nearest enclosing Sidequest is expanded. Children that are
+ * expensive to compute (e.g. the algorithm-zoo mini-demos) read this to stay
+ * lazy until the reader actually opens the deep-dive.
+ */
+export const SidequestOpenContext = createContext(false);
 
 /**
  * Sidequest: an optional deep-dive that stays out of the main reading flow.
@@ -56,7 +63,9 @@ const Sidequest: React.FC<{
         aria-hidden={!open}
         style={reduced ? { transition: 'none' } : undefined}
       >
-        <div className="sidequest-body">{children}</div>
+        <div className="sidequest-body">
+          <SidequestOpenContext.Provider value={open}>{children}</SidequestOpenContext.Provider>
+        </div>
       </div>
     </div>
   );
