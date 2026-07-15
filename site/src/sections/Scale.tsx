@@ -8,76 +8,110 @@ const CLIENT_COUNT = 400;
 const MIN_CELLS = 2;
 const MAX_CELLS = 8;
 
-/** The add-a-cell movement demo — used by the section below and the slide deck. */
+/** The add-or-remove-a-cell movement demo — used by the section below and the slide deck. */
 export const ScaleDemo: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false }) => {
-  const [cellCount, setCellCount] = useState(3);
+  // Track the previous slider value so the stats describe the transition the
+  // reader actually made — growing OR shrinking — not a fixed baseline.
+  const [counts, setCounts] = useState({ prev: 3, curr: 4 });
+
+  const changeCells = (next: number) =>
+    setCounts((s) => (next === s.curr ? s : { prev: s.curr, curr: next }));
 
   // Presenter keys (slide deck only): A adds a cell, X removes one
   useHotkeys(hotkeys, {
-    a: () => setCellCount((n) => Math.min(MAX_CELLS - 1, n + 1)),
-    x: () => setCellCount((n) => Math.max(MIN_CELLS, n - 1)),
+    a: () => setCounts((s) => (s.curr >= MAX_CELLS ? s : { prev: s.curr, curr: s.curr + 1 })),
+    x: () => setCounts((s) => (s.curr <= MIN_CELLS ? s : { prev: s.curr, curr: s.curr - 1 })),
   });
   const clients = useMemo(() => clientIds(CLIENT_COUNT), []);
 
-  // % of clients that move when growing from (n) to (n+1) cells, both strategies
-  const growth = useMemo(() => {
-    const cellsBefore = makeCells(cellCount);
-    const cellsAfter = makeCells(cellCount + 1);
+  const { prev, curr } = counts;
+  const growing = curr > prev;
 
-    const consistentBefore = assign(clients, buildRing(cellsBefore));
-    const consistentAfter = assign(clients, buildRing(cellsAfter));
-    const consistentMoved = countMoved(consistentBefore, consistentAfter);
+  // % of clients that move across the prev→curr transition, both strategies,
+  // computed with the real ring in both directions — never approximated.
+  const moved = useMemo(() => {
+    const before = assign(clients, buildRing(makeCells(prev)));
+    const after = assign(clients, buildRing(makeCells(curr)));
+    const consistentMoved = countMoved(before, after);
 
     let moduloMoved = 0;
     for (const id of clients) {
-      if (hashKey(id) % cellCount !== hashKey(id) % (cellCount + 1)) moduloMoved++;
+      if (hashKey(id) % prev !== hashKey(id) % curr) moduloMoved++;
     }
 
     return {
       consistent: (consistentMoved / CLIENT_COUNT) * 100,
       modulo: (moduloMoved / CLIENT_COUNT) * 100,
-      ideal: (1 / (cellCount + 1)) * 100,
-      after: consistentAfter,
+      // Growing n→m: the new cells claim ≈(m−n)/m of the keyspace.
+      // Shrinking n→m: the removed cells' ≈(n−m)/n of clients remap.
+      ideal: (Math.abs(curr - prev) / Math.max(prev, curr)) * 100,
     };
-  }, [cellCount, clients]);
+  }, [prev, curr, clients]);
 
-  const cellsAfter = useMemo(() => makeCells(cellCount + 1), [cellCount]);
+  const cellsNow = useMemo(() => makeCells(curr), [curr]);
   const regions = useMemo(() => {
-    const map = new Map<string, typeof cellsAfter>();
-    for (const c of cellsAfter) {
+    const map = new Map<string, typeof cellsNow>();
+    for (const c of cellsNow) {
       if (!map.has(c.region)) map.set(c.region, []);
       map.get(c.region)!.push(c);
     }
     return [...map.entries()];
-  }, [cellsAfter]);
+  }, [cellsNow]);
 
   return (
     <div className="panel">
         <div className="controls">
-          <label>
-            Growing from <strong>{cellCount}</strong> to <strong>{cellCount + 1}</strong> cells
+          <label data-testid="scale-transition">
+            {growing ? 'Grew' : 'Shrank'} from <strong>{prev}</strong> to <strong>{curr}</strong>{' '}
+            cells
             {hotkeys && <> <KeyHint k="A" />+<KeyHint k="X" />−</>}
           </label>
           <input
             type="range"
             min={MIN_CELLS}
-            max={MAX_CELLS - 1}
-            value={cellCount}
-            onChange={(e) => setCellCount(Number(e.target.value))}
+            max={MAX_CELLS}
+            value={curr}
+            onChange={(e) => changeCells(Number(e.target.value))}
             style={{ flex: '1 1 200px' }}
-            aria-label="Number of cells before adding one"
+            aria-label="Number of cells"
           />
         </div>
         <div className="stat-row">
           <div className="stat">
-            <div className="value good">{growth.consistent.toFixed(0)}%</div>
-            <div className="label">clients moved — consistent hashing (ideal ≈ {growth.ideal.toFixed(0)}%)</div>
+            <div className="value good" data-testid="scale-consistent">{moved.consistent.toFixed(0)}%</div>
+            <div className="label" data-testid="scale-consistent-label">
+              clients moved when {growing ? 'growing' : 'shrinking'} {prev}→{curr} — consistent
+              hashing (ideal ≈ {moved.ideal.toFixed(0)}%)
+            </div>
           </div>
           <div className="stat">
-            <div className="value bad">{growth.modulo.toFixed(0)}%</div>
-            <div className="label">clients moved — naive hash&nbsp;mod&nbsp;N</div>
+            <div className="value bad" data-testid="scale-modulo">{moved.modulo.toFixed(0)}%</div>
+            <div className="label" data-testid="scale-modulo-label">
+              clients moved when {growing ? 'growing' : 'shrinking'} {prev}→{curr} — naive
+              hash&nbsp;mod&nbsp;N
+            </div>
           </div>
         </div>
+        <p
+          style={{ fontSize: '0.9rem', color: 'var(--muted)', margin: '0.75rem 0 0' }}
+          data-testid="scale-direction-note"
+          role="status"
+        >
+          {growing ? (
+            <>
+              The {curr - prev === 1 ? 'new cell claims' : 'new cells claim'} ≈
+              {moved.ideal.toFixed(0)}% of the keyspace — a thin sliver from every existing cell —
+              and only those clients move. Mod-N renumbers nearly everyone.
+            </>
+          ) : (
+            <>
+              Only the {prev - curr === 1 ? "removed cell's" : "removed cells'"} ≈
+              {moved.ideal.toFixed(0)}% of clients remap onto the survivors — which is why
+              draining a cell for a deploy or maintenance is cheap. Mod-N reshuffles nearly
+              everyone either way.
+            </>
+          )}
+        </p>
         <h3 style={{ margin: '1.5rem 0 0.5rem', fontSize: '1rem' }}>Where the cells live</h3>
         <p style={{ fontSize: '0.9rem', color: 'var(--ink-2)', marginTop: 0 }}>
           Cells are placed across regions and availability zones, so a whole-AZ or whole-region
@@ -316,7 +350,9 @@ const Scale: React.FC = () => {
       <p>
         Capacity management becomes cookie-cutter: need more headroom, stamp out another cell.
         When a new cell joins the ring it claims a proportional slice of the keyspace, taking a
-        thin sliver from every existing cell. Compare how much traffic moves under consistent
+        thin sliver from every existing cell. And the same math runs in reverse: drain a cell for
+        maintenance or remove one after the rush, and only that cell's clients remap onto the
+        survivors. Drag the slider both ways and compare how much traffic moves under consistent
         hashing versus the naive <code>hash mod N</code> approach:
       </p>
       <ScaleDemo />
