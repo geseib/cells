@@ -776,6 +776,133 @@ table.data td {
   font-size: 0.85rem;
 }
 
+/* Real failover demo: chips, checker cards, explainer, timeline */
+
+.panel-note {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.meta-note {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.hint-note {
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  margin: 0.5rem 0 0;
+  max-width: 640px;
+}
+
+.arm-explainer {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--ink-2);
+  font-size: 0.92rem;
+}
+
+.arm-explainer li {
+  margin: 0.35rem 0;
+}
+
+.arm-explainer strong {
+  color: var(--ink);
+}
+
+.select-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+select {
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--baseline);
+  background: var(--surface-1);
+  color: var(--ink);
+}
+
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.checker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0 1rem;
+}
+
+.health-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid;
+}
+
+.health-chip.good {
+  color: var(--good);
+  border-color: var(--good);
+}
+
+.health-chip.bad {
+  color: var(--critical);
+  border-color: var(--critical);
+}
+
+.chaos-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--critical);
+  border: 1px dashed var(--critical);
+  border-radius: 999px;
+  padding: 0 0.45rem;
+}
+
+.cost-line {
+  margin-top: 0.4rem;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow-y: auto;
+  font-size: 0.85rem;
+}
+
+.timeline li {
+  display: flex;
+  gap: 0.7rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--grid);
+}
+
+.timeline .t {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 768px) {
