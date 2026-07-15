@@ -113,23 +113,26 @@ after a demo; disarm is idempotent and safe to call at any time.
   "armedAt": "2026-01-01T10:00:00Z",
   "primaryCellId": "us-east-1-az1",
   "secondaryCellId": "us-west-2-az1",
-  "healthChecks": {
-    "primary": { "healthCheckId": "hc-id-1", "healthy": true, "observers": 16, "healthyObservers": 16, "sample": [] },
-    "secondary": { "healthCheckId": "hc-id-2", "healthy": true, "observers": 16, "healthyObservers": 16, "sample": [] }
-  },
+  "healthChecks": [
+    { "cellId": "us-east-1-az1", "healthCheckId": "hc-id-1", "status": "unhealthy", "checkersReporting": 16, "healthyCount": 2, "sample": [] },
+    { "cellId": "us-west-2-az1", "healthCheckId": "hc-id-2", "status": "healthy", "checkersReporting": 16, "healthyCount": 16, "sample": [] }
+  ],
   "records": [
     { "name": "failover.cells.example.com.", "type": "CNAME", "ttl": 15, "values": ["abc.execute-api.us-east-1.amazonaws.com"], "setIdentifier": "primary", "failover": "PRIMARY", "healthCheckId": "hc-id-1" }
   ],
-  "cellHealth": {
-    "primary": { "cellId": "us-east-1-az1", "statusCode": 503, "status": "failing (chaos)", "chaos": { "enabled": true, "expiresAt": 1767261600000 } },
-    "secondary": { "cellId": "us-west-2-az1", "statusCode": 200, "status": "healthy", "chaos": { "enabled": false } }
-  },
-  "dns": { "answer": "def.execute-api.us-west-2.amazonaws.com", "answerCellId": "us-west-2-az1" },
+  "cellHealth": [
+    { "cellId": "us-east-1-az1", "statusCode": 503, "status": "failing (chaos)", "chaos": { "enabled": true, "expiresAt": 1767261600000 } },
+    { "cellId": "us-west-2-az1", "statusCode": 200, "status": "healthy", "chaos": { "enabled": false } }
+  ],
+  "dnsAnswer": { "value": "def.execute-api.us-west-2.amazonaws.com", "matchesCellId": "us-west-2-az1", "resolvedAt": "2026-01-01T10:42:00Z" },
   "estimatedCost": { "ratePerHourUsd": 0.006849, "armedMinutes": 42, "accruedUsd": 0.0048 }
 }
 ```
-`cellHealth` and `dns` are gathered **server-side** each status call, so the
-admin UI never dials cell APIs or third-party DNS resolvers.
+`healthChecks` and `cellHealth` are arrays ordered primary-first. `cellHealth`
+and `dnsAnswer` are gathered **server-side** each status call — the DNS answer
+comes from Route 53's own `TestDNSAnswer` (authoritative, health-check-aware,
+immune to resolver caching) — so the admin UI never dials cell APIs or
+third-party DNS resolvers.
 
 `GET /admin/failover/probe`
 ```json

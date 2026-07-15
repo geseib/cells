@@ -4,6 +4,7 @@ import {
   CreateHealthCheckCommand,
   DeleteHealthCheckCommand,
   GetHealthCheckStatusCommand,
+  TestDNSAnswerCommand,
   ListHealthChecksCommand,
   ChangeTagsForResourceCommand,
   ListTagsForResourcesCommand,
@@ -361,18 +362,21 @@ async function handleDisarm(): Promise<APIGatewayProxyResult> {
   });
 }
 
-async function summarizeHealthCheck(healthCheckId: string): Promise<Record<string, unknown>> {
+async function summarizeHealthCheck(cellId: string, healthCheckId: string): Promise<Record<string, unknown>> {
   try {
     const status = await route53.send(new GetHealthCheckStatusCommand({ HealthCheckId: healthCheckId }));
     const observations = status.HealthCheckObservations || [];
-    const healthyObservers = observations.filter((o) =>
+    const healthyCount = observations.filter((o) =>
       (o.StatusReport?.Status || '').startsWith('Success')
     ).length;
     return {
+      cellId,
       healthCheckId,
-      healthy: observations.length > 0 && healthyObservers > observations.length / 2,
-      observers: observations.length,
-      healthyObservers,
+      status: observations.length === 0
+        ? 'unknown'
+        : healthyCount > observations.length / 2 ? 'healthy' : 'unhealthy',
+      checkersReporting: observations.length,
+      healthyCount,
       sample: observations.slice(0, 3).map((o) => ({
         region: o.Region,
         status: o.StatusReport?.Status,
@@ -381,7 +385,7 @@ async function summarizeHealthCheck(healthCheckId: string): Promise<Record<strin
     };
   } catch (error) {
     console.warn(`GetHealthCheckStatus failed for ${healthCheckId}:`, error);
-    return { healthCheckId, healthy: null, error: 'status unavailable' };
+    return { cellId, healthCheckId, status: 'unknown', checkersReporting: 0, healthyCount: 0, error: 'status unavailable' };
   }
 }
 
@@ -405,6 +409,25 @@ async function resolveFailoverCname(fqdn: string): Promise<string | null> {
     return answers.length > 0 ? answers[0].replace(/\.$/, '') : null;
   } catch {
     return null; // NXDOMAIN while unarmed / mid-propagation — not an error.
+  }
+}
+
+// Ask Route 53 itself what it would answer right now, honoring health-check
+// state. Unlike a recursive resolve this can't be poisoned by negative
+// caching from a lookup that raced record creation, so the demo's DNS
+// display reacts on health-check time, not resolver-cache time.
+async function authoritativeAnswer(hostedZoneId: string, fqdn: string): Promise<string | null> {
+  try {
+    const res = await route53.send(new TestDNSAnswerCommand({
+      HostedZoneId: hostedZoneId,
+      RecordName: fqdn,
+      RecordType: 'CNAME'
+    }));
+    const data = res.RecordData || [];
+    return data.length > 0 ? data[0].replace(/\.$/, '') : null;
+  } catch (error) {
+    console.warn('TestDNSAnswer failed, falling back to resolver:', error);
+    return resolveFailoverCname(fqdn);
   }
 }
 
@@ -437,10 +460,10 @@ async function handleStatus(): Promise<APIGatewayProxyResult> {
   const hostedZoneId = env('HOSTED_ZONE_ID');
   const [primaryCheck, secondaryCheck, recordSets, dnsAnswer, primaryHealth, secondaryHealth] =
     await Promise.all([
-      summarizeHealthCheck(state.primaryHealthCheckId),
-      summarizeHealthCheck(state.secondaryHealthCheckId),
+      summarizeHealthCheck(state.primaryCellId, state.primaryHealthCheckId),
+      summarizeHealthCheck(state.secondaryCellId, state.secondaryHealthCheckId),
       listFailoverRecordSets(route53, hostedZoneId, domainName),
-      resolveFailoverCname(failoverFqdn),
+      authoritativeAnswer(hostedZoneId, failoverFqdn),
       fetchCellHealth(state.primaryCellId, state.primaryApiUrl),
       fetchCellHealth(state.secondaryCellId, state.secondaryApiUrl)
     ]);
@@ -453,14 +476,15 @@ async function handleStatus(): Promise<APIGatewayProxyResult> {
     armedAt: state.armedAt,
     primaryCellId: state.primaryCellId,
     secondaryCellId: state.secondaryCellId,
-    healthChecks: { primary: primaryCheck, secondary: secondaryCheck },
+    healthChecks: [primaryCheck, secondaryCheck],
     records: formatFailoverRecords(recordSets),
-    cellHealth: { primary: primaryHealth, secondary: secondaryHealth },
-    // Authoritative answer as the Lambda's resolver sees it — the admin UI's
-    // primary DNS display. Browser DoH lookups are an optional extra.
-    dns: {
-      answer: dnsAnswer,
-      answerCellId: hostToCellId(dnsAnswer, state)
+    cellHealth: [primaryHealth, secondaryHealth],
+    // Authoritative answer straight from Route 53 (TestDNSAnswer) — the admin
+    // UI's primary DNS display. Browser DoH lookups are an optional extra.
+    dnsAnswer: dnsAnswer === null ? null : {
+      value: dnsAnswer,
+      matchesCellId: hostToCellId(dnsAnswer, state),
+      resolvedAt: new Date().toISOString()
     },
     estimatedCost: {
       ratePerHourUsd: Number(RATE_PER_HOUR_USD.toFixed(6)),

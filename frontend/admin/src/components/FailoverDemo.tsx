@@ -762,4 +762,43 @@ const FailoverDemo: React.FC<FailoverDemoProps> = ({ apiUrl }) => {
   );
 };
 
-export default FailoverDemo;
+// A render crash in this tab must degrade to an error panel, not unmount the
+// whole dashboard mid-presentation (the failover demo talks to live AWS state,
+// so an unexpected payload shape is survivable, a black screen is not).
+interface BoundaryState {
+  error: Error | null;
+}
+
+class FailoverDemoBoundary extends React.Component<FailoverDemoProps, BoundaryState> {
+  state: BoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): BoundaryState {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <section className="section">
+          <div className="kicker">Failover</div>
+          <h2>Route 53 failover — live</h2>
+          <div className="panel">
+            <p className="error-note">
+              The failover panel hit a rendering error: {this.state.error.message}
+            </p>
+            <p style={{ color: 'var(--ink-2)', fontSize: '0.9rem' }}>
+              Any armed health checks and DNS records are still real — use the button below to
+              reload the panel, or disarm from the API if it persists.
+            </p>
+            <button className="primary" onClick={() => this.setState({ error: null })}>
+              Reload panel
+            </button>
+          </div>
+        </section>
+      );
+    }
+    return <FailoverDemo {...this.props} />;
+  }
+}
+
+export default FailoverDemoBoundary;

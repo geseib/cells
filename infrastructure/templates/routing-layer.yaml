@@ -291,6 +291,7 @@ Resources:
             Action:
               - route53:ChangeResourceRecordSets
               - route53:ListResourceRecordSets
+              - route53:TestDNSAnswer
             Resource: !If
               - HasCustomDomain
               - !Sub 'arn:aws:route53:::hostedzone/${HostedZoneId}'
