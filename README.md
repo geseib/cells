@@ -166,8 +166,11 @@ cd infrastructure/scripts && ./cleanup.sh
 - **Admin API**: `GET /admin/cells`, `PUT /admin/cells/{cellId}`,
   `GET /admin/hash-ring`, `GET /admin/client-route/{clientId}`,
   `GET /admin/cell-urls`, `POST /qr-code`
+- **Failover demo API**: `POST /admin/failover/arm`, `POST /admin/failover/disarm`,
+  `GET /admin/failover/status`, `GET /admin/failover/probe`,
+  `POST /admin/failover/chaos` (server-side proxy to a cell's own `/chaos`)
 - **Cell API** (per cell): `GET /info`, `GET /health`, `POST /track-client`,
-  `GET /clients/cell/{cellId}`
+  `GET /clients/cell/{cellId}`, `POST /chaos` / `GET /chaos`
 
 See [API_REFERENCE.md](API_REFERENCE.md) for details and
 [DEMO_SCRIPT.md](DEMO_SCRIPT.md) for a 20-minute live-presentation script.
@@ -191,7 +194,13 @@ See [API_REFERENCE.md](API_REFERENCE.md) for details and
 4. **Load distribution**: virtual nodes (150 per weight-1.0 cell) smooth out
    the distribution
 5. **Failover**: excluded cells' clients deterministically remap to the
-   survivors — exactly their keyspace share moves, nobody else
+   survivors — exactly their keyspace share moves, nobody else. The admin
+   dashboard's failover demo is **real when armed**: arming creates two
+   Route 53 health checks (HTTPS, 10s interval) plus PRIMARY/SECONDARY
+   CNAMEs at `failover.{domain}`, a per-cell chaos flag makes `/health`
+   fail on demand, and DNS flips in ~20-40 seconds. Health checks are paid
+   hourly, so the demo is armed on demand and **disarmed afterwards**
+   (disarm sweeps all `failover.*` records and tagged health checks)
 6. **Monitoring**: per-cell health checks and the admin dashboard
 
 ## Testing

@@ -210,6 +210,20 @@ Resources:
             RestApiId: !Ref CellApi
             Path: /health
             Method: GET
+        # Chaos flag: makes /health fail on demand for the failover demo.
+        # It lives on the cell's OWN API and table — cell isolation preserved.
+        ChaosToggle:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CellApi
+            Path: /chaos
+            Method: POST
+        ChaosStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CellApi
+            Path: /chaos
+            Method: GET
         ScheduledEvent:
           Type: Schedule
           Properties:
@@ -317,6 +331,10 @@ Resources:
             - HasCustomDomain
             - !Sub 'https://${CellId}.${DomainName}'
             - !Sub 'https://${CellCloudFront.DomainName}'
+          # The cell's own API endpoint, registered alongside CELL_URL so the
+          # failover demo can target /health and /chaos without deriving names.
+          # No circular reference: this function has no CellApi events.
+          API_URL: !Sub 'https://${CellApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
       Policies:
         - Version: '2012-10-17'
           Statement:

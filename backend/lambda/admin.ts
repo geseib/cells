@@ -196,7 +196,7 @@ async function handleGetCellUrls() {
     TableName: CELL_REGISTRY_TABLE
   }));
 
-  const cells = (scanResult.Items || []) as (Cell & { url?: string })[];
+  const cells = (scanResult.Items || []) as (Cell & { url?: string; apiUrl?: string })[];
   const activeCells = cells.filter(cell => isLiveCell(cell));
 
   const cellUrls = activeCells.map(cell => {
@@ -216,6 +216,9 @@ async function handleGetCellUrls() {
       availabilityZone: cell.availabilityZone,
       directUrl: baseUrl,
       routingUrl: routingUrl,
+      // The cell's own API endpoint as registered on its heartbeat — empty
+      // until the cell's next registration run populates it
+      apiUrl: cell.apiUrl || '',
       weight: cell.weight,
       active: cell.active
     };

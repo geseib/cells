@@ -26,7 +26,7 @@ export const handler: ScheduledHandler = async (event) => {
       Key: { cellId: CELL_ID },
       UpdateExpression:
         'SET #region = :region, availabilityZone = :az, #weight = :weight, ' +
-        '#url = :url, lastHeartbeat = :hb, #ttl = :ttl, ' +
+        '#url = :url, apiUrl = :apiUrl, lastHeartbeat = :hb, #ttl = :ttl, ' +
         '#active = if_not_exists(#active, :true), ' +
         'registeredAt = if_not_exists(registeredAt, :now)',
       ExpressionAttributeNames: {
@@ -43,6 +43,10 @@ export const handler: ScheduledHandler = async (event) => {
         // The cell knows its own public URL (custom domain or CloudFront);
         // consumers must use this instead of deriving URLs from the cellId
         ':url': process.env.CELL_URL || '',
+        // The cell's own API endpoint (execute-api /prod stage) — the failover
+        // demo builds health checks and chaos calls from this, never from names
+        // derived from the cellId
+        ':apiUrl': process.env.API_URL || '',
         ':hb': now,
         ':ttl': Math.floor(Date.now() / 1000) + 600, // 10 minute TTL
         ':true': true,
