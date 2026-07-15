@@ -1056,6 +1056,19 @@ const BeyondCells: React.FC = () => (
     </p>
     <ShuffleMath />
 
+    <p>
+      This isn't a thought experiment — it's how Route&nbsp;53 actually runs. Its fleet is
+      arranged into 2,048 virtual name servers, every hosted zone is dealt a shuffle shard of
+      four of them, and no two customer domains ever share more than two — with 730&nbsp;billion
+      possible shards to deal from. So a DDoS or query storm aimed at one customer's domain can
+      saturate that domain's four name servers, while every other domain keeps resolving on
+      hands the attack can't reach. The numbers come from Colm MacCárthaigh's{' '}
+      <a href="https://aws.amazon.com/builders-library/workload-isolation-using-shuffle-sharding/" target="_blank" rel="noopener noreferrer">
+        Workload isolation using shuffle-sharding
+      </a>
+      , AWS Builders' Library.
+    </p>
+
     <h3>Static stability: pay for the failure before it happens</h3>
     <p>
       A statically stable system survives a dependency failure <em>without changing anything at
@@ -1065,7 +1078,11 @@ const BeyondCells: React.FC = () => (
       The tempting alternative — run exactly 90 as 30 per AZ and scale up when something fails —
       needs the EC2 control plane at the exact moment an AZ-wide event has every other customer
       asking it for the same instances. Rule of thumb: the data plane must not depend on the
-      control plane during recovery.
+      control plane during recovery. The pattern is laid out in{' '}
+      <a href="https://aws.amazon.com/builders-library/static-stability-using-availability-zones/" target="_blank" rel="noopener noreferrer">
+        Static stability using Availability Zones
+      </a>
+      , AWS Builders' Library.
     </p>
     <StaticStability />
 
@@ -1078,6 +1095,14 @@ const BeyondCells: React.FC = () => (
       whether 1 row changed or 1,000. Below, both pipelines face the same storm waves: on the
       left an autoscaler chases the load and never catches the front of a wave; on the right the
       shaded "no change" rows simply flip green while the push stays exactly the same size.
+      That's the real design behind the same Route&nbsp;53 that shuffle-shards its name servers:
+      every few seconds its health-check aggregators push a fixed-size table of every check's
+      status to the DNS servers, so a storm of failing health checks costs exactly what a quiet
+      day costs. The story is told in Colm MacCárthaigh's{' '}
+      <a href="https://aws.amazon.com/builders-library/reliability-and-constant-work/" target="_blank" rel="noopener noreferrer">
+        Reliability, constant work, and a good cup of coffee
+      </a>
+      , AWS Builders' Library.
     </p>
     <ConstantWork />
 
