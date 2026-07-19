@@ -1,0 +1,15 @@
+{
+  "name": "vote-overlay",
+  "description": "Adds a feature-flagged section-voting overlay to React sites: per-section agree/disagree/unsure voting with comments, JSON ballot export, and a results mode tallying multiple ballot files inline and in a summary panel.",
+  "version": "1.0.0",
+  "author": {
+    "name": "myskills"
+  },
+  "keywords": [
+    "frontend",
+    "react",
+    "feedback",
+    "voting",
+    "review"
+  ]
+}

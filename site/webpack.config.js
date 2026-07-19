@@ -6,7 +6,8 @@ module.exports = {
   entry: {
     main: './src/index.tsx',
     primer: './src/primer.tsx',
-    slides: './src/slides.tsx'
+    slides: './src/slides.tsx',
+    flags: './src/flags.tsx'
   },
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -51,6 +52,13 @@ module.exports = {
       filename: 'slides.html',
       chunks: ['slides'],
       title: 'Cell-Based Architecture — Slides'
+    }),
+    new HtmlWebpackPlugin({
+      // Hidden feature-flags page (noindex; nothing links here).
+      template: './src/flags.html',
+      filename: 'flags.html',
+      chunks: ['flags'],
+      title: 'Cell-Based Architecture — Feature flags'
     }),
     new webpack.DefinePlugin({
       // Optional: URL of a live AWS demo deployment's admin dashboard. When

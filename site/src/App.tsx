@@ -10,9 +10,16 @@ import TradeOffs from './sections/TradeOffs';
 import { demoAdminUrl, hasLiveDemo } from './TryLive';
 import RingMark from './ui/RingMark';
 import ThemeToggle from './ui/ThemeToggle';
+import { VoteProvider } from './vote/VoteContext';
+import VoteOverlay from './vote/VoteOverlay';
+import NavVoteButton from './vote/NavVoteButton';
 
 const App: React.FC = () => (
-  <>
+  <VoteProvider
+    pageId="guide"
+    pageTitle="Cell-Based Architecture — Interactive Guide"
+    siteName="cells"
+  >
     <nav className="top-nav" aria-label="Sections">
       <span className="brand"><RingMark size={18} band={5} vnodes={4} /> Cells</span>
       <a href="#why-cells">Why cells</a>
@@ -31,6 +38,7 @@ const App: React.FC = () => (
           Live demo ↗
         </a>
       )}
+      <NavVoteButton />
       <ThemeToggle />
     </nav>
     <header className="hero">
@@ -61,7 +69,8 @@ const App: React.FC = () => (
       </a>{' '}
       repository · MIT licensed
     </footer>
-  </>
+    <VoteOverlay sectionSelector="main > section.lesson" />
+  </VoteProvider>
 );
 
 export default App;
