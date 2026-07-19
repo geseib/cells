@@ -345,20 +345,25 @@ const RouteClient: React.FC = () => {
       </Sidequest>
       <Sidequest
         id="sidequest-registry"
-        title="The registry is a database. Who keeps IT alive?"
+        title="How cells are tracked — and who tracks the tracker"
         blurb={
           <>
-            The hash ring is a pure function — <em>of the registry</em>. That makes the registry
-            the real control plane: whoever can write it decides where every client goes. So the
-            interesting question isn't the ring. It's who keeps the registry alive and honest.
+            Cells are tracked, not hardcoded: each cell heartbeats a row into a small{' '}
+            <strong>registry</strong> — a DynamoDB table in this demo. The routing layer reads
+            that registry, builds the hash ring from the cells that are alive right now, and
+            hashes the client ID against it to pick the owner — that's the whole
+            tracking-and-directing loop. The twist: the ring is a pure function{' '}
+            <em>of the registry</em>, which makes the registry the real control plane — a
+            database with an availability budget of its own. Who keeps IT alive?
           </>
         }
       >
         <p>
-          <strong>This demo: a DynamoDB registry.</strong> One table, living in one region, holds
-          a row per cell. Each cell runs a scheduled Lambda that re-writes its own row every five
-          minutes, stamped with a 10-minute TTL — liveness is push-based, so a dead cell simply
-          stops writing and falls out of the registry on its own. <code>active</code> is the human
+          <strong>This demo: a DynamoDB registry.</strong> The heartbeat, concretely: one table,
+          living in one region, holds a row per cell, and each cell runs a scheduled Lambda that
+          re-writes its own row every five minutes, stamped with a 10-minute TTL — liveness is
+          push-based, so a dead cell simply stops writing and falls out of the registry on its
+          own. <code>active</code> is the human
           switch: the admin API flips the flag, and because every routing decision re-derives the
           ring from whatever the registry says right now, deactivating a cell is one write, not a
           deploy. For cross-region reads the demo hand-rolls replication: a DynamoDB Stream on
