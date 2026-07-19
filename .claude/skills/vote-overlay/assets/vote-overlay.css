@@ -1,0 +1,401 @@
+
+/* ============================================================
+   Voting overlay (site/src/vote) — feature-flagged section
+   voting: dock, per-section boxes, results, summary panel.
+   ============================================================ */
+
+.nav-vote {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.nav-vote.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* per-section box */
+.vote-slot { margin-top: 1rem; }
+.vote-box {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 10px 10px 0;
+  background: var(--surface-1);
+  padding: 0.65rem 0.85rem;
+  display: grid;
+  gap: 0.55rem;
+}
+.vote-box.results { border-left-color: var(--muted); }
+.vote-box-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--ink-2);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.vote-box-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vote-box-meta {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.vote-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.vote-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  padding: 0.32rem 0.7rem;
+}
+.vote-choice.active {
+  color: var(--choice, var(--accent));
+  border-color: var(--choice, var(--accent));
+  box-shadow: inset 0 0 0 1px var(--choice, var(--accent));
+}
+.vote-comment-btn { margin-left: auto; }
+.vote-comment {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+}
+.vote-comment:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* stacked tally bar */
+.vote-bar {
+  display: flex;
+  height: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--grid);
+}
+.vote-bar.compact { height: 8px; width: 90px; flex: none; }
+.vote-bar span { display: block; height: 100%; }
+.vote-legend {
+  display: flex;
+  gap: 0.9rem;
+  font-size: 0.76rem;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+.vote-legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 0.3rem;
+}
+
+/* comment carousel */
+.vote-carousel {
+  display: flex;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+.vote-nav {
+  flex: none;
+  width: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.vote-quote {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  display: grid;
+  gap: 0.25rem;
+}
+.vote-quote-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+.vote-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.vote-quote-text {
+  font-size: 0.86rem;
+  color: var(--ink-2);
+}
+
+/* the dock */
+.vote-dock {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 250;
+  width: 290px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 34px -12px rgba(11, 11, 11, 0.35);
+}
+.vote-dock-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.45rem 0.45rem 0;
+}
+.vote-dock-tabs [role='tab'] {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.32rem 0.7rem;
+}
+.vote-dock-tabs [role='tab'].active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.vote-dock-close {
+  margin-left: auto;
+  width: 28px;
+  padding: 0.25rem 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.vote-dock-body {
+  padding: 0.65rem;
+  display: grid;
+  gap: 0.55rem;
+}
+.vote-field {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.vote-field input {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+}
+.vote-field input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+.vote-progress { display: grid; gap: 0.25rem; }
+.vote-progress .vote-box-meta { margin-left: 0; }
+.vote-progress-meter {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--grid);
+  overflow: hidden;
+}
+.vote-progress-meter span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.25s;
+}
+.vote-dock-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.vote-dock-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.7rem;
+}
+.vote-dock-actions button.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.vote-ballots {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.vote-ballots li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.28rem 0.55rem;
+}
+.vote-ballots .vote-ballot-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vote-ballots button {
+  margin-left: auto;
+  width: 24px;
+  padding: 0.1rem 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--muted);
+}
+.vote-ballots button:hover { color: var(--critical); }
+
+/* right summary panel */
+.vote-panel {
+  position: fixed;
+  top: 4.2rem;
+  right: 1rem;
+  bottom: 5.6rem;
+  z-index: 240;
+  width: 320px;
+  overflow-y: auto;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 34px -12px rgba(11, 11, 11, 0.35);
+  padding-bottom: 0.6rem;
+}
+.vote-panel-head {
+  position: sticky;
+  top: 0;
+  background: var(--surface-1);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.7rem 0.9rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+.vote-panel-head button {
+  margin-left: 0.3rem;
+  width: 26px;
+  padding: 0.15rem 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.vote-panel-head .vote-box-meta { margin-left: auto; }
+.vote-panel-page { padding: 0.55rem 0.9rem 0; }
+.vote-panel-page-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+.vote-panel-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  text-align: left;
+  border: none;
+  background: none;
+  padding: 0.3rem 0;
+  border-radius: 6px;
+}
+.vote-panel-row:not(:disabled):hover { color: var(--accent); }
+.vote-panel-row:disabled { cursor: default; color: var(--ink); }
+.vote-panel-row-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vote-panel-row .vote-box-meta { margin-left: 0; }
+
+/* /flags page */
+.flag-row {
+  display: flex;
+  gap: 1.2rem;
+  align-items: flex-start;
+}
+.flag-info { flex: 1; min-width: 0; }
+.flag-name {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+}
+.flag-desc {
+  color: var(--muted);
+  font-size: 0.88rem;
+  margin: 0.4rem 0 0;
+}
+.flag-switch {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.7rem 0.35rem 0.35rem;
+  border-radius: 999px;
+}
+.flag-knob {
+  display: block;
+  width: 34px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--grid);
+  position: relative;
+  transition: background 0.2s;
+}
+.flag-knob::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  transition: left 0.2s;
+}
+.flag-switch.on .flag-knob { background: var(--good); }
+.flag-switch.on .flag-knob::after { left: 18px; }
+.flag-state { font-size: 0.82rem; font-weight: 700; }
+
+@media (max-width: 640px) {
+  .vote-dock { width: calc(100vw - 2rem); }
+  .vote-panel { width: calc(100vw - 2rem); }
+}
