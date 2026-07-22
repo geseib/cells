@@ -7,6 +7,7 @@ module.exports = {
     main: './src/index.tsx',
     primer: './src/primer.tsx',
     slides: './src/slides.tsx',
+    operations: './src/operations.tsx',
     flags: './src/flags.tsx'
   },
   output: {
@@ -52,6 +53,12 @@ module.exports = {
       filename: 'slides.html',
       chunks: ['slides'],
       title: 'Cell-Based Architecture — Slides'
+    }),
+    new HtmlWebpackPlugin({
+      template: './src/operations.html',
+      filename: 'operations.html',
+      chunks: ['operations'],
+      title: 'Operating Cells — Idempotency, Quorum & Consensus'
     }),
     new HtmlWebpackPlugin({
       // Hidden feature-flags page (noindex; nothing links here).

@@ -37,6 +37,7 @@ const FlagsApp: React.FC = () => {
         <a href="./index.html">Guide</a>
         <a href="./primer.html">Primer</a>
         <a href="./slides.html">Slides</a>
+        <a href="./operations.html">Operations</a>
         <span style={{ flex: 1 }} />
         <ThemeToggle />
       </nav>

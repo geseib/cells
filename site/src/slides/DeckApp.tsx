@@ -550,6 +550,9 @@ const DeckToolbar: React.FC<{ onOverview: () => void; onNotes: () => void }> = (
     <a className="dt-btn" href="./primer.html" title="The vendor-neutral primer">
       <Icon name="book-open" size={13} /> Primer
     </a>
+    <a className="dt-btn" href="./operations.html" title="Operating cells: idempotency, quorum, consensus">
+      <Icon name="sliders" size={13} /> Operations
+    </a>
     {hasLiveDemo && (
       <a className="dt-btn" href={demoAdminUrl} target="_blank" rel="noopener noreferrer" title="The deployed AWS demo">
         <Icon name="globe" size={13} /> Live demo

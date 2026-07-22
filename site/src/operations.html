@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Operating cell-based systems across regions: idempotent retries during failover, quorum health decisions, and versioned decision logs — consensus vs convergence — as interactive browser simulations.">
+  <title>Operating Cells — Idempotency, Quorum & Consensus</title>
+  <script>
+    // Anti-flash: apply a manually forced theme (ThemeToggle) before first paint.
+    try {
+      var t = localStorage.getItem('cells-theme');
+      if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+</body>
+</html>

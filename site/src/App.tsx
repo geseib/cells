@@ -33,6 +33,7 @@ const App: React.FC = () => (
       <span style={{ flex: 1 }} />
       <a href="./primer.html" style={{ fontWeight: 600 }}>Primer</a>
       <a href="./slides.html" style={{ fontWeight: 600 }}>Slides</a>
+      <a href="./operations.html" style={{ fontWeight: 600 }}>Operations</a>
       {hasLiveDemo && (
         <a href={demoAdminUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>
           Live demo ↗
