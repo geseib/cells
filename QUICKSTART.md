@@ -55,7 +55,8 @@ What happens, in order (rough timings):
 | 1 | Global stack (`{project}-global`): cell registry + tracking tables, event bus | ~2 min |
 | 2 | Routing stack (`{project}-routing`, us-east-1): routing/admin Lambdas, API, admin bucket + CloudFront | ~5 min |
 | 3 | One cell stack per region×AZ: S3 + CloudFront + API + Lambdas + DynamoDB | ~5–8 min each |
-| 4 | Frontend deploy: admin dashboard once, cell SPA built **per cell** with that cell's API injected, router pages with the routing API substituted | ~2 min/cell |
+| 4 | Idempotency demo stacks (`{project}-idem-{region}`, only with ≥ 2 regions; primary first — it owns the shared DynamoDB global table) | ~3 min each |
+| 5 | Frontend deploy: admin dashboard once, cell SPA built **per cell** with that cell's API injected, router pages with the routing API substituted | ~2 min/cell |
 
 Cells self-register on a 5-minute schedule — the admin dashboard may be empty
 for the first few minutes after deploy. That's normal.
@@ -68,12 +69,21 @@ for the first few minutes after deploy. That's normal.
 
 This polls until cells register, verifies the deployed hash ring returns the
 same golden value as the unit tests (`md5("user123") → 1792101289`), checks
-every cell's `/info`, `/health`, and per-cell client tracking, and prints the
-exact env-var line to run the Playwright E2E suite:
+every cell's `/info`, `/health`, and per-cell client tracking, verifies both
+paid demos (failover + quorum) are **disarmed at rest**, exercises the
+idempotency endpoints when the idem stacks are deployed (including a real
+same-`chargeId` dedupe check), and prints the exact env-var line to run the
+Playwright E2E suite:
 
 ```bash
 cd tests && ADMIN_BASE_URL=... ROUTING_API_URL=... CELL_URLS=... CELL_API_URLS=... npm test
 ```
+
+Opt-in live cycles (real Route 53 mutations against a deployment you own):
+`SMOKE_FAILOVER=1` arms/verifies/disarms the failover demo; `SMOKE_QUORUM=1`
+arms the quorum demo, waits for the checkers to confirm the quorum, flips it
+below threshold, disarms, and asserts **zero leftover**
+`{project}-quorum-*` health checks.
 
 ## Adding custom domains (second pass)
 
@@ -144,8 +154,12 @@ when `edgeDomain` is set, and skips them cleanly when it isn't.
 ./infrastructure/scripts/cleanup.sh
 ```
 
-Deletes cell stacks (emptying their buckets first), then the routing and
-global stacks.
+Sweeps any leftover demo health checks first (`{project}-failover-*` and
+`{project}-quorum-*` — they're created at demo time, so no stack delete would
+ever remove them), then deletes cell stacks (emptying their buckets first),
+the idempotency stacks (secondary region first, primary last, then verifies
+the `{project}-idem-shared` global table is gone in both regions), and
+finally the routing and global stacks.
 
 ## Troubleshooting
 

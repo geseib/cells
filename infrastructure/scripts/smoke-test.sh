@@ -140,6 +140,53 @@ else
         "$([ "$fo_code" == "503" ] && echo true || echo false)" "got HTTP ${fo_code}"
 fi
 
+# Quorum demo must be DISARMED at rest (armed ≈ $0.12/hr: paid health checks
+# PLUS ~27k checker requests/hr). These routes work without a custom domain.
+q_armed=$(curl -sf "${ROUTING_API}/admin/quorum/status" | jq -r '.armed' 2>/dev/null || echo "")
+check "quorum demo is disarmed (armed=false)" "$([ "$q_armed" == "false" ] && echo true || echo false)" \
+    "armed='${q_armed}' — POST ${ROUTING_API}/admin/quorum/disarm when the demo is done"
+
+# The public checker target must answer 503 (vote off) at rest. A 403/404
+# would mean the route is missing/misdeployed — armed checkers would then
+# read every voter as permanently down.
+vs_code=$(curl -s -o /dev/null -w '%{http_code}' "${ROUTING_API}/vote-status/1")
+check "/vote-status/1 answers 503 at rest (vote off, route present)" \
+    "$([ "$vs_code" == "503" ] && echo true || echo false)" "got HTTP ${vs_code}"
+
+# --- Idempotency demo (skips cleanly when the idem stacks aren't deployed) ---
+idem_status=$(curl -s "${ROUTING_API}/admin/idem/status" 2>/dev/null)
+idem_configured=$(echo "$idem_status" | jq -r '.configured' 2>/dev/null || echo "")
+if [ "$idem_configured" == "true" ]; then
+    echo -e "\n${YELLOW}Idempotency demo${NC}"
+
+    idem_regions=$(echo "$idem_status" | jq -r '.regions | length' 2>/dev/null || echo 0)
+    check "idem status lists both regions (${idem_regions})" \
+        "$([ "$idem_regions" -ge 2 ] && echo true || echo false)"
+
+    idem_healthy=$(echo "$idem_status" \
+        | jq -r '[.regions[] | (.health.status? // .health)] | all(. == "healthy")' 2>/dev/null || echo "")
+    check "idem regions report healthy" "$([ "$idem_healthy" == "true" ] && echo true || echo false)" \
+        "kill switches must be off outside a live demo (POST ${ROUTING_API}/admin/idem/chaos)"
+
+    # Dedupe proof: the same orderId paid twice (shared mode) must return the
+    # SAME chargeId — the second call is served from the idempotency store.
+    idem_order="smoke-idem-$(date +%s)"
+    idem_region=$(echo "$idem_status" | jq -r '.regions[0].region' 2>/dev/null || echo "")
+    idem_pay() {
+        curl -s -X POST "${ROUTING_API}/admin/idem/pay" \
+            -H 'Content-Type: application/json' \
+            -d "{\"region\":\"${idem_region}\",\"orderId\":\"${idem_order}\",\"amount\":42,\"mode\":\"shared\"}" \
+            | jq -r '.chargeId // .receipt.chargeId // empty' 2>/dev/null
+    }
+    charge1=$(idem_pay)
+    charge2=$(idem_pay)
+    check "idempotent dedupe: retried pay returns the same chargeId" \
+        "$([ -n "$charge1" ] && [ "$charge1" == "$charge2" ] && echo true || echo false)" \
+        "got '${charge1}' then '${charge2}'"
+else
+    echo -e "\n${YELLOW}Idempotency demo not configured (needs >= 2 regions) - skipping idem checks.${NC}"
+fi
+
 # --- Each cell ---------------------------------------------------------------
 IFS=',' read -ra APIS <<< "$CELL_API_URLS"
 IFS=',' read -ra IDS <<< "$CELL_IDS"
@@ -196,8 +243,9 @@ if [ "${SMOKE_FAILOVER:-0}" == "1" ]; then
         if [ "$arm_ok" == "true" ]; then
             fo_status=$(curl -sf "${ROUTING_API}/admin/failover/status")
 
+            # .healthChecks is an ARRAY ordered primary-first (never a keyed object)
             hc_count=$(echo "$fo_status" | jq -r \
-                '[.healthChecks.primary.healthCheckId, .healthChecks.secondary.healthCheckId] | map(select(. != null and . != "")) | length' \
+                '[.healthChecks[]?.healthCheckId | select(. != null and . != "")] | length' \
                 2>/dev/null || echo 0)
             check "status shows 2 health checks" "$([ "$hc_count" == "2" ] && echo true || echo false)" "got ${hc_count}"
 
@@ -229,6 +277,90 @@ if [ "${SMOKE_FAILOVER:-0}" == "1" ]; then
     fi
 else
     echo -e "\n${YELLOW}Failover live checks skipped (set SMOKE_FAILOVER=1 to arm/verify/disarm for real).${NC}"
+fi
+
+# --- Quorum demo (opt-in: creates paid health checks, ~$0.12/hr while armed) --
+# SMOKE_QUORUM=1 runs a live arm → verify → below-threshold flip → disarm
+# cycle and asserts zero leftovers. Works with or without a custom domain.
+if [ "${SMOKE_QUORUM:-0}" == "1" ]; then
+    echo -e "\n${YELLOW}Quorum demo (SMOKE_QUORUM=1 — real Route 53 health checks)${NC}"
+
+    q_arm_resp=$(curl -s -X POST "${ROUTING_API}/admin/quorum/arm" \
+        -H 'Content-Type: application/json' -d '{}')
+    q_arm_ok=$(echo "$q_arm_resp" | jq -r '.armed' 2>/dev/null || echo "")
+    check "quorum arm (threshold 3 of 5)" "$([ "$q_arm_ok" == "true" ] && echo true || echo false)" \
+        "$(echo "$q_arm_resp" | jq -r '.error // empty' 2>/dev/null)"
+
+    if [ "$q_arm_ok" == "true" ]; then
+        q_status=$(curl -sf "${ROUTING_API}/admin/quorum/status")
+
+        voter_count=$(echo "$q_status" | jq -r '.voters | length' 2>/dev/null || echo 0)
+        check "status shows 5 voters (array)" "$([ "$voter_count" == "5" ] && echo true || echo false)" "got ${voter_count}"
+
+        q_threshold=$(echo "$q_status" | jq -r '.parent.threshold' 2>/dev/null || echo "")
+        check "parent HealthThreshold is 3" "$([ "$q_threshold" == "3" ] && echo true || echo false)" "got '${q_threshold}'"
+
+        seed_version=$(echo "$q_status" | jq -r '[.decisionLog[].version] | min' 2>/dev/null || echo "")
+        check "decision log seeded at v126" "$([ "$seed_version" == "126" ] && echo true || echo false)" "got '${seed_version}'"
+
+        cost_ok=$(echo "$q_status" | jq -r \
+            '.estimatedCost | has("healthChecksPerHourUsd") and has("checkerTrafficPerHourUsd")' 2>/dev/null || echo "")
+        check "cost reports BOTH components (checks + checker traffic)" \
+            "$([ "$cost_ok" == "true" ] && echo true || echo false)"
+
+        vs_armed_code=$(curl -s -o /dev/null -w '%{http_code}' "${ROUTING_API}/vote-status/1")
+        check "/vote-status/1 answers 200 while armed (vote on)" \
+            "$([ "$vs_armed_code" == "200" ] && echo true || echo false)" "got HTTP ${vs_armed_code}"
+
+        # Checkers need a couple of observation rounds to see the votes and
+        # cross the threshold; poll up to ~3 minutes.
+        parent_status=""
+        for i in $(seq 1 18); do
+            parent_status=$(curl -sf "${ROUTING_API}/admin/quorum/status" | jq -r '.parent.status' 2>/dev/null || echo "")
+            [ "$parent_status" == "healthy" ] && break
+            sleep 10
+        done
+        check "parent reaches healthy (quorum met)" \
+            "$([ "$parent_status" == "healthy" ] && echo true || echo false)" "got '${parent_status}' after 3 min"
+
+        stored_version=$(curl -sf "${ROUTING_API}/admin/quorum/status" | jq -r '.storedControl.version' 2>/dev/null || echo 0)
+        check "stored control committed v127 (Routing = Enabled)" \
+            "$([ "$stored_version" -ge 127 ] 2>/dev/null && echo true || echo false)" "got v${stored_version}"
+
+        # Below-threshold flip: turn 3 votes off → 2 healthy < 3.
+        for i in 1 2 3; do
+            curl -s -X POST "${ROUTING_API}/admin/quorum/vote" \
+                -H 'Content-Type: application/json' -d "{\"i\":${i},\"on\":false}" >/dev/null
+        done
+        parent_after=""
+        for i in $(seq 1 18); do
+            parent_after=$(curl -sf "${ROUTING_API}/admin/quorum/status" | jq -r '.parent.status' 2>/dev/null || echo "")
+            [ "$parent_after" == "unhealthy" ] && break
+            sleep 10
+        done
+        check "parent drops below threshold after 3 no-votes" \
+            "$([ "$parent_after" == "unhealthy" ] && echo true || echo false)" "got '${parent_after}' after 3 min"
+
+        flip_version=$(curl -sf "${ROUTING_API}/admin/quorum/status" | jq -r '.storedControl.version' 2>/dev/null || echo 0)
+        check "decision log recorded the flip (version advanced)" \
+            "$([ "$flip_version" -gt "$stored_version" ] 2>/dev/null && echo true || echo false)" \
+            "still v${flip_version}"
+    fi
+
+    q_disarm_ok=$(curl -s -X POST "${ROUTING_API}/admin/quorum/disarm" | jq -r '.armed' 2>/dev/null || echo "")
+    check "quorum disarm (armed=false)" "$([ "$q_disarm_ok" == "false" ] && echo true || echo false)"
+
+    leftover_quorum=$(aws route53 list-health-checks \
+        --query "HealthChecks[?starts_with(CallerReference, '${PROJECT_NAME}-quorum-')]" \
+        --output json 2>/dev/null | jq -r 'length' 2>/dev/null || echo "?")
+    check "no leftover quorum health checks" "$([ "$leftover_quorum" == "0" ] && echo true || echo false)" \
+        "found ${leftover_quorum} tagged ${PROJECT_NAME}-quorum-*"
+
+    vs_rest_code=$(curl -s -o /dev/null -w '%{http_code}' "${ROUTING_API}/vote-status/1")
+    check "/vote-status/1 back to 503 after disarm" \
+        "$([ "$vs_rest_code" == "503" ] && echo true || echo false)" "got HTTP ${vs_rest_code}"
+else
+    echo -e "\n${YELLOW}Quorum live checks skipped (set SMOKE_QUORUM=1 to arm/verify/disarm for real).${NC}"
 fi
 
 # --- Optional single-hostname edge mode ---------------------------------------

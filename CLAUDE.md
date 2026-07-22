@@ -13,12 +13,13 @@ workload into isolated cells with consistent-hash routing. Two deliverables:
 | Path | What it is |
 |------|-----------|
 | `site/` | Educational site: React + webpack, simulates the hash ring in-browser |
-| `backend/lambda/` | Lambda handlers (routing, admin, failover admin, cell info/health, client tracking, registration, QR, Route 53 info, cross-region sync) |
+| `backend/lambda/` | Lambda handlers (routing, admin, failover+quorum admin, idem admin, cell info/health, client tracking, registration, QR, Route 53 info, cross-region sync) |
+| `backend/lambda_py/` | Python handlers for the idempotency demo (`idempotency/pay.py`) — plain `.py`, **no pip/bundling**; Powertools comes from a pinned Lambda layer (template parameter) |
 | `backend/lib/consistent-hash.ts` | **The shared core.** MD5 hash ring with virtual nodes. Used by the backend, the admin dashboard, and the site |
 | `frontend/spa/` | Per-cell page (React + webpack) |
 | `frontend/admin/` | Admin dashboard (React + webpack, recharts) |
 | `frontend/router/` | Static router pages (`index.html`, `auto.html`) deployed to the admin bucket |
-| `infrastructure/templates/` | Live templates only: `global-resources.yaml`, `routing-layer.yaml`, `cell-template.yaml`, `cell-certificate.yaml`, `demo-edge.yaml` (optional single-hostname edge mode, enabled via `edgeDomain` in config), `github-oidc-role.yaml` (one-time bootstrap for the auto-deploy workflow) |
+| `infrastructure/templates/` | Live templates only: `global-resources.yaml`, `routing-layer.yaml`, `cell-template.yaml`, `cell-certificate.yaml`, `idempotency-demo.yaml` (per-region idem stacks, primary owns the global table), `demo-edge.yaml` (optional single-hostname edge mode, enabled via `edgeDomain` in config), `github-oidc-role.yaml` (one-time bootstrap for the auto-deploy workflow) |
 | `infrastructure/scripts/` | `deploy.sh`, `deploy-frontend.sh`, `smoke-test.sh` (post-deploy verification), `cleanup.sh` |
 | `tests/` | Playwright E2E suite, parameterized by env vars (`tests/tests/config.ts`) |
 
@@ -86,11 +87,40 @@ region-only names can't distinguish the AZs.
   the failover Lambda proxies chaos toggles and cell health reads server-side
   (control plane → cell, never cell → cell) — no new DNS names for an audience
   to allowlist.
+- **The quorum demo is REAL when armed.** Arm (`/admin/quorum/arm`) creates 5
+  HTTPS health checks observing `/vote-status/{i}` plus a CALCULATED parent
+  whose `HealthThreshold` IS the consensus evaluator; votes are item
+  creations/deletions in routing-config. Honest cost ≈ **$0.12/hr** in TWO
+  components: the checks (~$0.0185/hr) plus ~27k checker requests/hr against
+  the routing API (~$0.095/hr). **Never leave it armed** — disarm restores any
+  wired record, deletes the parent FIRST (children of a CALCULATED check can't
+  be deleted while referenced), then children, then sweeps every health check
+  tagged `{project}-quorum-*` (parent-first). The parent's status is COMPUTED
+  from child observations (`GetHealthCheckStatus` doesn't work on CALCULATED
+  checks) and labeled as such. Quorum routes work WITHOUT a custom domain
+  (they dispatch before the handler's zone gate); only `/admin/quorum/wire`
+  needs the zone. The decision log is versioned (seeds at v126): genuine
+  parent transitions append `QUORUM_LOG#` items — never rewrite them.
+- **The idempotency demo uses dedicated tables** — `{project}-idem-shared`
+  (global table, owned by the primary region's stack) and per-region
+  `{project}-idem-local` — never the cell or registry tables. Regions come
+  from config `REGIONS[0]`/`[1]`, never hardcoded (skips with a warning below
+  2 regions). Python handlers are plain `.py` files; Powertools comes from a
+  pinned layer, so no pip step exists. Dedupe is proven by identical
+  `chargeId` + real charge-row counts — there is no "idempotentHit" flag.
+- **Admin status contracts return ARRAYS, never keyed objects** (`healthChecks`,
+  `cellHealth`, `voters`, `decisionLog`, `regions`…). The smoke test and the
+  admin FE parse arrays; a keyed-object regression breaks both silently.
 - AWS deployment can't be verified in CI (no credentials) — builds and unit
   tests are the automated gate; E2E tests skip when endpoint env vars are unset.
   After a real deploy, run `infrastructure/scripts/smoke-test.sh`: it checks
-  registration, hash-parity against the jest golden value, and per-cell APIs,
-  then prints the env vars for the Playwright suite.
+  registration, hash-parity against the jest golden value, per-cell APIs, that
+  both paid demos are disarmed at rest, and the idem endpoints when configured,
+  then prints the env vars for the Playwright suite. `SMOKE_FAILOVER=1` /
+  `SMOKE_QUORUM=1` opt into live arm→verify→disarm cycles (real Route 53
+  mutations, zero-leftover asserts). `cleanup.sh` sweeps `{project}-failover-*`
+  and `{project}-quorum-*` health checks before deleting stacks and verifies
+  the idem global table is gone in both regions.
 
 ## Docs
 

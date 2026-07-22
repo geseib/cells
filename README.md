@@ -28,6 +28,12 @@ This repository teaches that pattern two ways:
      the same live demos, driven by arrow-key phase scripts, presenter
      hotkeys, and a touch bar for iPad/iPhone; the narrative lives in speaker
      notes.
+   - **An operations page** (`operations.html`) — simulations of the two
+     operational concepts the AWS demo implements for real: idempotency
+     across regional failover (retry a payment after a region dies —
+     dedupe vs. guaranteed double-charge) and quorum/consensus (five voters,
+     a threshold meter, LIVE vs. STORED control lamps, and a
+     "versions, not retries" replicated-decision-log story).
 
    ![The shuffle-sharding ladder: plain shards vs shuffle sharding side by side, with running totals](docs/images/site-shuffle-ladder.png)
 
@@ -169,6 +175,11 @@ cd infrastructure/scripts && ./cleanup.sh
 - **Failover demo API**: `POST /admin/failover/arm`, `POST /admin/failover/disarm`,
   `GET /admin/failover/status`, `GET /admin/failover/probe`,
   `POST /admin/failover/chaos` (server-side proxy to a cell's own `/chaos`)
+- **Quorum demo API**: `POST /admin/quorum/arm|disarm|vote|break-voter|wire`,
+  `GET /admin/quorum/status`, public `GET /vote-status/{i}` (the checker
+  target) — a Route 53 CALCULATED health check as a real consensus evaluator
+- **Idempotency demo API**: `POST /admin/idem/pay`, `GET /admin/idem/status`,
+  `POST /admin/idem/chaos` (server-side proxies to the per-region idem stacks)
 - **Cell API** (per cell): `GET /info`, `GET /health`, `POST /track-client`,
   `GET /clients/cell/{cellId}`, `POST /chaos` / `GET /chaos`
 
@@ -201,7 +212,13 @@ See [API_REFERENCE.md](API_REFERENCE.md) for details and
    fail on demand, and DNS flips in ~20-40 seconds. Health checks are paid
    hourly, so the demo is armed on demand and **disarmed afterwards**
    (disarm sweeps all `failover.*` records and tagged health checks)
-6. **Monitoring**: per-cell health checks and the admin dashboard
+6. **Operational concepts, live**: two more armed-on-demand demos —
+   **idempotency across failover** (Powertools-deduped payments on a DynamoDB
+   global table vs. a guaranteed double-charge on isolated tables) and a
+   **quorum evaluator built from Route 53 health checks** (five vote-observing
+   checkers under a CALCULATED parent whose `HealthThreshold` is the quorum;
+   armed ≈ $0.12/hr — checks plus checker traffic — and disarmed after)
+7. **Monitoring**: per-cell health checks and the admin dashboard
 
 ## Testing
 

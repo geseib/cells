@@ -327,6 +327,91 @@ Resources:
             RestApiId: !Ref RoutingApi
             Path: /admin/failover/chaos
             Method: POST
+        # Quorum / ARC demo routes. These work WITHOUT a custom domain (the
+        # handler dispatches them before its hosted-zone gate); only
+        # /admin/quorum/wire touches DNS and checks the zone itself.
+        QuorumArm:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/quorum/arm
+            Method: POST
+        QuorumDisarm:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/quorum/disarm
+            Method: POST
+        QuorumStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/quorum/status
+            Method: GET
+        QuorumVote:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/quorum/vote
+            Method: POST
+        QuorumBreakVoter:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/quorum/break-voter
+            Method: POST
+        QuorumWire:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/quorum/wire
+            Method: POST
+        # Public checker target: Route 53's checker fleet observes the vote
+        # flags through this route (200 vote-on / 503 vote-off / 500 broken).
+        VoteStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /vote-status/{i}
+            Method: GET
+
+  # Lambda for the idempotency-across-failover demo's admin proxy. Deliberately
+  # NOT part of FailoverAdminFunction: it needs zero Route 53 IAM and must not
+  # 503 when no custom domain is configured. It proxies pay/chaos calls to the
+  # per-region idem APIs server-side (endpoints from the IDEM_ENDPOINTS row in
+  # routing-config, written by deploy.sh) so the browser only ever talks to
+  # this API's hostname.
+  IdemAdminFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-idem-admin'
+      CodeUri: ../../backend/dist/
+      Handler: lambda/idem-admin.handler
+      Environment:
+        Variables:
+          ROUTING_CONFIG_TABLE: !Sub '${ProjectName}-routing-config'
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Sub '${ProjectName}-routing-config'
+      Events:
+        IdemPay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/idem/pay
+            Method: POST
+        IdemStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/idem/status
+            Method: GET
+        IdemChaos:
+          Type: Api
+          Properties:
+            RestApiId: !Ref RoutingApi
+            Path: /admin/idem/chaos
+            Method: POST
 
   # Lambda function for Route 53 record information
   Route53InfoFunction:
