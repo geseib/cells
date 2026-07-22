@@ -160,6 +160,80 @@ for region in "${REGION_ARRAY[@]}"; do
     done
 done
 
+# ---------------------------------------------------------------------------
+# Idempotency-across-failover demo: one stack per demo region. Regions come
+# from config (never hardcoded): REGIONS[0] is the primary — its stack owns
+# the {project}-idem-shared GLOBAL table with replicas in both regions — and
+# REGIONS[1] is the secondary. The PRIMARY stack MUST deploy first:
+# CloudFormation waits for the global table's replicas to be ACTIVE, so by
+# the time the secondary stack deploys its regional replica already exists.
+# ---------------------------------------------------------------------------
+if [ "${#REGION_ARRAY[@]}" -lt 2 ]; then
+    echo -e "${YELLOW}Skipping idempotency demo stacks: the demo needs two configured regions (found ${#REGION_ARRAY[@]}).${NC}"
+else
+    IDEM_PRIMARY_REGION="${REGION_ARRAY[0]}"
+    IDEM_SECONDARY_REGION="${REGION_ARRAY[1]}"
+
+    for idem_region in "${IDEM_PRIMARY_REGION}" "${IDEM_SECONDARY_REGION}"; do
+        IDEM_IS_PRIMARY="false"
+        if [ "${idem_region}" = "${IDEM_PRIMARY_REGION}" ]; then
+            IDEM_IS_PRIMARY="true"
+        fi
+        echo -e "\n${YELLOW}Deploying idempotency demo stack in ${idem_region} (primary: ${IDEM_IS_PRIMARY})...${NC}"
+
+        IDEM_PARAMS="ProjectName=${PROJECT_NAME} IsPrimary=${IDEM_IS_PRIMARY} PrimaryRegion=${IDEM_PRIMARY_REGION} SecondaryRegion=${IDEM_SECONDARY_REGION}"
+        # Optional override of the pinned AWS-published Powertools (Python)
+        # layer version (template default is the pin; must exist in BOTH regions).
+        if [ ! -z "${POWERTOOLS_LAYER_VERSION:-}" ]; then
+            IDEM_PARAMS="${IDEM_PARAMS} PowertoolsLayerVersion=${POWERTOOLS_LAYER_VERSION}"
+        fi
+
+        # --resolve-s3: same reasoning as the cell stacks — deployment
+        # artifacts must live in the stack's own region.
+        sam deploy \
+            --template-file ../templates/idempotency-demo.yaml \
+            --stack-name ${PROJECT_NAME}-idem-${idem_region} \
+            --resolve-s3 \
+            --region ${idem_region} \
+            --capabilities CAPABILITY_IAM \
+            --parameter-overrides ${IDEM_PARAMS} \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset
+    done
+
+    IDEM_PRIMARY_API=$(aws cloudformation describe-stacks \
+        --stack-name ${PROJECT_NAME}-idem-${IDEM_PRIMARY_REGION} \
+        --region ${IDEM_PRIMARY_REGION} \
+        --query 'Stacks[0].Outputs[?OutputKey==`IdemApiEndpoint`].OutputValue' \
+        --output text)
+    IDEM_SECONDARY_API=$(aws cloudformation describe-stacks \
+        --stack-name ${PROJECT_NAME}-idem-${IDEM_SECONDARY_REGION} \
+        --region ${IDEM_SECONDARY_REGION} \
+        --query 'Stacks[0].Outputs[?OutputKey==`IdemApiEndpoint`].OutputValue' \
+        --output text)
+
+    if [ -z "$IDEM_PRIMARY_API" ] || [ "$IDEM_PRIMARY_API" = "None" ] || \
+       [ -z "$IDEM_SECONDARY_API" ] || [ "$IDEM_SECONDARY_API" = "None" ]; then
+        echo -e "${RED}Could not read IdemApiEndpoint from both idem stacks — IDEM_ENDPOINTS not written (the admin idempotency tab will show unconfigured).${NC}"
+    else
+        # Register the endpoints for idem-admin, ORDERED PRIMARY FIRST —
+        # idem-admin.ts preserves this order in its status contract.
+        echo -e "${GREEN}Registering IDEM_ENDPOINTS in ${PROJECT_NAME}-routing-config...${NC}"
+        aws dynamodb put-item \
+            --table-name ${PROJECT_NAME}-routing-config \
+            --region us-east-1 \
+            --item "{
+                \"configId\": {\"S\": \"IDEM_ENDPOINTS\"},
+                \"endpoints\": {\"L\": [
+                    {\"M\": {\"region\": {\"S\": \"${IDEM_PRIMARY_REGION}\"}, \"apiUrl\": {\"S\": \"${IDEM_PRIMARY_API}\"}}},
+                    {\"M\": {\"region\": {\"S\": \"${IDEM_SECONDARY_REGION}\"}, \"apiUrl\": {\"S\": \"${IDEM_SECONDARY_API}\"}}}
+                ]},
+                \"updatedAt\": {\"S\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}
+            }"
+        echo -e "${GREEN}Idempotency demo endpoints:${NC} ${IDEM_PRIMARY_REGION}=${IDEM_PRIMARY_API} ${IDEM_SECONDARY_REGION}=${IDEM_SECONDARY_API}"
+    fi
+fi
+
 # Optional single-hostname edge mode: one CloudFront distribution fronting the
 # router pages, the routing API and every cell under {edgeDomain}.{domainName}.
 # Deployed after the cell stacks because it needs each cell's CloudFront
