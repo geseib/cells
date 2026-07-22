@@ -150,3 +150,7 @@ test-results/
 
 # Agent worktrees (transient)
 .claude/worktrees/
+
+# Python bytecode
+__pycache__/
+*.pyc
