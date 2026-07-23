@@ -286,9 +286,8 @@ test.describe('Guide hub - deep links & aliases', () => {
   });
 
   test('cross-section prose anchors switch views with zero caller changes', async ({ page }) => {
-    // 07's churn table links back to 04 (inside the algorithm-zoo sidequest)
+    // 07's churn table links back to 04 (zoo content now always visible, no expander)
     const errors = await openView(page, 'hash-choices');
-    await page.locator('#hash-choices-zoo .sidequest-summary').click(); // expand the deep-dive
     await page.locator('#hash-choices a[href="#kill-a-cell"]').first().click();
     await expect(page.locator('#kill-a-cell')).toBeVisible();
     await expect(page.locator('[data-testid=nav-current]')).toHaveText('04 · Kill a cell');
