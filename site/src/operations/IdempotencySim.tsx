@@ -441,7 +441,7 @@ const IdempotencySim: React.FC = () => {
             <>
               the client got the <strong>stored</strong> receipt back — note{' '}
               <code>"region": "{sim.response.receipt?.region}"</code>: {REGION[sim.response.region].name} answered, but the
-              money moved exactly once, in the region that first completed the work. Same <code>{sim.response.receipt?.chargeId}</code>, no new row.
+              money moved exactly once. Same <code>{sim.response.receipt?.chargeId}</code>, no new row.
             </>
           )}
           {sim.response.kind === 'inprogress' && (
@@ -456,9 +456,7 @@ const IdempotencySim: React.FC = () => {
           <div className={`value ${doubleCharges > 0 ? 'bad' : 'good'}`} data-testid="double-charge-count">
             {doubleCharges}
           </div>
-          <div className="label">
-            double charges — counted from the charge rows below, not scripted: orders with more than one row
-          </div>
+          <div className="label">double charges — derived from the charge rows, never scripted</div>
         </div>
         <div className="stat">
           <div className="value" data-testid="charge-count">{sim.charges.length}</div>
@@ -507,8 +505,8 @@ const IdempotencySim: React.FC = () => {
           </div>
           {sim.mode === 'shared' && new Set(sim.records.map((r) => r.key)).size < sim.records.length && (
             <p className="ops-conflict-note">
-              two writers raced the replication window and both put this key — the global table will converge
-              them last-writer-wins, but both charges have already happened. Convergence is not idempotency.
+              two writers raced the replication window and both put this key — the global table converges them
+              last-writer-wins, but both charges already happened. Convergence is not idempotency.
             </p>
           )}
         </div>
@@ -545,15 +543,14 @@ const IdempotencySim: React.FC = () => {
 
       <EventLog events={sim.events} testid="idem-event" />
       <p className="panel-hint">
-        The record above is exactly what{' '}
+        The record is exactly what{' '}
         <a href="https://docs.powertools.aws.dev/lambda/python/latest/utilities/idempotency/" target="_blank" rel="noopener noreferrer">
-          AWS Lambda Powertools' idempotency utility
+          Powertools
         </a>{' '}
-        keeps in DynamoDB: the key is an md5 hash of the whole payment payload (change the amount and it's a
-        different key — a different payment), <code>INPROGRESS</code> is the lock, <code>COMPLETED</code> stores the
-        response to replay, and the expiry bounds how long "same request" means. Put that table in a DynamoDB{' '}
-        <em>global</em> table and the guarantee follows the replication: shrink the lag above and the double-charge
-        window shrinks with it; switch to isolated tables and no amount of waiting saves you.
+        keeps in DynamoDB: the id is an md5 of the whole payload (change the amount and it's a different
+        payment), <code>INPROGRESS</code> is the lock, <code>COMPLETED</code> stores the response to replay, and
+        the expiry bounds how long "same request" means. Shrink the lag and the double-charge window shrinks
+        with it; isolate the tables and no amount of waiting saves you.
       </p>
     </div>
   );

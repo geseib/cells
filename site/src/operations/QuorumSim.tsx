@@ -282,10 +282,10 @@ const QuorumSim: React.FC = () => {
 
       <EventLog events={sim.events} testid="quorum-event" />
       <p className="panel-hint">
-        The LIVE lamp is the calculated health check: <code>count(healthy) &gt;= threshold</code>, recomputed
-        forever. The STORED lamp is the routing control the data plane actually reads — it only changes when the
-        computation <em>crosses</em> the threshold. That split is why killing the control plane above strands
-        nothing: the last decision keeps serving, unattended. Statically stable, in the{' '}
+        LIVE is the calculated check — <code>count(healthy) &gt;= threshold</code>, recomputed forever. STORED is
+        the routing control the data plane reads, written only when the count <em>crosses</em> the threshold.
+        That split is why killing the control plane strands nothing: the last decision keeps serving, unattended.
+        Statically stable, in the{' '}
         <a href="https://aws.amazon.com/builders-library/static-stability-using-availability-zones/" target="_blank" rel="noopener noreferrer">
           Builders' Library sense
         </a>

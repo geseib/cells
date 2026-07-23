@@ -477,6 +477,100 @@ test.describe('Sim 3 - versions, not retries', () => {
 });
 
 /* ------------------------------------------------------------------ */
+/* Section 04 — Paxos → Raft lineage, and the page's word budgets      */
+/* ------------------------------------------------------------------ */
+
+/** Same counting rule everywhere: whitespace-split, punctuation-only tokens
+ *  (em dashes, arrows) don't count as words. */
+const countWords = (texts: string[]) =>
+  texts.join(' ').split(/\s+/).filter((w) => /[A-Za-z0-9]/.test(w)).length;
+
+test.describe('Paxos → Raft section & concision budgets', () => {
+  test.skip(!HAS_SITE_BUILD, 'site/dist not built - run: cd site && npm run build');
+
+  test('renders both era cards, the adopters, and the two paper citations', async ({ page }) => {
+    const errors = await openSite(page);
+    await expect(page.locator('#paxos-raft h2')).toContainText('Paxos → Raft in 60 seconds');
+    await expect(page.locator('nav.top-nav a[href="#paxos-raft"]')).toBeVisible();
+
+    const paxos = page.locator('[data-testid=evo-paxos]');
+    await expect(paxos).toBeVisible();
+    await expect(paxos).toContainText('Paxos');
+    await expect(paxos).toContainText('1998'); // written 1989, published 1998
+    await expect(paxos).toContainText('prepare/promise');
+    await expect(paxos).toContainText('build it yourself'); // log/leader/membership left as exercises
+
+    const raft = page.locator('[data-testid=evo-raft]');
+    await expect(raft).toBeVisible();
+    await expect(raft).toContainText('Raft');
+    await expect(raft).toContainText('2014');
+    await expect(raft).toContainText('AppendEntries');
+    // Raft's card carries the house notebook — the log is built in
+    expect(await raft.locator('[data-testid=nb-entry]').count()).toBeGreaterThan(0);
+
+    const today = page.locator('[data-testid=evo-today]');
+    for (const adopter of ['etcd', 'Consul', 'CockroachDB']) {
+      await expect(today).toContainText(adopter);
+    }
+    await expect(today).toContainText('ARC'); // Paxos family, still shipping
+
+    // citation links for both papers, house link idiom
+    await expect(page.locator('#paxos-raft a[href*="lamport.azurewebsites.net"]')).toBeVisible();
+    await expect(page.locator('#paxos-raft a[href*="raft.github.io"]')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+
+  test('section ledes and total prose stay inside the concision budget', async ({ page }) => {
+    const errors = await openSite(page);
+
+    // each rewritten section lede is <= 60 words
+    const ledes = await page.$$eval('[data-testid=section-lede]', (els) =>
+      els.map((e) => e.textContent || '')
+    );
+    expect(ledes.length).toBe(3); // idempotency, quorum, consensus
+    for (const lede of ledes) {
+      expect(countWords([lede]), `lede over budget: "${lede.slice(0, 60)}…"`).toBeLessThanOrEqual(60);
+    }
+    // the hero opening holds to the same budget
+    const hero = await page.locator('header.hero p.lede').innerText();
+    expect(countWords([hero])).toBeLessThanOrEqual(60);
+
+    // the lineage section is a QUICK walkthrough: <= 250 words of prose
+    const paxosProse = await page.$$eval('#paxos-raft > p', (els) =>
+      els.map((e) => e.textContent || '')
+    );
+    expect(countWords(paxosProse)).toBeLessThanOrEqual(250);
+
+    // total page prose OUTSIDE the sim panels: section paragraphs, callouts,
+    // hero lede. Pre-rewrite this measured ~980 words WITHOUT the lineage
+    // section; the rewritten page fits everything, lineage included, in 800.
+    const prose = await page.$$eval(
+      'main section.lesson > p, main section.lesson > .callout, header.hero p.lede',
+      (els) => els.map((e) => e.textContent || '')
+    );
+    expect(countWords(prose)).toBeLessThanOrEqual(800);
+    expect(errors).toEqual([]);
+  });
+
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`page top and lineage section screenshots in ${scheme} theme`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: scheme, reducedMotion: 'reduce' });
+      await page.setViewportSize({ width: 1280, height: 1100 });
+      const errors = await openSite(page);
+      fs.mkdirSync(SHOT_DIR, { recursive: true });
+      // page top: the new opening + the idempotency lede
+      await page.screenshot({ path: path.join(SHOT_DIR, `page-top-${scheme}.png`) });
+      await page.addStyleTag({ content: 'nav.top-nav { display: none; }' });
+      await page.locator('#paxos-raft').scrollIntoViewIfNeeded();
+      await page.locator('#paxos-raft').screenshot({
+        path: path.join(SHOT_DIR, `paxos-raft-${scheme}.png`),
+      });
+      expect(errors).toEqual([]);
+    });
+  }
+});
+
+/* ------------------------------------------------------------------ */
 /* Themes — light and dark screenshots of each sim                     */
 /* ------------------------------------------------------------------ */
 

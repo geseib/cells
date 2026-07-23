@@ -613,9 +613,8 @@ const ConsensusLogSim: React.FC = () => {
 
       <EventLog events={sim.events} testid="ops3-event" />
       <p className="panel-hint">
-        Try the full story: propose v{sim.nextVersion} (watch the commit land on the 3rd ack), keep Tokyo offline
-        and flip the switch a few more times, then set Tokyo back online and watch it replay the exact missing
-        versions in order. The button is never pressed twice; no request is ever retried —{' '}
+        Keep Tokyo offline, flip the switch a few more times, then bring it back and watch it replay exactly the
+        missing versions, in order. The button is never pressed twice; no request is ever retried —{' '}
         <strong>commands are ephemeral, versions are forever</strong>.
       </p>
     </div>

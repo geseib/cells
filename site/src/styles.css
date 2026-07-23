@@ -2917,3 +2917,134 @@ button.theme-toggle:hover {
 }
 
 .ops-converged-badge.yes { color: var(--good); }
+
+/* ---- ops: 04 · Paxos → Raft evolution cards ------------------------ */
+
+.ops-evo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: 0.8rem;
+  align-items: stretch;
+  margin-top: 1.25rem;
+}
+
+.ops-evo-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  transition: border-color 0.15s ease;
+}
+
+.ops-evo-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.ops-evo-era {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.ops-evo-name {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.ops-evo-cite {
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--ink-2);
+}
+
+.ops-evo-list {
+  list-style: none;
+  margin: 0.35rem 0 0.6rem;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.ops-evo-list li {
+  display: grid;
+  grid-template-columns: 5.2rem 1fr;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  color: var(--ink-2);
+}
+
+.ops-evo-list strong {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding-top: 0.15rem;
+}
+
+/* Paxos leaves the log as an exercise: an empty, dashed notebook slot. */
+.ops-evo-diy {
+  margin-top: auto;
+  border: 1.5px dashed var(--baseline);
+  border-radius: 10px;
+  padding: 0.7rem 0.7rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Raft ships the log: the house notebook, built in. */
+.ops-evo-log {
+  margin-top: auto;
+}
+
+.ops-evo-arrow {
+  align-self: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--muted);
+  padding: 0 0.1rem;
+}
+
+.ops-evo-today {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1.1rem;
+  margin-top: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-1);
+  padding: 0.6rem 0.9rem;
+  font-size: 0.82rem;
+  color: var(--ink-2);
+}
+
+.ops-evo-today-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.ops-evo-adopter strong {
+  color: var(--ink);
+}
+
+@media (max-width: 720px) {
+  .ops-evo {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-evo-arrow {
+    transform: rotate(90deg);
+    justify-self: center;
+  }
+}
