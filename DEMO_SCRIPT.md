@@ -238,6 +238,13 @@ both components and the accrued total the whole time).
    `{project}-quorum-*`, and shows the accrued cost. Left armed, the checker
    traffic alone costs more than the checks
 
+> **Safety net & scheduling gotcha:** a scheduled sweeper auto-disarms both
+> paid demos at 12am/6am/12pm/6pm (configured timezone). If you present
+> across one of those boundaries, the demo will disarm itself mid-flight —
+> re-arming is one click, but plan the segment to avoid the top of those
+> hours. The sweeper is the backstop for a forgotten demo, not a substitute
+> for disarming on stage.
+
 #### Demo Script:
 > "The votes are just items in a table. The checkers turn item-exists into healthy. The CALCULATED check turns five healthies into one decision. We never wrote an evaluator — we configured one."
 >

@@ -101,6 +101,14 @@ region-only names can't distinguish the AZs.
   (they dispatch before the handler's zone gate); only `/admin/quorum/wire`
   needs the zone. The decision log is versioned (seeds at v126): genuine
   parent transitions append `QUORUM_LOG#` items — never rewrite them.
+- **A scheduled cost sweeper backstops both paid demos**: an EventBridge
+  Scheduler schedule (`{project}-demo-sweeper`, routing stack) invokes the
+  failover-admin lambda with `{"demoSweeper": true}` at 00/06/12/18 in
+  `SweeperTimezone` (default America/New_York, DST-aware), running BOTH disarm
+  cores idempotently. Worst-case forgotten-armed exposure is <6h (~$0.68).
+  It's a backstop, not a license — still disarm on stage. Warn presenters:
+  a demo running across a sweep boundary will disarm mid-flight (re-arming
+  is one click).
 - **The idempotency demo uses dedicated tables** — `{project}-idem-shared`
   (global table, owned by the primary region's stack) and per-region
   `{project}-idem-local` — never the cell or registry tables. Regions come

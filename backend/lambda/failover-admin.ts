@@ -836,6 +836,45 @@ async function restoreWiredRecord(state: QuorumState, hostedZoneId: string, doma
  *    sweep (parent-first) for strays, 5. the vote/broken/log items, 6. the
  *    state row. Idempotent throughout.
  */
+/**
+ * Scheduled sweep: disarm BOTH paid demos (failover + quorum). The quorum
+ * disarm always runs (it never needs the zone unless a wire must be
+ * restored, and it tolerates a missing zone there); the failover disarm is
+ * skipped on domainless deploys where it could never have been armed.
+ */
+async function runDemoSweeper(): Promise<APIGatewayProxyResult> {
+  const projectName = env('PROJECT_NAME') || 'cell-demo';
+  const hostedZoneId = env('HOSTED_ZONE_ID');
+  const domainName = env('DOMAIN_NAME');
+  const results: Record<string, unknown> = { sweeper: true, sweptAt: new Date().toISOString() };
+
+  try {
+    const q = await quorumDisarmCore(projectName, hostedZoneId, domainName);
+    results.quorum = { healthChecksDeleted: q.healthChecksDeleted.length };
+  } catch (error) {
+    console.error('Sweeper: quorum disarm failed:', error);
+    results.quorum = { error: error instanceof Error ? error.message : 'failed' };
+  }
+
+  if (hostedZoneId && domainName) {
+    try {
+      const f = await disarmCore(hostedZoneId, domainName, projectName);
+      results.failover = {
+        recordsDeleted: f.recordsDeleted,
+        healthChecksDeleted: f.healthChecksDeleted.length
+      };
+    } catch (error) {
+      console.error('Sweeper: failover disarm failed:', error);
+      results.failover = { error: error instanceof Error ? error.message : 'failed' };
+    }
+  } else {
+    results.failover = { skipped: 'no custom domain configured' };
+  }
+
+  console.log('Demo sweeper ran:', JSON.stringify(results));
+  return respond(200, results);
+}
+
 async function quorumDisarmCore(projectName: string, hostedZoneId: string, domainName: string): Promise<{
   healthChecksDeleted: string[];
 }> {
@@ -1278,6 +1317,15 @@ async function handleQuorumStatus(): Promise<APIGatewayProxyResult> {
 }
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  // Cost dead-man switch: an EventBridge Scheduler schedule invokes this
+  // lambda four times a day (00/06/12/18 local, timezone-aware) with
+  // {"demoSweeper": true}. Both disarm cores are idempotent, so firing while
+  // nothing is armed is a no-op; firing while armed caps a forgotten demo's
+  // exposure at <6 hours instead of a weekend.
+  if ((event as unknown as { demoSweeper?: boolean }).demoSweeper) {
+    return await runDemoSweeper();
+  }
+
   if (event.httpMethod === 'OPTIONS') {
     return { statusCode: 200, headers: HEADERS, body: '' };
   }

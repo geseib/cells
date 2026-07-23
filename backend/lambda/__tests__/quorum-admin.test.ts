@@ -706,3 +706,33 @@ describe('POST /admin/quorum/disarm', () => {
     expect(body.healthChecksDeleted).toEqual(['hc-stray-parent', 'hc-stray-child']);
   });
 });
+
+describe('demo sweeper (scheduled cost dead-man switch)', () => {
+  test('a {demoSweeper:true} event runs BOTH disarm cores and reports counts', async () => {
+    // Unarmed everywhere: both cores are idempotent no-ops that still 200.
+    stubQuorumGet(undefined);
+    ddbMock.on(GetCommand, { TableName: 'routing-config-table', Key: { configId: 'FAILOVER_DEMO' } }).resolves({});
+    route53Mock.on(ListHealthChecksCommand).resolves({ HealthChecks: [], IsTruncated: false });
+    route53Mock.on(ListResourceRecordSetsCommand).resolves({ ResourceRecordSets: [] });
+
+    const result = await handler({ demoSweeper: true } as any);
+    expect(result.statusCode).toBe(200);
+    const body = JSON.parse(result.body);
+    expect(body.sweeper).toBe(true);
+    expect(body.quorum).toEqual({ healthChecksDeleted: 0 });
+    // Domain configured in this harness → failover core runs too.
+    expect(body.failover).toMatchObject({ healthChecksDeleted: 0 });
+  });
+
+  test('sweeper never dispatches to API routes (no method/path on the event)', async () => {
+    stubQuorumGet(undefined);
+    ddbMock.on(GetCommand).resolves({});
+    route53Mock.on(ListHealthChecksCommand).resolves({ HealthChecks: [], IsTruncated: false });
+    route53Mock.on(ListResourceRecordSetsCommand).resolves({ ResourceRecordSets: [] });
+
+    const result = await handler({ demoSweeper: true } as any);
+    const body = JSON.parse(result.body);
+    expect(body.error).toBeUndefined();
+    expect(body.sweptAt).toBeTruthy();
+  });
+});
