@@ -14,13 +14,14 @@ This repository teaches that pattern two ways:
    the dev server with `cd site && npm run dev`. It has grown into three
    surfaces sharing one design system:
 
-   - **The interactive guide** — eight numbered lessons (the problem, the
-     ring, routing, failure, scaling, a consistent-hashing "algorithm zoo",
-     shuffle sharding & friends, trade-offs), every diagram powered by the
-     repository's real MD5 ring code. Optional **sidequests** expand for
-     deeper dives: hash-library drift, pinning clients (and what happens when
-     the pinned cell dies), and how to run the registry/control plane without
-     making it a single point of failure.
+   - **The interactive guide** — a menu-first hub of ten numbered lessons,
+     each opening as its own view with prev/next navigation (the problem, the
+     ring, routing, failure, safe retries, scaling, a consistent-hashing
+     "algorithm zoo", shuffle sharding & friends, consensus, trade-offs),
+     every diagram powered by the repository's real MD5 ring code. Optional
+     **sidequests** expand for deeper dives: hash-library drift, pinning
+     clients (and what happens when the pinned cell dies), and how to run the
+     registry/control plane without making it a single point of failure.
    - **A cloud-neutral primer** (`primer.html`) — the problem before the
      pattern, with AWS/Azure/Google terminology bridges and an isolation
      stepper comparing AZs, regions, microservices, shards, and cells.
@@ -28,12 +29,13 @@ This repository teaches that pattern two ways:
      the same live demos, driven by arrow-key phase scripts, presenter
      hotkeys, and a touch bar for iPad/iPhone; the narrative lives in speaker
      notes.
-   - **An operations page** (`operations.html`) — simulations of the two
-     operational concepts the AWS demo implements for real: idempotency
-     across regional failover (retry a payment after a region dies —
-     dedupe vs. guaranteed double-charge) and quorum/consensus (five voters,
-     a threshold meter, LIVE vs. STORED control lamps, and a
-     "versions, not retries" replicated-decision-log story).
+   - **Operational sims inside the guide** — the two operational concepts
+     the AWS demo implements for real live in the hub as lessons 05 and 09:
+     idempotency across regional failover (retry a payment after a region
+     dies — dedupe vs. guaranteed double-charge) and quorum/consensus (five
+     voters, a threshold meter, LIVE vs. STORED control lamps, a "versions,
+     not retries" replicated-decision-log story, and a Paxos → Raft lineage).
+     The retired `operations.html` URL redirects into the matching lesson.
 
    ![The shuffle-sharding ladder: plain shards vs shuffle sharding side by side, with running totals](docs/images/site-shuffle-ladder.png)
 

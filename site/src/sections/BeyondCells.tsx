@@ -2,20 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { hashKey, CELL_COLOR_VARS, FAILED_COLOR, DEGRADED_COLOR } from '../sim/simulation';
 import Icon from '../ui/icons';
 import KeyHint, { useHotkeys } from '../ui/KeyHint';
+import { usePrefersReducedMotion } from '../ui/usePrefersReducedMotion';
 
-/** True when the user asked the OS for reduced motion — gates the SMIL/JS animation. */
-export function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = () => setReduced(mq.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-  return reduced;
-}
+/** Re-export (load-bearing): WhyCells and ui/Sidequest import the hook from here. */
+export { usePrefersReducedMotion };
 
 /** Fisher–Yates with hashKey as the PRNG, so the "random" layout is stable. */
 function seededShuffle<T>(items: readonly T[], seed: string): T[] {
@@ -1024,7 +1014,7 @@ export const ConstantWork: React.FC<{ hotkeys?: boolean }> = ({ hotkeys = false 
 
 const BeyondCells: React.FC = () => (
   <section className="lesson" id="beyond-cells">
-    <div className="kicker">07 · Beyond cells</div>
+    <div className="kicker">08 · Beyond cells</div>
     <h2>Cells have siblings</h2>
     <p>
       Cells are one member of a family of patterns — mostly documented by Amazon's Builders'

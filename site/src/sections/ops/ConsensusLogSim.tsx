@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import Icon from '../ui/icons';
+import Icon from '../../ui/icons';
 import { DecisionEntry, EventLog, Lamp, Notebook, SimEvent, usePrefersReducedMotion } from './shared';
 
 /**

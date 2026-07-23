@@ -3,17 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Operating cell-based systems across regions: idempotent retries during failover, quorum health decisions, and versioned decision logs — consensus vs convergence — as interactive browser simulations.">
-  <title>Operating Cells — Idempotency, Quorum & Consensus</title>
+  <!-- Redirect stub: the operations page folded into the guide as sections
+       05 (Safe retries) and 09 (Consensus). Old links keep working — the
+       fragment maps to the matching guide view. JS is required for the
+       fragment mapping (fragments never reach server redirects); the
+       meta-refresh below is the no-JS fallback. -->
+  <meta name="robots" content="noindex">
+  <link rel="canonical" href="./index.html">
+  <title>Moved into the guide — Cell-Based Architecture</title>
   <script>
-    // Anti-flash: apply a manually forced theme (ThemeToggle) before first paint.
-    try {
-      var t = localStorage.getItem('cells-theme');
-      if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
-    } catch (e) {}
+    (function () {
+      var map = {
+        idempotency: 'idempotency',
+        quorum: 'consensus',
+        consensus: 'consensus',
+        'paxos-raft': 'consensus',
+        reading: 'consensus'
+      };
+      var frag = window.location.hash.replace(/^#/, '');
+      window.location.replace('./#' + (map[frag] || 'menu'));
+    })();
   </script>
+  <noscript>
+    <meta http-equiv="refresh" content="0; url=./index.html">
+  </noscript>
 </head>
 <body>
-  <div id="root"></div>
+  <p>
+    This page has moved into the interactive guide.
+    <a href="./index.html">Continue to the guide</a> — retries are lesson 05,
+    quorum and consensus are lesson 09.
+  </p>
 </body>
 </html>

@@ -136,7 +136,7 @@ const HashRing: React.FC = () => {
         </p>
         <p>
           Full algorithm-by-algorithm comparison in{' '}
-          <a href="#hash-choices">06 · Choosing your hash</a>.
+          <a href="#hash-choices">07 · Choosing your hash</a>.
         </p>
       </Sidequest>
       <TryLive>See the live ring built from real registered cells in the admin dashboard</TryLive>

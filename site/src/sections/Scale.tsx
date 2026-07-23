@@ -345,7 +345,7 @@ const HYDRATION_PATTERNS: HydrationPattern[] = [
 const Scale: React.FC = () => {
   return (
     <section className="lesson" id="scale">
-      <div className="kicker">05 · Elasticity</div>
+      <div className="kicker">06 · Elasticity</div>
       <h2>Scale out by adding cells</h2>
       <p>
         Capacity management becomes cookie-cutter: need more headroom, stamp out another cell.

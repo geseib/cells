@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import MD5 from 'crypto-js/md5';
-import Icon from '../ui/icons';
+import Icon from '../../ui/icons';
 import { EventLog, SimEvent } from './shared';
 
 /**

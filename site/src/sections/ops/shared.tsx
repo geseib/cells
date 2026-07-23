@@ -1,24 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { usePrefersReducedMotion } from '../../ui/usePrefersReducedMotion';
 
 /**
- * Shared bits for the Operations page sims. Kept local to the operations
- * entry so the page stays self-contained (same convention as the primer's
- * local RingMark copy).
+ * Shared bits for the operations sims (idempotency / quorum / consensus log).
  */
 
-/** True when the user asked the OS for reduced motion — gates sim pacing. */
-export function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = () => setReduced(mq.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-  return reduced;
-}
+/** Re-export of the shared hook — the sims import it from here. */
+export { usePrefersReducedMotion };
 
 /** A committed decision, as one line of a region's ledger. */
 export interface DecisionEntry {

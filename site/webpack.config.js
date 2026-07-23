@@ -7,7 +7,6 @@ module.exports = {
     main: './src/index.tsx',
     primer: './src/primer.tsx',
     slides: './src/slides.tsx',
-    operations: './src/operations.tsx',
     flags: './src/flags.tsx'
   },
   output: {
@@ -55,10 +54,13 @@ module.exports = {
       title: 'Cell-Based Architecture — Slides'
     }),
     new HtmlWebpackPlugin({
+      // Retired page → pure redirect stub into the guide (no JS bundle).
+      // The template maps old fragments (#idempotency, #quorum, …) onto the
+      // matching guide views client-side.
       template: './src/operations.html',
       filename: 'operations.html',
-      chunks: ['operations'],
-      title: 'Operating Cells — Idempotency, Quorum & Consensus'
+      chunks: [],
+      title: 'Moved into the guide — Cell-Based Architecture'
     }),
     new HtmlWebpackPlugin({
       // Hidden feature-flags page (noindex; nothing links here).

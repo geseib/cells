@@ -12,7 +12,7 @@ workload into isolated cells with consistent-hash routing. Two deliverables:
 
 | Path | What it is |
 |------|-----------|
-| `site/` | Educational site: React + webpack, simulates the hash ring in-browser |
+| `site/` | Educational site: React + webpack, simulates the hash ring in-browser; the guide is a menu-first hub of 10 hash-routed section views (registry in `site/src/guide/registry.ts`; `operations.html` is a redirect stub) |
 | `backend/lambda/` | Lambda handlers (routing, admin, failover+quorum admin, idem admin, cell info/health, client tracking, registration, QR, Route 53 info, cross-region sync) |
 | `backend/lambda_py/` | Python handlers for the idempotency demo (`idempotency/pay.py`) — plain `.py`, **no pip/bundling**; Powertools comes from a pinned Lambda layer (template parameter) |
 | `backend/lib/consistent-hash.ts` | **The shared core.** MD5 hash ring with virtual nodes. Used by the backend, the admin dashboard, and the site |

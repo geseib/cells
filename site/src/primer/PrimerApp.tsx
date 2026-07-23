@@ -572,7 +572,6 @@ const PrimerApp: React.FC = () => (
       <span style={{ flex: 1 }} />
       <a href="./index.html" style={{ fontWeight: 600 }}>Guide</a>
       <a href="./slides.html" style={{ fontWeight: 600 }}>Slides</a>
-      <a href="./operations.html" style={{ fontWeight: 600 }}>Operations</a>
       {hasLiveDemo && (
         <a href={demoAdminUrl} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 600 }}>
           Live demo ↗

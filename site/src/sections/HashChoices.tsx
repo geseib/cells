@@ -41,7 +41,7 @@ const RECOMMENDATIONS: [string, string][] = [
 
 const HashChoices: React.FC = () => (
   <section className="lesson" id="hash-choices">
-    <div className="kicker">06 · The algorithm zoo</div>
+    <div className="kicker">07 · The algorithm zoo</div>
     <h2>Choosing your hash</h2>
     <Sidequest
       id="hash-choices-zoo"
