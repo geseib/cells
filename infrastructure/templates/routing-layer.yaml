@@ -14,6 +14,10 @@ Parameters:
     Type: String
     Description: Route53 hosted zone ID for the domain
     Default: ''
+  SweeperTimezone:
+    Type: String
+    Description: IANA timezone for the demo cost sweeper's 00/06/12/18 schedule
+    Default: America/New_York
 
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref DomainName, '']]
@@ -374,6 +378,52 @@ Resources:
             RestApiId: !Ref RoutingApi
             Path: /vote-status/{i}
             Method: GET
+
+  # Cost dead-man switch: EventBridge Scheduler invokes the failover-admin
+  # lambda with {"demoSweeper": true} four times a day (00/06/12/18 in
+  # SweeperTimezone — Scheduler handles DST, unlike classic cron rules). Both
+  # disarm cores are idempotent, so quiet firings are free no-ops; a forgotten
+  # armed demo's exposure is capped at <6 hours (~$0.68 worst case for the
+  # quorum demo) instead of a weekend. ~120 invocations/month, $0.
+  DemoSweeperRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: invoke-failover-admin
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt FailoverAdminFunction.Arn
+
+  DemoSweeperSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub '${ProjectName}-demo-sweeper'
+      Description: Disarms all paid demos (failover + quorum) at 00/06/12/18 local time
+      ScheduleExpression: cron(0 0,6,12,18 * * ? *)
+      ScheduleExpressionTimezone: !Ref SweeperTimezone
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      State: ENABLED
+      Target:
+        Arn: !GetAtt FailoverAdminFunction.Arn
+        RoleArn: !GetAtt DemoSweeperRole.Arn
+        Input: '{"demoSweeper": true}'
+        RetryPolicy:
+          MaximumRetryAttempts: 2
+          MaximumEventAgeInSeconds: 900
 
   # Lambda for the idempotency-across-failover demo's admin proxy. Deliberately
   # NOT part of FailoverAdminFunction: it needs zero Route 53 IAM and must not
