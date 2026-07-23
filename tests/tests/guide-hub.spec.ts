@@ -288,6 +288,15 @@ test.describe('Guide hub - deep links & aliases', () => {
   test('cross-section prose anchors switch views with zero caller changes', async ({ page }) => {
     // 07's churn table links back to 04 (zoo content now always visible, no expander)
     const errors = await openView(page, 'hash-choices');
+    // The zoo must be interactive without any expand step: buttons are
+    // disabled until the zoo state initializes (the exact regression where
+    // the removed Sidequest's open-context left it null forever).
+    const addWorker = page.getByRole('button', { name: 'Add a worker' });
+    await expect(addWorker).toBeEnabled();
+    const count = page.locator('#hash-choices .zoo-count');
+    const before = Number(await count.getAttribute('data-zoo-workers'));
+    await addWorker.click();
+    await expect(count).toHaveAttribute('data-zoo-workers', String(before + 1));
     await page.locator('#hash-choices a[href="#kill-a-cell"]').first().click();
     await expect(page.locator('#kill-a-cell')).toBeVisible();
     await expect(page.locator('[data-testid=nav-current]')).toHaveText('04 · Kill a cell');
