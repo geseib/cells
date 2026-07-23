@@ -54,6 +54,15 @@ module.exports = {
       title: 'Cell-Based Architecture — Slides'
     }),
     new HtmlWebpackPlugin({
+      // Retired page → pure redirect stub into the guide (no JS bundle).
+      // The template maps old fragments (#idempotency, #quorum, …) onto the
+      // matching guide views client-side.
+      template: './src/operations.html',
+      filename: 'operations.html',
+      chunks: [],
+      title: 'Moved into the guide — Cell-Based Architecture'
+    }),
+    new HtmlWebpackPlugin({
       // Hidden feature-flags page (noindex; nothing links here).
       template: './src/flags.html',
       filename: 'flags.html',

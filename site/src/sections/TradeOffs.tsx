@@ -3,7 +3,7 @@ import Icon from '../ui/icons';
 
 const TradeOffs: React.FC = () => (
   <section className="lesson" id="trade-offs">
-    <div className="kicker">08 · The fine print</div>
+    <div className="kicker">10 · The fine print</div>
     <h2>Trade-offs and design decisions</h2>
     <p>
       Cells aren't free. The pattern trades global simplicity for bounded failure — these are the

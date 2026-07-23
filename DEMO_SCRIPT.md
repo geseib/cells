@@ -177,7 +177,73 @@ Failover tab — the browser only ever talks to the admin API host.
 >
 > "And notice the cost line: resilience infrastructure meters by the hour. We arm this demo when we present and disarm it when we're done."
 
-### 6. Real-World Applications (2 minutes)
+### 6. Idempotency Across Regional Failover (3 minutes)
+
+**"Your primary region just died mid-payment. The client retries against the
+secondary. Does the customer get charged twice?"**
+
+Runs from the admin dashboard's Idempotency tab (requires ≥ 2 regions
+deployed; the tab says so if not). Everything is proxied server-side — the
+browser only talks to the admin API host.
+
+1. **Pay in region A** (shared mode) — a real Powertools-idempotent Lambda
+   writes a charge row and an idempotency record to a **DynamoDB global
+   table**; point out the record replicating to region B in the side-by-side
+   panel (replicated badge)
+2. **Kill region A** — flip its kill switch (same code-honored-expiry pattern
+   as the cells' chaos flag, so a forgotten switch can't wedge the demo)
+3. **Retry the SAME payment against region B** — the response comes back with
+   the **same `chargeId`, and `region` still says A**: region B served A's
+   stored receipt from the replicated idempotency record. One charge row.
+   That's the whole lesson in one field
+4. **Now switch to isolated mode and repeat** — two tables that don't
+   replicate, so the retry in B genuinely charges again: **two charge rows,
+   two different chargeIds**. This is not a simulation of the bug; it IS the
+   bug
+5. **Un-kill region A** as you wrap up
+
+#### Demo Script:
+> "Notice what proved the dedupe: not a flag we invented — the same chargeId came back, and the receipt still says region A processed it, even though region A was dead and region B answered."
+>
+> "Idempotency keys plus a replicated store turn 'retry' from a risk into the safe default. Without the shared store — you just watched the double-charge happen for real."
+
+### 7. Quorum Consensus — a Health Check as the Evaluator (3 minutes)
+
+**"Now the fun one: we're going to build a 3-out-of-5 consensus evaluator out
+of Route 53 health checks — and the evaluator is not our code."**
+
+Runs from the admin dashboard's Quorum tab. Works with or without a custom
+domain. Arming creates real paid resources (~**$0.12/hr**: ~$0.0185/hr of
+health checks plus ~$0.095/hr of checker traffic — the status panel shows
+both components and the accrued total the whole time).
+
+1. **Arm** — 5 vote flags (plain DynamoDB items), 5 HTTPS checkers that each
+   observe one flag via the public `/vote-status/{i}` route, and one
+   **CALCULATED parent** with `HealthThreshold: 3`. Route 53's checker fleet
+   around the world is now the consensus evaluator
+2. **Watch the quorum form (~30s)** — voters go green; when the 3rd voter is
+   confirmed healthy, the parent flips and the decision log commits
+   **"v127 · Routing = Enabled"** — a new version, not a retried command
+3. **Flip votes off one by one** — nothing happens at 4/5, nothing at 3/5…
+   at 2/5 the parent flips and **v128 · Disabled** is committed. Point at the
+   LIVE lamp vs the STORED lamp: the stored decision only moves on committed
+   transitions (that's ARC's static stability)
+4. **Break a voter** (500s, not a no-vote) — consensus tolerates it; the
+   threshold math is shown: 5 replicas → need 3 → tolerate 2 failures
+5. **Optional, if the failover demo is armed: wire it** — point the PRIMARY
+   `failover.{domain}` record at the quorum parent and real DNS now follows
+   the committed quorum decision
+6. **DISARM — on stage, do not skip.** Disarm restores any wired record,
+   deletes the parent first, then the five checkers, sweeps anything tagged
+   `{project}-quorum-*`, and shows the accrued cost. Left armed, the checker
+   traffic alone costs more than the checks
+
+#### Demo Script:
+> "The votes are just items in a table. The checkers turn item-exists into healthy. The CALCULATED check turns five healthies into one decision. We never wrote an evaluator — we configured one."
+>
+> "And the notebook on the right is the mental model AWS's Route 53 ARC uses: versions v126, v127, v128 — committed decisions as history. Nobody ever re-sends a command; late replicas just copy the missing pages."
+
+### 8. Real-World Applications (2 minutes)
 
 **"Where would you use this?"**
 

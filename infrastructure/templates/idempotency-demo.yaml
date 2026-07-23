@@ -1,0 +1,196 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Idempotency-across-failover demo. A per-region payment API whose Powertools
+  (Python) idempotency store is either a DynamoDB GLOBAL table (shared mode -
+  a retry against the other region dedupes and returns the original receipt)
+  or a region-local table (isolated mode - the retry is a guaranteed double
+  charge). Deployed once per demo region, PRIMARY FIRST: the primary stack
+  owns the global table and CloudFormation waits for its replicas.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: cell-demo
+  IsPrimary:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: >
+      'true' only for the primary-region stack (REGIONS[0] in config.json).
+      The primary stack creates the {ProjectName}-idem-shared global table
+      with replicas in both demo regions; the secondary stack references its
+      regional replica by name only.
+  PrimaryRegion:
+    Type: String
+    Description: Primary demo region (REGIONS[0] in config.json), e.g. us-east-1
+  SecondaryRegion:
+    Type: String
+    Description: Secondary demo region (REGIONS[1] in config.json), e.g. us-west-2
+  PowertoolsLayerVersion:
+    Type: Number
+    # Pinned to 19 (Powertools for AWS Lambda (Python) ~3.16.0, python3.12
+    # x86_64) - the newest version verifiable from published AWS docs at
+    # implementation time (live list-layer-versions verification was not
+    # possible: AWS credentials expired). Layer versions are immutable and
+    # published to every commercial region, so :19 exists in both demo
+    # regions. Bump after verifying in BOTH regions with:
+    #   aws lambda list-layer-versions --region <region> --layer-name \
+    #     arn:aws:lambda:<region>:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64 \
+    #     --max-items 1
+    Default: 19
+    Description: >
+      Version of the AWS-published Powertools for AWS Lambda (Python) V3
+      layer (account 017000801446, python3.12/x86_64). Must exist in BOTH
+      demo regions. deploy.sh can override via POWERTOOLS_LAYER_VERSION.
+
+Conditions:
+  IsPrimaryRegion: !Equals [!Ref IsPrimary, 'true']
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+
+Resources:
+  # Shared idempotency store: ONE global table, created by the PRIMARY stack
+  # only, replicated to both demo regions. Each region's Lambda talks to its
+  # own regional replica - DynamoDB replicates the idempotency records, which
+  # is exactly the mechanism the demo teaches.
+  #
+  # DeletionPolicy Delete: demo-only data (idempotency records expire via TTL
+  # anyway). cleanup.sh deletes the stacks secondary-first and then verifies
+  # the table is gone (ResourceNotFound) in BOTH regions.
+  #
+  # Stability notes:
+  # - NEVER rename this table. A TableName change replaces the global table
+  #   (destructive), and the secondary stack + pay.py + idem-admin reference
+  #   it by the fixed name {ProjectName}-idem-shared.
+  # - AWS::DynamoDB::GlobalTable only supports ONE replica addition or
+  #   removal per stack update - change Replicas one region at a time.
+  SharedIdemTable:
+    Type: AWS::DynamoDB::GlobalTable
+    Condition: IsPrimaryRegion
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub '${ProjectName}-idem-shared'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      # Required by AWS::DynamoDB::GlobalTable (replication reads the stream).
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      # Powertools writes its record expiry into 'expiration' (epoch seconds);
+      # TTL makes DynamoDB garbage-collect finished idempotency records.
+      TimeToLiveSpecification:
+        AttributeName: expiration
+        Enabled: true
+      Replicas:
+        - Region: !Ref PrimaryRegion
+        - Region: !Ref SecondaryRegion
+
+  # Region-local store, present in EVERY region. Triple duty:
+  # 1. isolated-mode idempotency store (the double-charge lesson),
+  # 2. real charge rows (id = CHARGE#{orderId}#{uuid}) written by _do_charge -
+  #    the honest evidence of how many times money moved,
+  # 3. the KILL chaos flag (id = KILL, code-honored expiry).
+  LocalIdemTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      TableName: !Sub '${ProjectName}-idem-local'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expiration
+        Enabled: true
+
+  IdemApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub '${ProjectName}-idem-api'
+      StageName: prod
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+
+  # Python (not Node like the rest of the repo) because the lesson IS
+  # Powertools' idempotency utility. Plain .py + the AWS-published Powertools
+  # layer - no pip install, no bundling step.
+  IdemPayFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-idem-pay'
+      Runtime: python3.12
+      Architectures: [x86_64]
+      CodeUri: ../../backend/lambda_py/idempotency/
+      Handler: pay.handler
+      Layers:
+        - !Sub 'arn:aws:lambda:${AWS::Region}:017000801446:layer:AWSLambdaPowertoolsPythonV3-python312-x86_64:${PowertoolsLayerVersion}'
+      Environment:
+        Variables:
+          PROJECT_NAME: !Ref ProjectName
+          # By name, not !Ref: only the primary stack owns the resource, but
+          # every region's replica carries the same table name.
+          SHARED_TABLE_NAME: !Sub '${ProjectName}-idem-shared'
+          LOCAL_TABLE_NAME: !Ref LocalIdemTable
+          POWERTOOLS_SERVICE_NAME: idempotency-demo
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Sub '${ProjectName}-idem-shared'
+        - DynamoDBCrudPolicy:
+            TableName: !Ref LocalIdemTable
+      Events:
+        Pay:
+          Type: Api
+          Properties:
+            RestApiId: !Ref IdemApi
+            Path: /pay
+            Method: POST
+        Records:
+          Type: Api
+          Properties:
+            RestApiId: !Ref IdemApi
+            Path: /records
+            Method: GET
+        Health:
+          Type: Api
+          Properties:
+            RestApiId: !Ref IdemApi
+            Path: /health
+            Method: GET
+        ChaosStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref IdemApi
+            Path: /chaos
+            Method: GET
+        ChaosToggle:
+          Type: Api
+          Properties:
+            RestApiId: !Ref IdemApi
+            Path: /chaos
+            Method: POST
+
+Outputs:
+  IdemApiEndpoint:
+    Value: !Sub 'https://${IdemApi}.execute-api.${AWS::Region}.amazonaws.com/prod'
+    Description: Regional idempotency demo API endpoint
+  SharedTableName:
+    Value: !Sub '${ProjectName}-idem-shared'
+    Description: Global (shared-mode) idempotency table name - same in both regions
+  LocalTableName:
+    Value: !Ref LocalIdemTable
+    Description: Region-local table (isolated store + charge rows + KILL flag)

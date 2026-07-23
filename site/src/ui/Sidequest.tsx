@@ -6,8 +6,12 @@ import { usePrefersReducedMotion } from '../sections/BeyondCells';
  * Whether the nearest enclosing Sidequest is expanded. Children that are
  * expensive to compute (e.g. the algorithm-zoo mini-demos) read this to stay
  * lazy until the reader actually opens the deep-dive.
+ *
+ * Default is TRUE: with no enclosing Sidequest the content is plainly visible
+ * on the page, so lazy consumers (AlgoZoo) must initialize immediately. Inside
+ * a Sidequest the provider supplies the real open/closed state.
  */
-export const SidequestOpenContext = createContext(false);
+export const SidequestOpenContext = createContext(true);
 
 /**
  * Sidequest: an optional deep-dive that stays out of the main reading flow.

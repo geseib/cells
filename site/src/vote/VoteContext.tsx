@@ -160,10 +160,24 @@ export const VoteProvider: React.FC<{
       exportedAt: new Date().toISOString(),
       pages: {},
     };
-    for (const [pid, sectionsMap] of Object.entries(votes)) {
+    const pageIds = new Set(Object.keys(votes));
+    if (sections.length > 0) pageIds.add(pageId);
+    for (const pid of pageIds) {
+      const sectionsMap = votes[pid] ?? {};
       const titled = sectionTitles[pid] ?? {};
       const out: Ballot['pages'][string]['sections'] = {};
+      if (pid === pageId) {
+        // The current page exports its FULL registered section list — every
+        // id appears in the file, choiceless entries staying inert — so a
+        // ballot always shows what was skipped. Loading is unchanged: the
+        // tally ignores entries without a choice (format vote-overlay/1).
+        for (const s of sections) {
+          const entry = sectionsMap[s.id] ?? {};
+          out[s.id] = { title: s.title, choice: entry.choice, comment: entry.comment?.trim() || undefined };
+        }
+      }
       for (const [sid, entry] of Object.entries(sectionsMap)) {
+        if (out[sid]) continue;
         if (!entry.choice && !entry.comment?.trim()) continue;
         out[sid] = { title: titled[sid] ?? sid, choice: entry.choice, comment: entry.comment?.trim() || undefined };
       }
@@ -179,7 +193,7 @@ export const VoteProvider: React.FC<{
     a.download = `${siteName}-votes-${who}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [votes, voter, siteName, pageTitles, sectionTitles]);
+  }, [votes, voter, siteName, pageTitles, sectionTitles, sections, pageId]);
 
   const votedCount = useMemo(
     () => sections.filter((s) => votes[pageId]?.[s.id]?.choice).length,

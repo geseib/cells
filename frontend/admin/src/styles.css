@@ -928,6 +928,406 @@ select:focus-visible {
   }
 }
 
+/* ---------- Idempotency demo (idem-*) ---------- */
+
+.idem-regions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0 1rem;
+}
+
+.idem-region-card button {
+  margin-top: 0.7rem;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  border: 1px solid var(--baseline);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.mode-toggle button {
+  border: none;
+  border-radius: 0;
+  background: var(--surface-1);
+  transform: none;
+}
+
+.mode-toggle button + button {
+  border-left: 1px solid var(--baseline);
+}
+
+.mode-toggle button.selected {
+  background: var(--accent);
+  color: #fff;
+}
+
+.idem-attempt {
+  animation: idem-slide-in 0.35s ease;
+}
+
+@keyframes idem-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.outcome-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.12rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.outcome-badge.outcome-charged {
+  color: var(--good);
+  border-color: var(--good);
+}
+
+.outcome-badge.outcome-deduped {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.outcome-badge.outcome-double-charged {
+  color: var(--critical);
+  border-color: var(--critical);
+  border-style: double;
+  border-width: 3px;
+}
+
+.outcome-badge.outcome-in-progress {
+  color: var(--cell-3);
+  border-color: var(--cell-3);
+}
+
+.outcome-badge.outcome-failed {
+  color: var(--critical);
+  border-color: var(--critical);
+}
+
+.idem-records-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.idem-records-col h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.idem-records-col {
+  overflow-x: auto;
+}
+
+.hash-chip.idem-id {
+  display: inline-block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.replication-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.85rem;
+}
+
+.replication-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--grid);
+}
+
+.replicated-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid;
+}
+
+.replicated-badge.on {
+  color: var(--good);
+  border-color: var(--good);
+}
+
+.replicated-badge.pending {
+  color: var(--muted);
+  border-color: var(--baseline);
+  border-style: dashed;
+}
+
+/* ---------- Quorum demo (quorum-*, voter-*, lamp-*, notebook) ---------- */
+
+/* 5 voters arranged around the calculated parent lamp */
+.quorum-ring {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-areas:
+    'v1 v2 v3'
+    'v4 lamp v5';
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.quorum-ring .voter-slot-1 { grid-area: v1; }
+.quorum-ring .voter-slot-2 { grid-area: v2; }
+.quorum-ring .voter-slot-3 { grid-area: v3; }
+.quorum-ring .voter-slot-4 { grid-area: v4; }
+.quorum-ring .voter-slot-5 { grid-area: v5; }
+.quorum-ring .parent-lamp-slot { grid-area: lamp; }
+
+@media (max-width: 768px) {
+  .quorum-ring {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'v1' 'v2' 'v3' 'lamp' 'v4' 'v5';
+  }
+}
+
+.voter-card {
+  border: 1px solid var(--grid);
+  border-radius: 10px;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.85rem;
+  transition: border-color 0.3s ease;
+}
+
+.voter-card.on {
+  border-color: var(--good);
+}
+
+.voter-card.off {
+  border-color: var(--baseline);
+}
+
+.voter-card.broken {
+  border-color: var(--critical);
+  border-style: dashed;
+}
+
+.voter-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.voter-name {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.voter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.voter-controls button {
+  font-size: 0.78rem;
+  padding: 0.3rem 0.7rem;
+}
+
+.voter-checker {
+  margin-top: 0.5rem;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.voter-checkid {
+  margin-top: 0.25rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+/* Lamps: LIVE (computed parent) vs STORED (committed control) */
+
+.lamp-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.35rem;
+  border: 1px solid var(--grid);
+  border-radius: 10px;
+  padding: 0.9rem;
+}
+
+.lamp-block .lamp {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid var(--baseline);
+  background: var(--page);
+  transition: background 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.lamp-block.on .lamp {
+  background: var(--good);
+  border-color: var(--good);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--good) 55%, transparent);
+}
+
+.lamp-block.off .lamp {
+  background: var(--critical);
+  border-color: var(--critical);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--critical) 45%, transparent);
+}
+
+.lamp-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.lamp-state {
+  font-weight: 700;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.lamp-note {
+  color: var(--muted);
+  font-size: 0.72rem;
+  max-width: 420px;
+}
+
+.lamp-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+/* Quorum meter: 5 segments with a threshold line */
+
+.quorum-meter {
+  margin-top: 1.25rem;
+}
+
+.meter-track {
+  position: relative;
+  display: flex;
+  gap: 4px;
+  height: 18px;
+}
+
+.meter-seg {
+  flex: 1;
+  border: 1px solid var(--baseline);
+  border-radius: 5px;
+  background: var(--page);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.meter-seg.filled {
+  background: var(--good);
+  border-color: var(--good);
+}
+
+.meter-threshold {
+  position: absolute;
+  top: -5px;
+  bottom: -5px;
+  width: 0;
+  border-left: 2px dashed var(--ink);
+}
+
+.meter-caption {
+  margin-top: 0.5rem;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Decision log rendered as an ordered notebook / ledger (visually rhymes
+   with the site's Operations page) */
+
+.notebook {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0;
+  border: 1px solid var(--grid);
+  border-radius: 10px;
+  background: var(--page);
+  font-size: 0.88rem;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.notebook-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  padding: 0.45rem 0.9rem 0.45rem 1.4rem;
+  border-bottom: 1px solid var(--grid);
+  position: relative;
+}
+
+.notebook-row:last-child {
+  border-bottom: none;
+}
+
+/* ledger margin rule down the left edge of every page row */
+.notebook-row::before {
+  content: '';
+  position: absolute;
+  left: 0.8rem;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid color-mix(in srgb, var(--critical) 45%, transparent);
+}
+
+.notebook-version {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
+.notebook-decision {
+  font-weight: 700;
+}
+
+.notebook-row.on .notebook-decision {
+  color: var(--good);
+}
+
+.notebook-row.off .notebook-decision {
+  color: var(--critical);
+}
+
+.notebook-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- Demo banner ---------- */
 
 .demo-banner {

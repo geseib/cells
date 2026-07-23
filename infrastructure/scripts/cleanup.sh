@@ -36,6 +36,48 @@ if [[ ! $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
     exit 1
 fi
 
+# --- Paid-resource sweep: demo Route 53 health checks -----------------------
+# The failover and quorum demos create health checks at DEMO time via the
+# admin API — no stack owns them, so stack deletion never removes them and
+# they bill hourly forever if missed. Sweep anything whose Name tag starts
+# with {project}-failover- or {project}-quorum- BEFORE touching the stacks.
+# Quorum parents go first: a CALCULATED parent references its children, and
+# Route 53 refuses to delete a child that is still referenced.
+echo -e "\n${YELLOW}Sweeping demo Route 53 health checks (failover + quorum)...${NC}"
+HC_IDS=$(aws route53 list-health-checks --query 'HealthChecks[].Id' --output text 2>/dev/null || true)
+HC_MATCHES=""
+for hc_id in ${HC_IDS}; do
+    hc_name=$(aws route53 list-tags-for-resource \
+        --resource-type healthcheck --resource-id "${hc_id}" \
+        --query "ResourceTagSet.Tags[?Key=='Name'].Value" --output text 2>/dev/null || true)
+    case "$hc_name" in
+        ${PROJECT_NAME}-failover-*|${PROJECT_NAME}-quorum-*)
+            HC_MATCHES="${HC_MATCHES} ${hc_id}=${hc_name}"
+            ;;
+    esac
+done
+# Pass 1: quorum parents. Pass 2: everything else.
+for entry in ${HC_MATCHES}; do
+    case "${entry#*=}" in
+        *-quorum-parent*)
+            echo "Deleting health check (parent first): ${entry#*=} (${entry%%=*})"
+            aws route53 delete-health-check --health-check-id "${entry%%=*}" || true
+            ;;
+    esac
+done
+for entry in ${HC_MATCHES}; do
+    case "${entry#*=}" in
+        *-quorum-parent*) ;;
+        *)
+            echo "Deleting health check: ${entry#*=} (${entry%%=*})"
+            aws route53 delete-health-check --health-check-id "${entry%%=*}" || true
+            ;;
+    esac
+done
+if [ -z "${HC_MATCHES}" ]; then
+    echo "No ${PROJECT_NAME}-failover-* / ${PROJECT_NAME}-quorum-* health checks found."
+fi
+
 # Delete cell stacks in each region
 IFS=',' read -ra REGION_ARRAY <<< "$REGIONS"
 for region in "${REGION_ARRAY[@]}"; do
@@ -66,6 +108,34 @@ for region in "${REGION_ARRAY[@]}"; do
             --stack-name ${stack} \
             --region ${region}
     done
+done
+
+# --- Idempotency demo stacks ({project}-idem-{region}) ----------------------
+# Secondary regions FIRST, the primary (REGIONS[0]) LAST: the primary stack
+# owns the AWS::DynamoDB::GlobalTable and its replicas — deleting it while a
+# secondary stack still points at the replica risks a stuck delete. These
+# deletes are waited on so the global-table verification below is meaningful.
+echo -e "\n${YELLOW}Deleting idempotency demo stacks (secondary regions first)...${NC}"
+for (( idem_idx=${#REGION_ARRAY[@]}-1 ; idem_idx>=0 ; idem_idx-- )); do
+    region="${REGION_ARRAY[idem_idx]}"
+    stack="${PROJECT_NAME}-idem-${region}"
+    if aws cloudformation describe-stacks --stack-name "${stack}" --region "${region}" >/dev/null 2>&1; then
+        echo "Deleting idem stack: ${stack} (${region})"
+        aws cloudformation delete-stack --stack-name "${stack}" --region "${region}" || true
+        aws cloudformation wait stack-delete-complete --stack-name "${stack}" --region "${region}" || true
+    else
+        echo "No idem stack ${stack} in ${region} - skipping."
+    fi
+done
+
+# Verify the shared global table is actually GONE in both regions — replicas
+# that outlive a failed delete keep billing for storage indefinitely.
+for region in "${REGION_ARRAY[@]}"; do
+    if aws dynamodb describe-table --table-name "${PROJECT_NAME}-idem-shared" --region "${region}" >/dev/null 2>&1; then
+        echo -e "${RED}WARNING: ${PROJECT_NAME}-idem-shared still exists in ${region} — delete it manually.${NC}"
+    else
+        echo -e "${GREEN}Verified: ${PROJECT_NAME}-idem-shared is gone in ${region}.${NC}"
+    fi
 done
 
 # Delete per-cell certificate stacks (us-east-1; created for cells in other
