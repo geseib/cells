@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import Icon from './icons';
 import CellDemo from './components/CellDemo';
 import FailoverDemo from './components/FailoverDemo';
+import IdempotencyDemo from './components/IdempotencyDemo';
+import QuorumDemo from './components/QuorumDemo';
+import DemoBoundary from './components/DemoBoundary';
 
 /** Slim sticky banner above the header: brand on the left, a dropdown menu of
     demo destinations on the right. Closes on outside click and Escape. */
@@ -61,6 +64,11 @@ const DemoBanner: React.FC = () => {
                 Slides
               </a>
             )}
+            {introUrl && (
+              <a role="menuitem" href={`${introUrl}/operations.html`} target="_blank" rel="noopener noreferrer">
+                Operations
+              </a>
+            )}
             <a role="menuitem" href="/router.html">Router page</a>
             <a role="menuitem" href="/auto.html">Auto-router</a>
             <a role="menuitem" href="/demo-script.html">Demo walkthrough</a>
@@ -72,7 +80,8 @@ const DemoBanner: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'celldemo' | 'failoverdemo'>('celldemo');
+  const [activeTab, setActiveTab] =
+    useState<'celldemo' | 'failoverdemo' | 'idemdemo' | 'quorumdemo'>('celldemo');
   const [apiUrl, setApiUrl] = useState('');
 
   useEffect(() => {
@@ -105,12 +114,34 @@ const App: React.FC = () => {
           >
             Failover demo
           </button>
+          <button
+            className={activeTab === 'idemdemo' ? 'selected' : ''}
+            onClick={() => setActiveTab('idemdemo')}
+          >
+            Idempotency
+          </button>
+          <button
+            className={activeTab === 'quorumdemo' ? 'selected' : ''}
+            onClick={() => setActiveTab('quorumdemo')}
+          >
+            Quorum
+          </button>
         </nav>
       </header>
 
       <div className="admin-content">
         {activeTab === 'celldemo' && <CellDemo apiUrl={apiUrl} />}
         {activeTab === 'failoverdemo' && <FailoverDemo apiUrl={apiUrl} />}
+        {activeTab === 'idemdemo' && (
+          <DemoBoundary kicker="Idempotency" title="Idempotency across regional failover — live">
+            <IdempotencyDemo apiUrl={apiUrl} />
+          </DemoBoundary>
+        )}
+        {activeTab === 'quorumdemo' && (
+          <DemoBoundary kicker="Quorum" title="Quorum by calculated health check — live">
+            <QuorumDemo apiUrl={apiUrl} />
+          </DemoBoundary>
+        )}
 
         {/* Navigation links — always visible */}
         <section className="section">
